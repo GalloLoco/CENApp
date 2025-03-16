@@ -16,6 +16,6 @@ class CENApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'CENApp',
       home: LoginScreen(),
-    );
+    ); 
   }
 }

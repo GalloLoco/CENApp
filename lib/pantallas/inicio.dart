@@ -1,8 +1,6 @@
-// ignore: file_names
 import 'package:cenapp/pantallas/iniciarsesion.dart';
 import 'package:cenapp/pantallas/registrarse.dart';
 import 'package:flutter/material.dart';
-
 
 class LoginScreen extends StatelessWidget {
   const LoginScreen({super.key});
@@ -11,82 +9,86 @@ class LoginScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SizedBox(height: 20),
-            Image.asset('assets/logoCenapp.png', height: 400,), // Ajuste de tamaño para mayor similitud
-            //SizedBox(height: 0),
-            Text(
-              'CENApp',
-              style: TextStyle(
-                fontFamily: 'Open Sans',
-                fontSize: 40,
-                fontWeight: FontWeight.bold,
-                color: Colors.black,
-              ),
-            ),
-            SizedBox(height: 150),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => UserLoginScreen()),
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.lightBlue,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(30),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          double logoHeight = constraints.maxHeight * 0.3;
+          double buttonWidth = constraints.maxWidth * 0.7;
+          double buttonHeight = constraints.maxHeight * 0.08;
+
+          return Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(height: constraints.maxHeight * 0.05),
+                Image.asset(
+                  'assets/logoCenapp.png',
+                  height: logoHeight,
+                  fit: BoxFit.contain,
                 ),
-                padding: EdgeInsets.symmetric(vertical: 15),
-                minimumSize: Size(250, 50),
-                
-              ),
-              child: Text('Iniciar Sesión', style: TextStyle(
-                fontSize: 18, 
-                color: Colors.white,
-                fontFamily: 'Open Sans',)
+                SizedBox(height: constraints.maxHeight * 0.05),
+                Text(
+                  'CENApp',
+                  style: TextStyle(
+                    fontFamily: 'Open Sans',
+                    fontSize: constraints.maxWidth * 0.1,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black,
+                  ),
                 ),
-            ),
-            SizedBox(height: 10),
-            TextButton(
-              onPressed: () {},
-              child: Text(
-                '¿Olvidaste tu contraseña?',
-                style: TextStyle(
-                  color: Colors.black54,
-                  fontSize: 14,
+                SizedBox(height: constraints.maxHeight * 0.1),
+                _buildButton(
+                  context, 'Iniciar Sesión', buttonWidth, buttonHeight, UserLoginScreen(),
                 ),
-              ),
-            ),
-            SizedBox(height: 10),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => RegisterScreen()),
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.lightBlue,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(30),
+                SizedBox(height: constraints.maxHeight * 0.02),
+                TextButton(
+                  onPressed: () {},
+                  child: Text(
+                    '¿Olvidaste tu contraseña?',
+                    style: TextStyle(
+                      color: Colors.black54,
+                      fontSize: constraints.maxWidth * 0.04,
+                    ),
+                  ),
                 ),
-                padding: EdgeInsets.symmetric(vertical: 15),
-                minimumSize: Size(250, 50),
-              ),
-              child: Text('Registrarse', style: TextStyle(fontSize: 18, color: Colors.white)),
+                SizedBox(height: constraints.maxHeight * 0.02),
+                _buildButton(
+                  context, 'Registrarse', buttonWidth, buttonHeight, RegisterScreen(),
+                ),
+                SizedBox(height: constraints.maxHeight * 0.1),
+              ],
             ),
-            SizedBox(height: 80),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
 
-  
+  Widget _buildButton(BuildContext context, String text, double width, double height, Widget screen) {
+    return ElevatedButton(
+      onPressed: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => screen),
+        );
+      },
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Colors.lightBlue,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(30),
+        ),
+        padding: EdgeInsets.symmetric(vertical: height * 0.3),
+        minimumSize: Size(width, height),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: width * 0.08,
+          color: Colors.white,
+          fontFamily: 'Open Sans',
+        ),
+      ),
+    );
+  }
 }
 
 

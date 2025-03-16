@@ -16,58 +16,83 @@ class UserLoginScreen extends StatelessWidget {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Image.asset('assets/logoCenapp.png', height: 400),
-            SizedBox(height: 20),
-            Text(
-              'Iniciar Sesión',
-              style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-            ),
-            SizedBox(height: 20),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 40.0),
-              child: Column(
-                children: [
-                  TextField(
-                    decoration: InputDecoration(
-                      prefixIcon: Icon(Icons.person),
-                      hintText: 'Usuario',
-                      border: OutlineInputBorder(),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          double fieldWidth = constraints.maxWidth * 0.8;
+          double buttonWidth = constraints.maxWidth * 0.7;
+          double buttonHeight = constraints.maxHeight * 0.08;
+
+          return SingleChildScrollView(
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    SizedBox(height: constraints.maxHeight * 0.05),
+                    Image.asset('assets/logoCenapp.png', height: constraints.maxHeight * 0.3),
+                    SizedBox(height: constraints.maxHeight * 0.05),
+                    Text(
+                      'Iniciar Sesión',
+                      style: TextStyle(
+                        fontSize: constraints.maxWidth * 0.1,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
-                  SizedBox(height: 10),
-                  TextField(
-                    obscureText: true,
-                    decoration: InputDecoration(
-                      prefixIcon: Icon(Icons.lock),
-                      hintText: 'Contraseña',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  SizedBox(height: 20),
-                  ElevatedButton(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => HomeScreen()),
-                      );
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.lightBlue,
-                      minimumSize: Size(double.infinity, 50),
-                    ),
-                    child: Text(
-                      'Entrar',
-                      style: TextStyle(fontSize: 18, color: Colors.white),
-                    ),
-                  ),
-                ],
+                    SizedBox(height: constraints.maxHeight * 0.05),
+                    _buildInputField(Icons.person, 'Usuario', fieldWidth),
+                    SizedBox(height: constraints.maxHeight * 0.02),
+                    _buildInputField(Icons.lock, 'Contraseña', fieldWidth, obscureText: true),
+                    SizedBox(height: constraints.maxHeight * 0.05),
+                    _buildButton(context, 'Entrar', buttonWidth, buttonHeight, HomeScreen()),
+                    SizedBox(height: constraints.maxHeight * 0.1),
+                  ],
+                ),
               ),
             ),
-          ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildInputField(IconData icon, String hintText, double width, {bool obscureText = false}) {
+    return SizedBox(
+      width: width,
+      child: TextField(
+        obscureText: obscureText,
+        decoration: InputDecoration(
+          prefixIcon: Icon(icon),
+          hintText: hintText,
+          border: OutlineInputBorder(),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildButton(BuildContext context, String text, double width, double height, Widget screen) {
+    return ElevatedButton(
+      onPressed: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => screen),
+        );
+      },
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Colors.lightBlue,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(30),
+        ),
+        padding: EdgeInsets.symmetric(vertical: height * 0.3),
+        minimumSize: Size(width, height),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: width * 0.08,
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
         ),
       ),
     );

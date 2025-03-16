@@ -9,136 +9,93 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      //backgroundColor: Colors.white,
-      appBar: PreferredSize(
-        preferredSize: Size.fromHeight(50), // Ajusta la altura del degradado
-        child: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                Color(0xFF64B7F1),
-                Color(0xFFA4D4F5),
-                Color.fromARGB(255, 255, 255, 255)
-              ],
-              stops: [0.0, 0.52, 1.0],
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-            ),
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        automaticallyImplyLeading: false,
+        backgroundColor: Colors.white,
+        elevation: 0,
+        actions: [
+          IconButton(
+            icon: Icon(Icons.logout, color: Colors.black), 
+            onPressed: () {
+              Navigator.pop(context);
+            },
           ),
-          child: AppBar(
-            automaticallyImplyLeading: false,
-            backgroundColor: Colors
-                .transparent, // Hace que el fondo del AppBar sea transparente
-            elevation: 0,
-            actions: [
-              IconButton(
-                icon: Icon(Icons.logout, color: Colors.black),
-                onPressed: () => Navigator.pop(context),
-              ),
-            ],
-          ),
-        ),
+        ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Align(
-              alignment: Alignment.topLeft,
-              child: Text(
-                '2 de Febrero del 2025                              1587 N, 251 O, 100 msnm',
-                style: TextStyle(fontSize: 12, color: Colors.black54),
-              ),
-            ),
-            SizedBox(height: 0),
-            Image.asset('assets/logoCenapp.png', height: 300),
-            SizedBox(height: 0),
-            Align(
-              alignment: Alignment.topLeft,
-              child: Text(
-                'Bienvenido: Joel',
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-              ),
-            ),
-            Align(
-              alignment: Alignment.topLeft,
-              child: Text(
-                'Clave: 777',
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-              ),
-            ),
-            Align(
-              alignment: Alignment.topLeft,
-              child: Text(
-                'Grado: Ingeniero',
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-              ),
-            ),
-            SizedBox(height: 20),
-            ElevatedButton.icon(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => NuevoFormatoScreen()),
-                );
-              },
-              icon: Icon(Icons.add_box_outlined, color: Colors.black, size: 50),
-              label: Text(
-                'Nuevo',
-                style: TextStyle(
-                  fontSize: 50,
-                  fontWeight: FontWeight.normal,
-                  color: Colors.black,
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          double buttonWidth = constraints.maxWidth * 0.8;
+          double buttonHeight = constraints.maxHeight * 0.1;
+          
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Align(
+                  alignment: Alignment.topLeft,
+                  child: Text(
+                    '2 de Febrero del 2025    1587 N, 251 O, 100 msnm',
+                    style: TextStyle(fontSize: constraints.maxWidth * 0.04, color: Colors.black54),
+                  ),
                 ),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.lightBlue,
-                minimumSize: Size(double.infinity, 80),
-              ),
-            ),
-            SizedBox(height: 30),
-            ElevatedButton.icon(
-              onPressed: () {
-                _mostrarOpciones(context);
-              },
-              icon: Icon(Icons.folder_open, color: Colors.black, size: 50),
-              label: Text(
-                'Abrir',
-                style: TextStyle(
-                  fontSize: 50,
-                  fontWeight: FontWeight.normal,
-                  color: Colors.black,
+                SizedBox(height: constraints.maxHeight * 0.02),
+                Image.asset('assets/logoCenapp.png', height: constraints.maxHeight * 0.3),
+                SizedBox(height: constraints.maxHeight * 0.02),
+                _buildInfoText('Bienvenido: Joel', constraints.maxWidth),
+                _buildInfoText('Clave: 777', constraints.maxWidth),
+                _buildInfoText('Grado: Ingeniero', constraints.maxWidth),
+                SizedBox(height: constraints.maxHeight * 0.05),
+                _buildButton(
+                  context, 'Nuevo', Icons.add_box_outlined, buttonWidth, buttonHeight, NuevoFormatoScreen()
                 ),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.lightBlue,
-                minimumSize: Size(double.infinity, 80),
-              ),
-            ),
-            SizedBox(height: 30),
-            ElevatedButton.icon(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => ReporteScreen()),
-                );
-              },
-              icon: Icon(Icons.assignment, color: Colors.black, size: 50),
-              label: Text(
-                'Reportes',
-                style: TextStyle(
-                  fontSize: 50,
-                  fontWeight: FontWeight.normal,
-                  color: Colors.black,
+                SizedBox(height: constraints.maxHeight * 0.03),
+                _buildButton(
+                  context, 'Abrir', Icons.folder_open, buttonWidth, buttonHeight, () => _mostrarOpciones(context)
                 ),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.lightBlue,
-                minimumSize: Size(double.infinity, 80),
-              ),
+                SizedBox(height: constraints.maxHeight * 0.03),
+                _buildButton(
+                  context, 'Reportes', Icons.assignment, buttonWidth, buttonHeight, ReporteScreen()
+                ),
+              ],
             ),
-          ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildInfoText(String text, double width) {
+    return Align(
+      alignment: Alignment.topLeft,
+      child: Text(
+        text,
+        style: TextStyle(fontSize: width * 0.05, fontWeight: FontWeight.bold),
+      ),
+    );
+  }
+
+  Widget _buildButton(BuildContext context, String text, IconData icon, double width, double height, dynamic screen) {
+    return SizedBox(
+      width: width,
+      child: ElevatedButton.icon(
+        onPressed: () {
+          if (screen is Widget) {
+            Navigator.push(context, MaterialPageRoute(builder: (context) => screen));
+          } else if (screen is Function) {
+            screen();
+          }
+        },
+        icon: Icon(icon, color: Colors.black, size: width * 0.1),
+        label: Text(
+          text,
+          style: TextStyle(fontSize: width * 0.08, fontWeight: FontWeight.normal, color: Colors.black),
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.lightBlue,
+          minimumSize: Size(width, height),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),
       ),
     );
@@ -156,9 +113,7 @@ class HomeScreen extends StatelessWidget {
             ListTile(
               leading: Icon(Icons.folder),
               title: Text('Archivos'),
-              onTap: () {
-                Navigator.pop(context);
-              },
+              onTap: () => Navigator.pop(context),
             ),
             ListTile(
               leading: Icon(Icons.cloud),
@@ -167,8 +122,7 @@ class HomeScreen extends StatelessWidget {
                 Navigator.pop(context);
                 Navigator.push(
                   context,
-                  MaterialPageRoute(
-                      builder: (context) => BuscarServidorScreen()),
+                  MaterialPageRoute(builder: (context) => BuscarServidorScreen()),
                 );
               },
             ),

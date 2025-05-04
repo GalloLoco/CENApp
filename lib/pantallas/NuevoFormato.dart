@@ -1,43 +1,135 @@
-// ignore: file_names
-import 'package:cenapp/pantallas/DocumentoGuardado.dart';
-import 'package:cenapp/pantallas/nuevaubicacion.dart';
-import 'package:cenapp/pantallas/nuevoinfogen.dart';
-import 'package:cenapp/pantallas/nuevosisest.dart';
-import 'package:cenapp/pantallas/nuevaevaluacion.dart';
 import 'package:flutter/material.dart';
+import '../logica/formato_evaluacion.dart';
+import 'DocumentoGuardado.dart';
+import 'nuevaubicacion.dart';
+import 'nuevoinfogen.dart';
+import 'nuevosisest.dart';
+import 'nuevaevaluacion.dart';
 
 class NuevoFormatoScreen extends StatefulWidget {
-  const NuevoFormatoScreen({super.key});
+  final FormatoEvaluacion? formatoExistente;
+
+  const NuevoFormatoScreen({Key? key, this.formatoExistente}) : super(key: key);
 
   @override
-  // ignore: library_private_types_in_public_api
   _NuevoFormatoScreenState createState() => _NuevoFormatoScreenState();
 }
 
 class _NuevoFormatoScreenState extends State<NuevoFormatoScreen> {
+  // Variables para seguimiento de completado
   bool informacionGeneralCompletado = false;
   bool sistemaEstructuralCompletado = false;
   bool evaluacionDanosCompletado = false;
   bool ubicacionGeorreferencialCompletado = false;
 
-   void _validarYContinuar() {
-    if (informacionGeneralCompletado && sistemaEstructuralCompletado && evaluacionDanosCompletado && ubicacionGeorreferencialCompletado) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => DocumentoGuardadoScreen()),
-      );
-    } else {
-      _mostrarAlerta();
+  // Datos recopilados de cada sección
+  InformacionGeneral? informacionGeneral;
+  SistemaEstructural? sistemaEstructural;
+  EvaluacionDanos? evaluacionDanos;
+  UbicacionGeorreferencial? ubicacionGeorreferencial;
+
+  // ID para mantener referencia al formato original si se está editando
+  String? formatoId;
+  DateTime? fechaCreacion;
+  String? usuarioCreador;
+
+  @override
+  void initState() {
+    super.initState();
+
+    // Si hay un formato existente, cargar sus datos
+    if (widget.formatoExistente != null) {
+      _cargarFormatoExistente(widget.formatoExistente!);
     }
   }
 
-  void _mostrarAlerta() {
+  /// Carga los datos de un formato existente
+  void _cargarFormatoExistente(FormatoEvaluacion formato) {
+    setState(() {
+      // Cargar los datos de cada sección
+      informacionGeneral = formato.informacionGeneral;
+      sistemaEstructural = formato.sistemaEstructural;
+      evaluacionDanos = formato.evaluacionDanos;
+      ubicacionGeorreferencial = formato.ubicacionGeorreferencial;
+
+      // Marcar todas las secciones como completadas
+      informacionGeneralCompletado = true;
+      sistemaEstructuralCompletado = true;
+      evaluacionDanosCompletado = true;
+      ubicacionGeorreferencialCompletado = true;
+
+      // Guardar referencia al ID original y otros metadatos
+      formatoId = formato.id;
+      fechaCreacion = formato.fechaCreacion;
+      usuarioCreador = formato.usuarioCreador;
+    });
+  }
+
+  // Método para validar y continuar (modificado)
+  Future<void> _validarYContinuar() async {
+    if (informacionGeneralCompletado &&
+        sistemaEstructuralCompletado &&
+        evaluacionDanosCompletado &&
+        ubicacionGeorreferencialCompletado) {
+      try {
+        // Crear el formato de evaluación completo
+        final formato = FormatoEvaluacion(
+          informacionGeneral: informacionGeneral!,
+          sistemaEstructural: sistemaEstructural!,
+          evaluacionDanos: evaluacionDanos!,
+          ubicacionGeorreferencial: ubicacionGeorreferencial!,
+          id: formatoId ??
+              _generarId(), // Usar el ID original si existe, o generar uno nuevo
+          fechaCreacion: fechaCreacion ??
+              DateTime.now(), // Mantener fecha de creación original
+          fechaModificacion: DateTime.now(), // Actualizar fecha de modificación
+          usuarioCreador:
+              usuarioCreador ?? "Joel", // Mantener usuario creador original
+        );
+
+        // Mostrar indicador de carga
+        _mostrarCargando(context, 'Preparando formato...');
+
+        // Simular un breve proceso
+        await Future.delayed(const Duration(milliseconds: 500));
+
+        // Cerrar el indicador de carga
+        Navigator.pop(context);
+
+        // Navegar a la pantalla de documento guardado
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => DocumentoGuardadoScreen(formato: formato),
+          ),
+        );
+      } catch (e) {
+        // Cerrar indicador de carga si está activo
+        Navigator.of(context, rootNavigator: true).pop();
+
+        // Mostrar error
+        _mostrarError('Error al generar formato: $e');
+      }
+    } else {
+      _mostrarAlerta('Faltan apartados',
+          'Debe completar todas las categorías antes de continuar.');
+    }
+  }
+
+  // Genera un ID único para el formato
+  String _generarId() {
+    final ahora = DateTime.now();
+    return '${ahora.year}${ahora.month.toString().padLeft(2, '0')}${ahora.day.toString().padLeft(2, '0')}${ahora.hour.toString().padLeft(2, '0')}${ahora.minute.toString().padLeft(2, '0')}${ahora.second.toString().padLeft(2, '0')}';
+  }
+
+  // Muestra un diálogo de alerta genérico
+  void _mostrarAlerta(String titulo, String mensaje) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text('Faltan apartados'),
-          content: Text('Debe completar todas las categorías antes de continuar.'),
+          title: Text(titulo),
+          content: Text(mensaje),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
@@ -49,6 +141,49 @@ class _NuevoFormatoScreenState extends State<NuevoFormatoScreen> {
     );
   }
 
+  // Muestra un diálogo de error
+  void _mostrarError(String mensaje) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Error'),
+          content: Text(mensaje),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text('OK'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // Muestra un indicador de carga
+  void _mostrarCargando(BuildContext context, String mensaje) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return Dialog(
+          child: Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(width: 20),
+                Text(mensaje),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
@@ -61,8 +196,7 @@ class _NuevoFormatoScreenState extends State<NuevoFormatoScreen> {
         actions: [
           IconButton(
             icon: Icon(Icons.checklist, color: Colors.black),
-            onPressed: _validarYContinuar ,// Acción del botón de checklist
-            
+            onPressed: _validarYContinuar,
           ),
         ],
       ),
@@ -88,82 +222,174 @@ class _NuevoFormatoScreenState extends State<NuevoFormatoScreen> {
               'Información general del inmueble',
               informacionGeneralCompletado,
               () async {
+                // Navegar a la pantalla de información general
                 final resultado = await Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => InformacionGeneralScreen()),
+                  MaterialPageRoute(
+                    builder: (context) => InformacionGeneralScreen(),
+                  ),
+                );
+
+                // Procesar el resultado cuando vuelve
+                if (resultado != null && resultado is Map<String, dynamic>) {
+                  if (resultado['completado'] == true) {
+                    setState(() {
+                      informacionGeneralCompletado = true;
+                      informacionGeneral =
+                          resultado['datos'] as InformacionGeneral;
+                    });
+                  }
+                }
+              },
+            ),
+            SizedBox(height: 40),
+            _buildButton(
+              context,
+              'Sistema Estructural',
+              sistemaEstructuralCompletado,
+              () async {
+                final resultado = await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => SistemaEstructuralScreen(),
+                  ),
                 );
 
                 if (resultado == true) {
+                  // Simulamos la creación de un objeto SistemaEstructural
+                  // En una implementación real, este objeto debería venir
+                  // de la pantalla de SistemaEstructuralScreen
                   setState(() {
-                    informacionGeneralCompletado = true;
+                    sistemaEstructuralCompletado = true;
+                    sistemaEstructural = SistemaEstructural(
+                      direccionX: {'Marcos de concreto X': true},
+                      direccionY: {'Marcos de concreto Y': true},
+                      murosMamposteria: {'Muros confinados': true},
+                      sistemasPiso: {'Losa maciza': true},
+                      sistemasTecho: {'Igual al piso': true},
+                      otroTecho: '',
+                      cimentacion: {'Zapatas aisladas': true},
+                      vulnerabilidad: {'Columna corta': false},
+                      posicionManzana: {'Medio': true},
+                      otrasCaracteristicas: {
+                        'Grandes masas en pisos superiores': false
+                      },
+                      separacionEdificios: 5.0,
+                    );
                   });
                 }
               },
             ),
             SizedBox(height: 40),
-            _buildButton(context, 'Sistema Estructural',sistemaEstructuralCompletado , () async {
+            _buildButton(
+              context,
+              'Evaluación de daños',
+              evaluacionDanosCompletado,
+              () async {
                 final resultado = await Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => SistemaEstructuralScreen()),
+                  MaterialPageRoute(
+                    builder: (context) => EvaluacionDanosScreen(),
+                  ),
                 );
 
                 if (resultado == true) {
-                  setState(() {
-                    sistemaEstructuralCompletado = true;
-                  });
-                }
-              },),
-            SizedBox(height: 40),
-            _buildButton(context, 'Evaluación de daños', evaluacionDanosCompletado, () async {
-                final resultado = await Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => EvaluacionDanosScreen()),
-                );
-
-                if (resultado == true) {
+                  // Simulamos la creación de un objeto EvaluacionDanos
                   setState(() {
                     evaluacionDanosCompletado = true;
+                    evaluacionDanos = EvaluacionDanos(
+                      geotecnicos: {
+                        'Grietas en el terreno': false,
+                        'Hundimientos': false
+                      },
+                      inclinacionEdificio: 0.0,
+                      conexionesFalla: {'Falla': false},
+                      danosEstructura: {
+                        'Columnas': {
+                          'Colapso': false,
+                          'Grietas cortante': false
+                        },
+                        'Trabes': {'Colapso': false, 'Grietas cortante': false},
+                      },
+                      mediciones: {
+                        'Columnas': {'Ancho máximo de grieta (mm)': 0.0},
+                        'Trabes': {'Ancho máximo de grieta (mm)': 0.0},
+                      },
+                      columnasConDanoSevero: 0,
+                      totalColumnasEntrepiso: 0,
+                      nivelDano: {'Daño ligero': true},
+                      otrosDanos: {'Vidrios': false},
+                    );
                   });
                 }
-              },),
+              },
+            ),
             SizedBox(height: 40),
-            _buildButton(context, 'Ubicación georreferencial', ubicacionGeorreferencialCompletado, ()async {
+            _buildButton(
+              context,
+              'Ubicación georreferencial',
+              ubicacionGeorreferencialCompletado,
+              () async {
                 final resultado = await Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => UbicacionGeorreferencialScreen()),
+                  MaterialPageRoute(
+                    builder: (context) => UbicacionGeorreferencialScreen(),
+                  ),
                 );
 
                 if (resultado == true) {
+                  // Simulamos la creación de un objeto UbicacionGeorreferencial
                   setState(() {
                     ubicacionGeorreferencialCompletado = true;
+                    ubicacionGeorreferencial = UbicacionGeorreferencial(
+                      existenPlanos: {
+                        'Arquitectonico': true,
+                        'Estructural': false,
+                        'Ninguno': false
+                      },
+                      direccion: 'Calle Ejemplo #123, Colonia Centro',
+                      latitud: 24.1426,
+                      longitud: -110.3128,
+                      rutasFotos: [],
+                    );
                   });
                 }
-              },),
+              },
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildButton(BuildContext context, String text, bool completado, VoidCallback onPressed) {
+  Widget _buildButton(BuildContext context, String text, bool completado,
+      VoidCallback onPressed) {
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton(
         onPressed: onPressed,
         style: ElevatedButton.styleFrom(
-          backgroundColor: completado ? Colors.blue : Color(0xFF80C0ED), // 🔹 Se cambia si está completado
+          backgroundColor: completado ? Colors.green : Color(0xFF80C0ED),
           padding: EdgeInsets.symmetric(vertical: 15),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10),
           ),
         ),
-        child: Text(
-          text,
-          style: TextStyle(
-            fontSize: 18,
-            color: Colors.black,
-            fontWeight: FontWeight.bold,
-          ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+              child: Text(
+                text,
+                style: TextStyle(
+                  fontSize: 18,
+                  color: Colors.black,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            if (completado) Icon(Icons.check_circle, color: Colors.white)
+          ],
         ),
       ),
     );

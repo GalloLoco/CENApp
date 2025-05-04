@@ -2,6 +2,7 @@ import 'package:cenapp/pantallas/NuevoFormato.dart';
 import 'package:cenapp/pantallas/buscarServidor.dart';
 import 'package:cenapp/pantallas/generarreporte.dart';
 import 'package:flutter/material.dart';
+import 'package:cenapp/logica/file_service.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -102,38 +103,91 @@ class HomeScreen extends StatelessWidget {
   }
 
   void _mostrarOpciones(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        return Wrap(
-          children: [
-            ListTile(
-              leading: Icon(Icons.folder),
-              title: Text('Archivos'),
-              onTap: () => Navigator.pop(context),
-            ),
-            ListTile(
-              leading: Icon(Icons.cloud),
-              title: Text('Servidor'),
-              onTap: () {
+  showModalBottomSheet(
+    context: context,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (context) {
+      return Wrap(
+        children: [
+          ListTile(
+            leading: Icon(Icons.folder),
+            title: Text('Archivos'),
+            onTap: () async {
+              // Cerrar el diálogo primero
+              Navigator.pop(context);
+              
+              // Mostrar indicador de carga
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (BuildContext context) {
+                  return Dialog(
+                    child: Padding(
+                      padding: const EdgeInsets.all(20.0),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          CircularProgressIndicator(),
+                          SizedBox(width: 20),
+                          Text('Buscando archivos...'),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              );
+              
+              try {
+                // Seleccionar y cargar el formato
+                final formato = await FileService.seleccionarYCargarFormato();
+                
+                // Cerrar el indicador de carga
                 Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => BuscarServidorScreen()),
+                
+                if (formato != null) {
+                  // Navegar a NuevoFormatoScreen pasando el formato cargado
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => NuevoFormatoScreen(formatoExistente: formato),
+                    ),
+                  );
+                }
+              } catch (e) {
+                // Cerrar el indicador de carga si está activo
+                Navigator.of(context, rootNavigator: true).pop();
+                
+                // Mostrar mensaje de error
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Error al abrir el archivo: $e'),
+                    backgroundColor: Colors.red,
+                  ),
                 );
-              },
-            ),
-            ListTile(
-              leading: Icon(Icons.cancel, color: Colors.red),
-              title: Text('Cancelar', style: TextStyle(color: Colors.red)),
-              onTap: () => Navigator.pop(context),
-            ),
-          ],
-        );
-      },
-    );
-  }
+              }
+            },
+          ),
+          ListTile(
+            leading: Icon(Icons.cloud),
+            title: Text('Servidor'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => BuscarServidorScreen()),
+              );
+            },
+          ),
+          ListTile(
+            leading: Icon(Icons.cancel, color: Colors.red),
+            title: Text('Cancelar', style: TextStyle(color: Colors.red)),
+            onTap: () => Navigator.pop(context),
+          ),
+        ],
+      );
+    },
+  );
+}
 }

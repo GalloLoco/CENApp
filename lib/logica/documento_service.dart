@@ -49,7 +49,6 @@ class DocumentoService {
   }
 
   /// Exporta el formato de evaluación a un archivo PDF
-  /// Exporta el formato de evaluación a un archivo PDF
   Future<String> exportarPDF(FormatoEvaluacion formato) async {
     try {
       // Obtener directorio de documentos
@@ -59,8 +58,12 @@ class DocumentoService {
       final nombreArchivo = 'Cenapp${formato.id}.pdf';
       final rutaArchivo = '${directorio.path}/$nombreArchivo';
 
-      // Crear documento PDF
-      final pdf = pw.Document();
+      // Crear documento PDF con margen reducido para aprovechar espacio
+      final pdf = pw.Document(
+        compress: true, // Comprimir para reducir tamaño
+        version: PdfVersion
+            .pdf_1_5, // Versión más reciente para mejor compatibilidad con imágenes
+      );
 
       // Agregar páginas al PDF
       pdf.addPage(
@@ -254,61 +257,207 @@ class DocumentoService {
   }
 
   pw.Widget _construirUbicacionPDFCompleto(UbicacionGeorreferencial ubicacion) {
-  return pw.Column(
-    crossAxisAlignment: pw.CrossAxisAlignment.start,
-    children: [
-      pw.Container(
-        color: PdfColors.lightBlue50,
-        padding: pw.EdgeInsets.all(8),
-        child: pw.Text(
-          'UBICACIÓN GEORREFERENCIAL',
-          style: pw.TextStyle(
-            fontWeight: pw.FontWeight.bold,
-            fontSize: 14,
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        // Encabezado con fondo azul claro
+        pw.Container(
+          color: PdfColors.lightBlue50,
+          padding: pw.EdgeInsets.all(8),
+          child: pw.Text(
+            'UBICACIÓN GEORREFERENCIAL',
+            style: pw.TextStyle(
+              fontWeight: pw.FontWeight.bold,
+              fontSize: 14,
+            ),
           ),
         ),
-      ),
-      pw.SizedBox(height: 10),
+        pw.SizedBox(height: 10),
 
-      // Existencia de planos (mostrar como texto)
-      pw.Row(
-        crossAxisAlignment: pw.CrossAxisAlignment.start,
-        children: [
-          pw.SizedBox(
-            width: 150,
-            child: pw.Text('Existen planos:',
-                style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+        // Existencia de planos
+        pw.Row(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.SizedBox(
+              width: 150,
+              child: pw.Text('Existen planos:',
+                  style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+            ),
+            pw.Expanded(
+              child: pw.Text(ubicacion.existenPlanos ?? 'No especificado'),
+            ),
+          ],
+        ),
+        pw.SizedBox(height: 10),
+
+        // Dirección y coordenadas
+        _filaPDF('Dirección:', ubicacion.direccion),
+        _filaPDF('Coordenadas:',
+            'Lat: ${ubicacion.latitud}, Long: ${ubicacion.longitud}'),
+        pw.SizedBox(height: 15),
+
+        // Sección de fotografías adjuntas
+        ubicacion.rutasFotos.isNotEmpty
+            ? _construirSeccionFotografiasPDF(ubicacion.rutasFotos)
+            : pw.Container(
+                padding: pw.EdgeInsets.all(10),
+                decoration: pw.BoxDecoration(
+                  color: PdfColors.grey100,
+                  border: pw.Border.all(color: PdfColors.grey400),
+                  borderRadius: pw.BorderRadius.circular(5),
+                ),
+                child: pw.Text('No hay fotografías adjuntas'),
+              ),
+      ],
+    );
+  }
+
+  /// Construye la sección de fotografías dentro del PDF
+  pw.Widget _construirSeccionFotografiasPDF(List<String> rutasFotos) {
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        // Título de la sección
+        pw.Text('Fotografías adjuntas:',
+            style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+        pw.SizedBox(height: 10),
+
+        // Contenedor para las imágenes
+        pw.Container(
+          decoration: pw.BoxDecoration(
+            border: pw.Border.all(color: PdfColors.grey400),
+            borderRadius: pw.BorderRadius.circular(5),
           ),
+          padding: pw.EdgeInsets.all(5),
+          child: _construirGaleriaImagenesPDF(rutasFotos),
+        ),
+      ],
+    );
+  }
+
+  /// Construye una galería de imágenes organizadas en filas de 2
+  pw.Widget _construirGaleriaImagenesPDF(List<String> rutasFotos) {
+    // Lista para almacenar las filas de imágenes
+    List<pw.Widget> filas = [];
+
+    // Procesamos las imágenes de 2 en 2
+    for (int i = 0; i < rutasFotos.length; i += 2) {
+      // Lista para las imágenes de esta fila
+      List<pw.Widget> imagenesEnFila = [];
+
+      // Primera imagen de la fila
+      imagenesEnFila.add(
+        pw.Expanded(
+          child: pw.Padding(
+            padding: pw.EdgeInsets.all(5),
+            child: _cargarImagenPDF(rutasFotos[i]),
+          ),
+        ),
+      );
+
+      // Segunda imagen de la fila (si existe)
+      if (i + 1 < rutasFotos.length) {
+        imagenesEnFila.add(
           pw.Expanded(
-            child: pw.Text(ubicacion.existenPlanos ?? 'No especificado'),
+            child: pw.Padding(
+              padding: pw.EdgeInsets.all(5),
+              child: _cargarImagenPDF(rutasFotos[i + 1]),
+            ),
+          ),
+        );
+      } else {
+        // Si no hay segunda imagen, agregamos un espacio en blanco
+        imagenesEnFila.add(pw.Expanded(child: pw.Container()));
+      }
+
+      // Agregamos la fila completa al listado
+      filas.add(
+        pw.Row(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: imagenesEnFila,
+        ),
+      );
+
+      // Separador entre filas
+      filas.add(pw.SizedBox(height: 5));
+    }
+
+    // Devolvemos todas las filas dentro de una columna
+    return pw.Column(
+      children: filas,
+    );
+  }
+
+  /// Carga una imagen desde una ruta de archivo con manejo de errores
+  pw.Widget _cargarImagenPDF(String rutaImagen) {
+    try {
+      // Intentar cargar la imagen
+      final File imageFile = File(rutaImagen);
+      if (imageFile.existsSync()) {
+        final imageBytes = imageFile.readAsBytesSync();
+
+        // Obtener nombre del archivo para mostrar como etiqueta
+        final String nombreArchivo = _obtenerNombreArchivo(rutaImagen);
+
+        return pw.Column(
+          children: [
+            // Imagen con borde
+            pw.Container(
+              decoration: pw.BoxDecoration(
+                border: pw.Border.all(color: PdfColors.grey300),
+              ),
+              height: 120, // Altura fija para mantener orden
+              child: pw.Image(
+                pw.MemoryImage(imageBytes),
+                fit: pw.BoxFit.contain, // Mantener proporciones
+              ),
+            ),
+            // Etiqueta con el nombre de archivo
+            pw.SizedBox(height: 3),
+            pw.Text(
+              nombreArchivo,
+              style: pw.TextStyle(fontSize: 7),
+              textAlign: pw.TextAlign.center,
+            ),
+          ],
+        );
+      } else {
+        // Si el archivo no existe
+        return _imagenNoDisponiblePDF("Archivo no encontrado");
+      }
+    } catch (e) {
+      // En caso de error al cargar la imagen
+      print('Error al cargar imagen para PDF: $e');
+      return _imagenNoDisponiblePDF("Error al cargar imagen");
+    }
+  }
+
+  /// Widget de placeholder para cuando no se puede cargar una imagen
+  pw.Widget _imagenNoDisponiblePDF(String mensaje) {
+    return pw.Container(
+      height: 120,
+      decoration: pw.BoxDecoration(
+        color: PdfColors.grey200,
+        border: pw.Border.all(color: PdfColors.grey400),
+      ),
+      alignment: pw.Alignment.center,
+      child: pw.Column(
+        mainAxisAlignment: pw.MainAxisAlignment.center,
+        children: [
+          pw.Text(
+            '🖼️',
+            style: pw.TextStyle(fontSize: 20),
+          ),
+          pw.SizedBox(height: 5),
+          pw.Text(
+            mensaje,
+            style: pw.TextStyle(fontSize: 10),
+            textAlign: pw.TextAlign.center,
           ),
         ],
       ),
-      pw.SizedBox(height: 10),
-
-      // Dirección y coordenadas
-      _filaPDF('Dirección:', ubicacion.direccion),
-      _filaPDF('Coordenadas:',
-          'Lat: ${ubicacion.latitud}, Long: ${ubicacion.longitud}'),
-
-      // Información sobre fotos adjuntas
-      ubicacion.rutasFotos.isNotEmpty
-          ? pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                pw.SizedBox(height: 10),
-                pw.Text('Fotografías adjuntas:',
-                    style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
-                pw.SizedBox(height: 5),
-                ...ubicacion.rutasFotos.map((ruta) => pw.Text(
-                    '- ${_obtenerNombreArchivo(ruta)}',
-                    style: pw.TextStyle(fontSize: 10))),
-              ],
-            )
-          : pw.Container(),
-    ],
-  );
-}
+    );
+  }
 
 // Métodos auxiliares para construir secciones específicas
 

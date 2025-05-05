@@ -67,54 +67,60 @@ class _NuevoFormatoScreenState extends State<NuevoFormatoScreen> {
 
   // Método para validar y continuar (modificado)
   Future<void> _validarYContinuar() async {
-    if (informacionGeneralCompletado &&
-        sistemaEstructuralCompletado &&
-        evaluacionDanosCompletado &&
-        ubicacionGeorreferencialCompletado) {
-      try {
-        // Crear el formato de evaluación completo
-        final formato = FormatoEvaluacion(
-          informacionGeneral: informacionGeneral!,
-          sistemaEstructural: sistemaEstructural!,
-          evaluacionDanos: evaluacionDanos!,
-          ubicacionGeorreferencial: ubicacionGeorreferencial!,
-          id: formatoId ??
-              _generarId(), // Usar el ID original si existe, o generar uno nuevo
-          fechaCreacion: fechaCreacion ??
-              DateTime.now(), // Mantener fecha de creación original
-          fechaModificacion: DateTime.now(), // Actualizar fecha de modificación
-          usuarioCreador:
-              usuarioCreador ?? "Joel", // Mantener usuario creador original
-        );
+  if (informacionGeneralCompletado &&
+      sistemaEstructuralCompletado &&
+      evaluacionDanosCompletado &&
+      ubicacionGeorreferencialCompletado) {
+    try {
+      // Crear el formato de evaluación completo
+      final formato = FormatoEvaluacion(
+        informacionGeneral: informacionGeneral!,
+        sistemaEstructural: sistemaEstructural!,
+        evaluacionDanos: evaluacionDanos!,
+        ubicacionGeorreferencial: ubicacionGeorreferencial!,
+        id: formatoId ??
+            _generarId(), // Usar el ID original si existe, o generar uno nuevo
+        fechaCreacion: fechaCreacion ??
+            DateTime.now(), // Mantener fecha de creación original
+        fechaModificacion: DateTime.now(), // Actualizar fecha de modificación
+        usuarioCreador:
+            usuarioCreador ?? "Joel", // Mantener usuario creador original
+      );
 
-        // Mostrar indicador de carga
-        _mostrarCargando(context, 'Preparando formato...');
+      // Mostrar indicador de carga
+      _mostrarCargando(context, 'Preparando formato...');
 
-        // Simular un breve proceso
-        await Future.delayed(const Duration(milliseconds: 500));
+      // Simular un breve proceso
+      await Future.delayed(const Duration(milliseconds: 500));
 
-        // Cerrar el indicador de carga
-        Navigator.pop(context);
+      // Cerrar el indicador de carga
+      Navigator.pop(context);
 
-        // Navegar a la pantalla de documento guardado
-        await Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => DocumentoGuardadoScreen(formato: formato),
-          ),
-        );
-      } catch (e) {
-        // Cerrar indicador de carga si está activo
-        Navigator.of(context, rootNavigator: true).pop();
+      // Navegar a la pantalla de documento guardado
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => DocumentoGuardadoScreen(formato: formato),
+        ),
+      );
+    } catch (e) {
+      // Cerrar indicador de carga si está activo
+      Navigator.of(context, rootNavigator: true).pop();
 
-        // Mostrar error
-        _mostrarError('Error al generar formato: $e');
-      }
-    } else {
-      _mostrarAlerta('Faltan apartados',
-          'Debe completar todas las categorías antes de continuar.');
+      // Mostrar error
+      _mostrarError('Error al generar formato: $e');
     }
+  } else {
+    // Mostrar mensaje detallado de las secciones que faltan
+    String mensaje = 'Faltan completar los siguientes apartados:';
+    if (!informacionGeneralCompletado) mensaje += '\n- Información general';
+    if (!sistemaEstructuralCompletado) mensaje += '\n- Sistema estructural';
+    if (!evaluacionDanosCompletado) mensaje += '\n- Evaluación de daños';
+    if (!ubicacionGeorreferencialCompletado) mensaje += '\n- Ubicación georreferencial';
+    
+    _mostrarAlerta('Faltan apartados', mensaje);
   }
+}
 
   // Genera un ID único para el formato
   String _generarId() {
@@ -337,12 +343,21 @@ class _NuevoFormatoScreenState extends State<NuevoFormatoScreen> {
                   ),
                 );
 
+                // Procesar el resultado correctamente
                 if (resultado != null && resultado is Map<String, dynamic>) {
                   if (resultado['completado'] == true) {
                     setState(() {
                       ubicacionGeorreferencialCompletado = true;
-                      ubicacionGeorreferencial =
-                          resultado['datos'] as UbicacionGeorreferencial;
+
+                      // Crear objeto UbicacionGeorreferencial a partir de los datos
+                      final datos = resultado['datos'];
+                      ubicacionGeorreferencial = UbicacionGeorreferencial(
+                        existenPlanos: datos['existenPlanos'],
+                        direccion: datos['direccion'],
+                        latitud: datos['latitud'],
+                        longitud: datos['longitud'],
+                        rutasFotos: List<String>.from(datos['rutasFotos']),
+                      );
                     });
                   }
                 }

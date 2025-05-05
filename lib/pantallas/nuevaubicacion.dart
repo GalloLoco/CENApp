@@ -554,16 +554,27 @@ class _UbicacionGeorreferencialScreenState
 
   /// Guardar y regresar a la pantalla anterior
   void _guardarYRegresar() {
-    // Validar datos mínimos
-    if (direccionController.text.isEmpty) {
-      _mostrarError('Por favor ingresa una dirección');
-      return;
-    }
-    
-    // Aquí normalmente guardaríamos la información en un modelo
-    // pero por ahora simplemente regresamos true para indicar que se completó
-    Navigator.pop(context, true);
+  // Validar datos mínimos
+  if (direccionController.text.isEmpty) {
+    _mostrarError('Por favor ingresa una dirección');
+    return;
   }
+  
+  // Crear objeto de ubicación con los datos ingresados
+  final ubicacion = {
+    'completado': true,
+    'datos': {
+      'existenPlanos': selectedPlano,
+      'direccion': direccionController.text,
+      'latitud': posicionActual.latitude,
+      'longitud': posicionActual.longitude,
+      'rutasFotos': imagenesAdjuntas,
+    },
+  };
+  
+  // Regresar con los datos
+  Navigator.pop(context, ubicacion);
+}
 
   @override
   void dispose() {

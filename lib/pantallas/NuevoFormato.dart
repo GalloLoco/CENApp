@@ -337,22 +337,14 @@ class _NuevoFormatoScreenState extends State<NuevoFormatoScreen> {
                   ),
                 );
 
-                if (resultado == true) {
-                  // Simulamos la creación de un objeto UbicacionGeorreferencial
-                  setState(() {
-                    ubicacionGeorreferencialCompletado = true;
-                    ubicacionGeorreferencial = UbicacionGeorreferencial(
-                      existenPlanos: {
-                        'Arquitectonico': true,
-                        'Estructural': false,
-                        'Ninguno': false
-                      },
-                      direccion: 'Calle Ejemplo #123, Colonia Centro',
-                      latitud: 24.1426,
-                      longitud: -110.3128,
-                      rutasFotos: [],
-                    );
-                  });
+                if (resultado != null && resultado is Map<String, dynamic>) {
+                  if (resultado['completado'] == true) {
+                    setState(() {
+                      ubicacionGeorreferencialCompletado = true;
+                      ubicacionGeorreferencial =
+                          resultado['datos'] as UbicacionGeorreferencial;
+                    });
+                  }
                 }
               },
             ),

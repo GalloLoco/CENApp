@@ -270,7 +270,7 @@ class EvaluacionDanos {
 
 /// Modelo para la ubicación georreferencial
 class UbicacionGeorreferencial {
-  final Map<String, bool> existenPlanos;
+  final String? existenPlanos; // Cambiado de Map<String, bool> a String?
   final String direccion;
   final double latitud;
   final double longitud;
@@ -296,7 +296,7 @@ class UbicacionGeorreferencial {
 
   factory UbicacionGeorreferencial.fromJson(Map<String, dynamic> json) {
     return UbicacionGeorreferencial(
-      existenPlanos: Map<String, bool>.from(json['existenPlanos']),
+      existenPlanos: json['existenPlanos'],
       direccion: json['direccion'],
       latitud: json['latitud'],
       longitud: json['longitud'],

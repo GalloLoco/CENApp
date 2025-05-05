@@ -14,27 +14,28 @@ import './file_service.dart';
 class DocumentoService {
   /// Guarda el formato de evaluación en formato JSON
   Future<String> guardarFormatoJSON(FormatoEvaluacion formato) async {
-  try {
-    // Guardar en la ubicación estándar
-    final directorioApp = await obtenerDirectorioDocumentos();
-    final nombreArchivoApp = 'Cenapp${formato.id}.json';
-    final rutaArchivoApp = '${directorioApp.path}/$nombreArchivoApp';
-    
-    // Convertir datos a JSON
-    final jsonData = formato.toJsonString();
-    
-    // Escribir archivo en la carpeta de la app
-    final archivoApp = File(rutaArchivoApp);
-    await archivoApp.writeAsString(jsonData);
-    
-    // También guardar en la carpeta de descargas para fácil acceso
-    final rutaArchivoDescargas = await FileService.guardarFormatoJSON(formato);
-    
-    return rutaArchivoApp;
-  } catch (e) {
-    throw Exception('Error al guardar formato: $e');
+    try {
+      // Guardar en la ubicación estándar
+      final directorioApp = await obtenerDirectorioDocumentos();
+      final nombreArchivoApp = 'Cenapp${formato.id}.json';
+      final rutaArchivoApp = '${directorioApp.path}/$nombreArchivoApp';
+
+      // Convertir datos a JSON
+      final jsonData = formato.toJsonString();
+
+      // Escribir archivo en la carpeta de la app
+      final archivoApp = File(rutaArchivoApp);
+      await archivoApp.writeAsString(jsonData);
+
+      // También guardar en la carpeta de descargas para fácil acceso
+      final rutaArchivoDescargas =
+          await FileService.guardarFormatoJSON(formato);
+
+      return rutaArchivoApp;
+    } catch (e) {
+      throw Exception('Error al guardar formato: $e');
+    }
   }
-}
 
   /// Carga un formato de evaluación desde un archivo JSON
   Future<FormatoEvaluacion> cargarFormatoJSON(String rutaArchivo) async {
@@ -253,49 +254,61 @@ class DocumentoService {
   }
 
   pw.Widget _construirUbicacionPDFCompleto(UbicacionGeorreferencial ubicacion) {
-    return pw.Column(
-      crossAxisAlignment: pw.CrossAxisAlignment.start,
-      children: [
-        pw.Container(
-          color: PdfColors.lightBlue50,
-          padding: pw.EdgeInsets.all(8),
-          child: pw.Text(
-            'UBICACIÓN GEORREFERENCIAL',
-            style: pw.TextStyle(
-              fontWeight: pw.FontWeight.bold,
-              fontSize: 14,
-            ),
+  return pw.Column(
+    crossAxisAlignment: pw.CrossAxisAlignment.start,
+    children: [
+      pw.Container(
+        color: PdfColors.lightBlue50,
+        padding: pw.EdgeInsets.all(8),
+        child: pw.Text(
+          'UBICACIÓN GEORREFERENCIAL',
+          style: pw.TextStyle(
+            fontWeight: pw.FontWeight.bold,
+            fontSize: 14,
           ),
         ),
-        pw.SizedBox(height: 10),
+      ),
+      pw.SizedBox(height: 10),
 
-        // Existencia de planos
-        _construirSeccionCheckboxPDF('Existen Planos', ubicacion.existenPlanos),
-        pw.SizedBox(height: 10),
+      // Existencia de planos (mostrar como texto)
+      pw.Row(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.SizedBox(
+            width: 150,
+            child: pw.Text('Existen planos:',
+                style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+          ),
+          pw.Expanded(
+            child: pw.Text(ubicacion.existenPlanos ?? 'No especificado'),
+          ),
+        ],
+      ),
+      pw.SizedBox(height: 10),
 
-        // Dirección y coordenadas
-        _filaPDF('Dirección:', ubicacion.direccion),
-        _filaPDF('Coordenadas:',
-            'Lat: ${ubicacion.latitud}, Long: ${ubicacion.longitud}'),
+      // Dirección y coordenadas
+      _filaPDF('Dirección:', ubicacion.direccion),
+      _filaPDF('Coordenadas:',
+          'Lat: ${ubicacion.latitud}, Long: ${ubicacion.longitud}'),
 
-        // Información sobre fotos adjuntas
-        ubicacion.rutasFotos.isNotEmpty
-            ? pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: [
-                  pw.SizedBox(height: 10),
-                  pw.Text('Fotografías adjuntas:',
-                      style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
-                  pw.SizedBox(height: 5),
-                  ...ubicacion.rutasFotos.map((ruta) => pw.Text(
-                      '- ${_obtenerNombreArchivo(ruta)}',
-                      style: pw.TextStyle(fontSize: 10))),
-                ],
-              )
-            : pw.Container(),
-      ],
-    );
-  }
+      // Información sobre fotos adjuntas
+      ubicacion.rutasFotos.isNotEmpty
+          ? pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.SizedBox(height: 10),
+                pw.Text('Fotografías adjuntas:',
+                    style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                pw.SizedBox(height: 5),
+                ...ubicacion.rutasFotos.map((ruta) => pw.Text(
+                    '- ${_obtenerNombreArchivo(ruta)}',
+                    style: pw.TextStyle(fontSize: 10))),
+              ],
+            )
+          : pw.Container(),
+    ],
+  );
+}
 
 // Métodos auxiliares para construir secciones específicas
 
@@ -626,8 +639,6 @@ class DocumentoService {
 
     return cenappDir;
   }
-
-  
 
   pw.Widget _construirInformacionGeneralPDF(InformacionGeneral info) {
     return pw.Column(

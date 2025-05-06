@@ -51,7 +51,7 @@ class _SistemaEstructuralScreenState extends State<SistemaEstructuralScreen> {
     'No se sabe 2': false,
     'Asimetría por muros, cubos, cargas': false,
     'Grandes aberturas, entrantes/salientes': false,
-    'Geometría irregular en planta “L”, “T”, “H”': false,
+    'Geometría irregular en planta "L", "T", "H"': false,
     'Planta baja de doble altura': false,
     'Muros no llegan a cimentación': false,
     'Planta baja flexible': false,
@@ -173,7 +173,7 @@ class _SistemaEstructuralScreenState extends State<SistemaEstructuralScreen> {
               _buildCheckboxSection('Vulnerabilidad', [
                 'Asimetría por muros, cubos, cargas',
                 'Grandes aberturas, entrantes/salientes',
-                'Geometría irregular en planta “L”, “T”, “H”',
+                'Geometría irregular en planta "L", "T", "H"',
                 'Planta baja de doble altura',
                 'Muros no llegan a cimentación',
                 'Planta baja flexible',

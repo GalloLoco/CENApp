@@ -472,10 +472,6 @@ class DocumentoService {
       String titulo, Map<String, bool> opciones) {
     List<pw.Widget> opcionesSeleccionadas = [];
 
-    // Agregar un log para depuración
-    print("Sección: $titulo");
-    opciones.forEach((k, v) => print("  - $k: $v"));
-
     // Caso especial para la Vulnerabilidad con el caso específico
     if (titulo == 'Vulnerabilidad') {
       // Verificar manualmente si la opción de geometría irregular está activada

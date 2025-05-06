@@ -1,10 +1,12 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:image/image.dart' as img;
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -24,7 +26,7 @@ class _UbicacionGeorreferencialScreenState
   final MapController mapController = MapController();
   LatLng posicionActual = LatLng(24.1426, -110.3128); // La Paz, BCS por defecto
   bool isLoadingLocation = false;
-  
+
   // Variables para imágenes
   final ImagePicker _picker = ImagePicker();
   bool _isProcessingImage = false;
@@ -51,20 +53,21 @@ class _UbicacionGeorreferencialScreenState
         return;
       }
     }
-    
+
     if (permission == LocationPermission.deniedForever) {
-      _mostrarError('Los permisos de ubicación están permanentemente denegados. Por favor, habilítalos en la configuración de la app.');
+      _mostrarError(
+          'Los permisos de ubicación están permanentemente denegados. Por favor, habilítalos en la configuración de la app.');
       return;
     }
-    
+
     // Permisos de cámara para después
     var statusCamera = await Permission.camera.status;
     if (!statusCamera.isGranted) {
       statusCamera = await Permission.camera.request();
     }
-    
+
     // Obtener ubicación actual si los permisos están concedidos
-    if (permission == LocationPermission.whileInUse || 
+    if (permission == LocationPermission.whileInUse ||
         permission == LocationPermission.always) {
       _obtenerUbicacionActual();
     }
@@ -76,24 +79,22 @@ class _UbicacionGeorreferencialScreenState
       setState(() {
         isLoadingLocation = true;
       });
-      
+
       Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high
-      );
-      
+          desiredAccuracy: LocationAccuracy.high);
+
       LatLng nuevaPosicion = LatLng(position.latitude, position.longitude);
-      
+
       setState(() {
         posicionActual = nuevaPosicion;
         isLoadingLocation = false;
       });
-      
+
       // Centrar mapa en la ubicación actual
       mapController.move(posicionActual, 15.0);
-      
+
       // Obtener dirección a partir de coordenadas
       _obtenerDireccion(posicionActual);
-      
     } catch (e) {
       setState(() {
         isLoadingLocation = false;
@@ -106,13 +107,12 @@ class _UbicacionGeorreferencialScreenState
   Future<void> _obtenerDireccion(LatLng coordenadas) async {
     try {
       List<Placemark> placemarks = await placemarkFromCoordinates(
-        coordenadas.latitude, 
-        coordenadas.longitude
-      );
-      
+          coordenadas.latitude, coordenadas.longitude);
+
       if (placemarks.isNotEmpty) {
         Placemark lugar = placemarks.first;
-        String direccion = '${lugar.street}, ${lugar.subLocality}, ${lugar.locality}, ${lugar.administrativeArea}';
+        String direccion =
+            '${lugar.street}, ${lugar.subLocality}, ${lugar.locality}, ${lugar.administrativeArea}';
         direccionController.text = direccion;
       }
     } catch (e) {
@@ -308,7 +308,7 @@ class _UbicacionGeorreferencialScreenState
           ),
         ),
         SizedBox(height: 10),
-        
+
         // Mostrar fotos adjuntas
         if (imagenesAdjuntas.isNotEmpty)
           Container(
@@ -352,7 +352,8 @@ class _UbicacionGeorreferencialScreenState
                               shape: BoxShape.circle,
                             ),
                             padding: EdgeInsets.all(4),
-                            child: Icon(Icons.close, size: 16, color: Colors.white),
+                            child: Icon(Icons.close,
+                                size: 16, color: Colors.white),
                           ),
                         ),
                       ),
@@ -378,7 +379,7 @@ class _UbicacionGeorreferencialScreenState
               ),
             ),
           ),
-          
+
         SizedBox(height: 10),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -398,18 +399,17 @@ class _UbicacionGeorreferencialScreenState
             ),
           ],
         ),
-        
+
         if (imagenesAdjuntas.isNotEmpty)
           Padding(
             padding: const EdgeInsets.only(top: 8.0),
             child: Text(
               '${imagenesAdjuntas.length}/$MAX_FOTOS fotos adjuntas',
               style: TextStyle(
-                fontSize: 12, 
-                color: imagenesAdjuntas.length >= MAX_FOTOS 
-                  ? Colors.red 
-                  : Colors.grey[600]
-              ),
+                  fontSize: 12,
+                  color: imagenesAdjuntas.length >= MAX_FOTOS
+                      ? Colors.red
+                      : Colors.grey[600]),
             ),
           ),
       ],
@@ -443,34 +443,35 @@ class _UbicacionGeorreferencialScreenState
   /// Tomar foto con la cámara - versión optimizada
   Future<void> _tomarFoto() async {
     if (_isProcessingImage) return; // Evitar múltiples llamadas
-    
+
     // Verificar límite
     if (imagenesAdjuntas.length >= MAX_FOTOS) {
-      _mostrarError('Límite de $MAX_FOTOS fotos alcanzado. Elimina algunas para continuar.');
+      _mostrarError(
+          'Límite de $MAX_FOTOS fotos alcanzado. Elimina algunas para continuar.');
       return;
     }
-    
+
     try {
       setState(() => _isProcessingImage = true);
-      
+
       final XFile? photo = await _picker.pickImage(
         source: ImageSource.camera,
         imageQuality: 50, // Menor calidad = menos memoria
-        maxWidth: 800,    // Limitar dimensiones
+        maxWidth: 800, // Limitar dimensiones
         maxHeight: 800,
         preferredCameraDevice: CameraDevice.rear,
       );
-      
+
       if (photo != null) {
         String rutaGuardada = await _guardarImagen(photo);
-        
+
         // Liberar memoria inmediatamente
         final compressedFile = File(photo.path);
         if (await compressedFile.exists() && photo.path != rutaGuardada) {
-          await compressedFile.delete()
-              .catchError((e) => print('Error eliminando archivo temporal: $e'));
+          await compressedFile.delete().catchError(
+              (e) => print('Error eliminando archivo temporal: $e'));
         }
-        
+
         setState(() {
           imagenesAdjuntas.add(rutaGuardada);
         });
@@ -485,23 +486,24 @@ class _UbicacionGeorreferencialScreenState
   /// Seleccionar imagen de la galería
   Future<void> _seleccionarDeGaleria() async {
     if (_isProcessingImage) return;
-    
+
     // Verificar límite
     if (imagenesAdjuntas.length >= MAX_FOTOS) {
-      _mostrarError('Límite de $MAX_FOTOS fotos alcanzado. Elimina algunas para continuar.');
+      _mostrarError(
+          'Límite de $MAX_FOTOS fotos alcanzado. Elimina algunas para continuar.');
       return;
     }
-    
+
     try {
       setState(() => _isProcessingImage = true);
-      
+
       final XFile? image = await _picker.pickImage(
         source: ImageSource.gallery,
         imageQuality: 50,
         maxWidth: 800,
         maxHeight: 800,
       );
-      
+
       if (image != null) {
         String rutaGuardada = await _guardarImagen(image);
         setState(() {
@@ -515,27 +517,39 @@ class _UbicacionGeorreferencialScreenState
     }
   }
 
-  /// Guardar imagen localmente - optimizado
+  // Versión optimizada para _guardarImagen en UbicacionGeorreferencialScreen
   Future<String> _guardarImagen(XFile imagen) async {
     try {
-      // Obtener directorio de documentos de la app
       final directory = await getApplicationDocumentsDirectory();
       final String dirPath = '${directory.path}/cenapp/imagenes';
-      
-      // Crear directorio si no existe
       await Directory(dirPath).create(recursive: true);
-      
-      // Generar nombre único
-      final String fileName = 
+
+      final String fileName =
           'IMG_${DateTime.now().millisecondsSinceEpoch}${path.extension(imagen.path)}';
       final String filePath = '$dirPath/$fileName';
-      
-      // Leer bytes de la imagen
-      final bytes = await imagen.readAsBytes();
-      
-      // Escribir directamente el archivo en lugar de copiarlo
-      await File(filePath).writeAsBytes(bytes);
-      
+
+      // Comprimir y redimensionar la imagen antes de guardarla
+      final Uint8List bytes = await imagen.readAsBytes();
+      final img.Image? decodedImage = img.decodeImage(bytes);
+
+      if (decodedImage != null) {
+        // Redimensionar a máximo 1200px manteniendo proporción
+        final img.Image resizedImage = img.copyResize(
+          decodedImage,
+          width: decodedImage.width > 1200 ? 1200 : decodedImage.width,
+          height: (decodedImage.height *
+                  (decodedImage.width > 1200 ? 1200 / decodedImage.width : 1))
+              .toInt(),
+        );
+
+        // Comprimir al 85% de calidad
+        final compressedBytes = img.encodeJpg(resizedImage, quality: 85);
+        await File(filePath).writeAsBytes(compressedBytes);
+      } else {
+        // Fallback si no se puede procesar
+        await File(filePath).writeAsBytes(bytes);
+      }
+
       return filePath;
     } catch (e) {
       throw Exception('Error al guardar imagen: $e');
@@ -554,33 +568,33 @@ class _UbicacionGeorreferencialScreenState
 
   /// Guardar y regresar a la pantalla anterior
   void _guardarYRegresar() {
-  // Validar datos mínimos
-  if (direccionController.text.isEmpty) {
-    _mostrarError('Por favor ingresa una dirección');
-    return;
+    // Validar datos mínimos
+    if (direccionController.text.isEmpty) {
+      _mostrarError('Por favor ingresa una dirección');
+      return;
+    }
+
+    // Crear objeto de ubicación con los datos ingresados
+    final ubicacion = {
+      'completado': true,
+      'datos': {
+        'existenPlanos': selectedPlano,
+        'direccion': direccionController.text,
+        'latitud': posicionActual.latitude,
+        'longitud': posicionActual.longitude,
+        'rutasFotos': imagenesAdjuntas,
+      },
+    };
+
+    // Regresar con los datos
+    Navigator.pop(context, ubicacion);
   }
-  
-  // Crear objeto de ubicación con los datos ingresados
-  final ubicacion = {
-    'completado': true,
-    'datos': {
-      'existenPlanos': selectedPlano,
-      'direccion': direccionController.text,
-      'latitud': posicionActual.latitude,
-      'longitud': posicionActual.longitude,
-      'rutasFotos': imagenesAdjuntas,
-    },
-  };
-  
-  // Regresar con los datos
-  Navigator.pop(context, ubicacion);
-}
 
   @override
   void dispose() {
     // Liberar recursos
     mapController.dispose();
-direccionController.dispose();
-super.dispose();
-}
+    direccionController.dispose();
+    super.dispose();
+  }
 }

@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import '../logica/formato_evaluacion.dart';
-import '../logica/documento_service.dart';
+import '../data/services/documento_service.dart';
 
 class DocumentoGuardadoScreen extends StatefulWidget {
   final FormatoEvaluacion formato;

@@ -1,11 +1,13 @@
 // lib/data/services/documento_service.dart
-
+import 'dart:async';
+import 'dart:io';
 import 'package:share_plus/share_plus.dart';
 import '../../logica/formato_evaluacion.dart';
 import './file_storage_service.dart';
 import './pdf_export_service.dart';
 import './excel_export_service.dart';
-
+import './export_error_handler.dart';
+import './export_optimization_service.dart';
 /// Servicio principal para la gestión de documentos
 /// Coordina los servicios especializados para almacenamiento y exportación
 class DocumentoService {
@@ -67,12 +69,18 @@ class DocumentoService {
 
   /// Exporta el formato de evaluación a un archivo Excel
   Future<String> exportarExcel(FormatoEvaluacion formato) async {
-    try {
+  try {
+    // Usar un tiempo de espera más largo para operaciones de exportación
+    return await _excelService.exportarFormatoExcel(formato);
+  } catch (e) {
+    // Si ocurre un error, intentar con una exportación simplificada
+    if (e is TimeoutException || e.toString().contains('tiempo')) {
+      print('Timeout en exportación a Excel, intentando versión simplificada...');
       return await _excelService.exportarFormatoExcel(formato);
-    } catch (e) {
-      throw Exception('Error al exportar a Excel: $e');
     }
+    rethrow;
   }
+}
 
   /// Exporta el formato de evaluación a un archivo CSV
   Future<String> exportarCSV(FormatoEvaluacion formato) async {

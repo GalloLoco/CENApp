@@ -556,7 +556,7 @@ class _EvaluacionDanosScreenState extends State<EvaluacionDanosScreen> {
                   ),
                   // Checkboxes para tipos de daños
                   ...damageTypes.map((damageType) {
-                    String key = '${row}_${damageType}';
+                    //String key = '${row}_${damageType}';
                     return Container(
                       width: damageWidth,
                       height: 50,

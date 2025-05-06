@@ -15,7 +15,7 @@ class FileService {
       }
       
       // Solicitar permisos adicionales para abarcar todos los casos
-      var statusPhotos = await Permission.photos.request();
+      //var statusPhotos = await Permission.photos.request();
       
       return statusStorage.isGranted;
     }

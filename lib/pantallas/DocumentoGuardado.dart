@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:io';
+//import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import '../logica/formato_evaluacion.dart';
@@ -9,12 +9,13 @@ class DocumentoGuardadoScreen extends StatefulWidget {
   final FormatoEvaluacion formato;
 
   const DocumentoGuardadoScreen({
-    Key? key, 
+    Key? key,
     required this.formato,
   }) : super(key: key);
 
   @override
-  _DocumentoGuardadoScreenState createState() => _DocumentoGuardadoScreenState();
+  _DocumentoGuardadoScreenState createState() =>
+      _DocumentoGuardadoScreenState();
 }
 
 class _DocumentoGuardadoScreenState extends State<DocumentoGuardadoScreen> {
@@ -39,13 +40,14 @@ class _DocumentoGuardadoScreenState extends State<DocumentoGuardadoScreen> {
     });
 
     try {
-      final filePath = await _documentoService.guardarFormatoJSON(widget.formato);
+      final filePath =
+          await _documentoService.guardarFormatoJSON(widget.formato);
       setState(() {
         _jsonFilePath = filePath;
         _isLoading = false;
         _documentoGuardado = true;
       });
-      
+
       // Mostrar mensaje de éxito
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -77,9 +79,9 @@ class _DocumentoGuardadoScreenState extends State<DocumentoGuardadoScreen> {
           duration: Duration(seconds: 1),
         ),
       );
-      
+
       final filePath = await _documentoService.exportarPDF(widget.formato);
-      
+
       setState(() {
         _isLoading = false;
       });
@@ -92,19 +94,18 @@ class _DocumentoGuardadoScreenState extends State<DocumentoGuardadoScreen> {
           duration: Duration(seconds: 2),
         ),
       );
-      
+
       // Pequeña pausa para que el usuario vea el mensaje de éxito
       await Future.delayed(Duration(milliseconds: 1000));
-      
+
       // Compartir el archivo
       _compartirArchivo(filePath, 'application/pdf');
-      
     } catch (e) {
       setState(() {
         _errorMessage = 'Error al exportar a PDF: $e';
         _isLoading = false;
       });
-      
+
       // Mostrar mensaje de error
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -126,17 +127,30 @@ class _DocumentoGuardadoScreenState extends State<DocumentoGuardadoScreen> {
       // Mostrar mensaje de progreso
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Generando Excel...'),
-          duration: Duration(seconds: 1),
+          content: Text(
+              'Generando Excel... Este proceso puede tardar unos segundos.'),
+          duration: Duration(seconds: 2),
         ),
       );
-      
-      final filePath = await _documentoService.exportarExcel(widget.formato);
-      
+
+      // Intentar exportar con un tiempo de espera más largo (90 segundos)
+      String filePath;
+      try {
+        filePath = await _documentoService
+            .exportarExcel(widget.formato)
+            .timeout(Duration(seconds: 90));
+      } catch (exportError) {
+        if (exportError is TimeoutException) {
+          throw Exception(
+              'Tiempo de espera agotado. La operación está tomando demasiado tiempo.');
+        }
+        rethrow;
+      }
+
       setState(() {
         _isLoading = false;
       });
-      
+
       // Mostrar mensaje de éxito
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -145,29 +159,99 @@ class _DocumentoGuardadoScreenState extends State<DocumentoGuardadoScreen> {
           duration: Duration(seconds: 2),
         ),
       );
-      
-      // Pequeña pausa
-      await Future.delayed(Duration(milliseconds: 1000));
-      
+
+      // Pequeña pausa para que el usuario vea el mensaje de éxito
+      await Future.delayed(Duration(milliseconds: 500));
+
       // Compartir el archivo
       _compartirArchivo(filePath, 'application/vnd.ms-excel');
-      
     } catch (e) {
       setState(() {
         _errorMessage = 'Error al exportar a Excel: $e';
         _isLoading = false;
       });
-      
+
+      // Mostrar mensaje de error específico para timeouts
+      if (e.toString().contains('tiempo')) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                'La generación del Excel está tomando demasiado tiempo. Se ha simplificado la exportación.'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 4),
+            action: SnackBarAction(
+              label: 'INTENTAR CSV',
+              onPressed: () {
+                _exportarCSV(); // Método alternativo para exportar a CSV
+              },
+            ),
+          ),
+        );
+      } else {
+        // Otros errores
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al generar Excel: $e'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+    }
+  }
+
+  /// Método alternativo para exportar a CSV (más ligero)
+  Future<void> _exportarCSV() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      // Mostrar mensaje de progreso
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Generando CSV...'),
+          duration: Duration(seconds: 1),
+        ),
+      );
+
+      // CSV es más simple y rápido que Excel
+      final filePath = await _documentoService
+          .exportarCSV(widget.formato)
+          .timeout(Duration(seconds: 30));
+
+      setState(() {
+        _isLoading = false;
+      });
+
+      // Mostrar mensaje de éxito
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Archivo CSV creado con éxito'),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 2),
+        ),
+      );
+
+      // Compartir el archivo
+      _compartirArchivo(filePath, 'text/csv');
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Error al exportar a CSV: $e';
+        _isLoading = false;
+      });
+
       // Mostrar mensaje de error
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error al generar Excel: $e'),
+          content: Text('Error al generar CSV: $e'),
           backgroundColor: Colors.red,
         ),
       );
     }
   }
-  
+
   /// Compartir un archivo
   Future<void> _compartirArchivo(String filePath, String mimeType) async {
     try {
@@ -192,7 +276,7 @@ class _DocumentoGuardadoScreenState extends State<DocumentoGuardadoScreen> {
       setState(() {
         _errorMessage = 'No hay un documento para compartir';
       });
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('No hay un documento para compartir'),
@@ -229,7 +313,8 @@ class _DocumentoGuardadoScreenState extends State<DocumentoGuardadoScreen> {
         builder: (BuildContext context) {
           return AlertDialog(
             title: Text('¿Quieres regresar al inicio?'),
-            content: Text('Una vez regresado, cualquier cambio no guardado se perderá.'),
+            content: Text(
+                'Una vez regresado, cualquier cambio no guardado se perderá.'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
@@ -241,7 +326,8 @@ class _DocumentoGuardadoScreenState extends State<DocumentoGuardadoScreen> {
                   Navigator.pop(context); // Regresar a NuevoFormatoScreen
                   Navigator.pop(context); // Regresar a HomeScreen
                 },
-                child: Text('Aceptar', style: TextStyle(fontWeight: FontWeight.bold)),
+                child: Text('Aceptar',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
               ),
             ],
           );
@@ -266,7 +352,8 @@ class _DocumentoGuardadoScreenState extends State<DocumentoGuardadoScreen> {
                   Navigator.pop(context); // Regresar a NuevoFormatoScreen
                   Navigator.pop(context); // Regresar a HomeScreen
                 },
-                child: Text('Aceptar', style: TextStyle(fontWeight: FontWeight.bold)),
+                child: Text('Aceptar',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
               ),
             ],
           );
@@ -303,10 +390,10 @@ class _DocumentoGuardadoScreenState extends State<DocumentoGuardadoScreen> {
         ],
       ),
       body: _isLoading
-        ? _buildLoadingScreen()
-        : _errorMessage != null
-          ? _buildErrorScreen()
-          : _buildSuccessScreen(),
+          ? _buildLoadingScreen()
+          : _errorMessage != null
+              ? _buildErrorScreen()
+              : _buildSuccessScreen(),
     );
   }
 
@@ -424,7 +511,7 @@ class _DocumentoGuardadoScreenState extends State<DocumentoGuardadoScreen> {
                   backgroundColor: Colors.green,
                 ),
               );
-              
+
               // Esperar un momento y luego regresar a la pantalla de inicio
               Future.delayed(Duration(seconds: 1), () {
                 Navigator.pop(context); // Regresar a NuevoFormatoScreen

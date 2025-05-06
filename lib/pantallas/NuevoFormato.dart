@@ -67,60 +67,61 @@ class _NuevoFormatoScreenState extends State<NuevoFormatoScreen> {
 
   // Método para validar y continuar (modificado)
   Future<void> _validarYContinuar() async {
-  if (informacionGeneralCompletado &&
-      sistemaEstructuralCompletado &&
-      evaluacionDanosCompletado &&
-      ubicacionGeorreferencialCompletado) {
-    try {
-      // Crear el formato de evaluación completo
-      final formato = FormatoEvaluacion(
-        informacionGeneral: informacionGeneral!,
-        sistemaEstructural: sistemaEstructural!,
-        evaluacionDanos: evaluacionDanos!,
-        ubicacionGeorreferencial: ubicacionGeorreferencial!,
-        id: formatoId ??
-            _generarId(), // Usar el ID original si existe, o generar uno nuevo
-        fechaCreacion: fechaCreacion ??
-            DateTime.now(), // Mantener fecha de creación original
-        fechaModificacion: DateTime.now(), // Actualizar fecha de modificación
-        usuarioCreador:
-            usuarioCreador ?? "Joel", // Mantener usuario creador original
-      );
+    if (informacionGeneralCompletado &&
+        sistemaEstructuralCompletado &&
+        evaluacionDanosCompletado &&
+        ubicacionGeorreferencialCompletado) {
+      try {
+        // Crear el formato de evaluación completo
+        final formato = FormatoEvaluacion(
+          informacionGeneral: informacionGeneral!,
+          sistemaEstructural: sistemaEstructural!,
+          evaluacionDanos: evaluacionDanos!,
+          ubicacionGeorreferencial: ubicacionGeorreferencial!,
+          id: formatoId ??
+              _generarId(), // Usar el ID original si existe, o generar uno nuevo
+          fechaCreacion: fechaCreacion ??
+              DateTime.now(), // Mantener fecha de creación original
+          fechaModificacion: DateTime.now(), // Actualizar fecha de modificación
+          usuarioCreador:
+              usuarioCreador ?? "Joel", // Mantener usuario creador original
+        );
 
-      // Mostrar indicador de carga
-      _mostrarCargando(context, 'Preparando formato...');
+        // Mostrar indicador de carga
+        _mostrarCargando(context, 'Preparando formato...');
 
-      // Simular un breve proceso
-      await Future.delayed(const Duration(milliseconds: 500));
+        // Simular un breve proceso
+        await Future.delayed(const Duration(milliseconds: 500));
 
-      // Cerrar el indicador de carga
-      Navigator.pop(context);
+        // Cerrar el indicador de carga
+        Navigator.pop(context);
 
-      // Navegar a la pantalla de documento guardado
-      await Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => DocumentoGuardadoScreen(formato: formato),
-        ),
-      );
-    } catch (e) {
-      // Cerrar indicador de carga si está activo
-      Navigator.of(context, rootNavigator: true).pop();
+        // Navegar a la pantalla de documento guardado
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => DocumentoGuardadoScreen(formato: formato),
+          ),
+        );
+      } catch (e) {
+        // Cerrar indicador de carga si está activo
+        Navigator.of(context, rootNavigator: true).pop();
 
-      // Mostrar error
-      _mostrarError('Error al generar formato: $e');
+        // Mostrar error
+        _mostrarError('Error al generar formato: $e');
+      }
+    } else {
+      // Mostrar mensaje detallado de las secciones que faltan
+      String mensaje = 'Faltan completar los siguientes apartados:';
+      if (!informacionGeneralCompletado) mensaje += '\n- Información general';
+      if (!sistemaEstructuralCompletado) mensaje += '\n- Sistema estructural';
+      if (!evaluacionDanosCompletado) mensaje += '\n- Evaluación de daños';
+      if (!ubicacionGeorreferencialCompletado)
+        mensaje += '\n- Ubicación georreferencial';
+
+      _mostrarAlerta('Faltan apartados', mensaje);
     }
-  } else {
-    // Mostrar mensaje detallado de las secciones que faltan
-    String mensaje = 'Faltan completar los siguientes apartados:';
-    if (!informacionGeneralCompletado) mensaje += '\n- Información general';
-    if (!sistemaEstructuralCompletado) mensaje += '\n- Sistema estructural';
-    if (!evaluacionDanosCompletado) mensaje += '\n- Evaluación de daños';
-    if (!ubicacionGeorreferencialCompletado) mensaje += '\n- Ubicación georreferencial';
-    
-    _mostrarAlerta('Faltan apartados', mensaje);
   }
-}
 
   // Genera un ID único para el formato
   String _generarId() {
@@ -261,28 +262,16 @@ class _NuevoFormatoScreenState extends State<NuevoFormatoScreen> {
                   ),
                 );
 
-                if (resultado == true) {
-                  // Simulamos la creación de un objeto SistemaEstructural
-                  // En una implementación real, este objeto debería venir
-                  // de la pantalla de SistemaEstructuralScreen
-                  setState(() {
-                    sistemaEstructuralCompletado = true;
-                    sistemaEstructural = SistemaEstructural(
-                      direccionX: {'Marcos de concreto X': true},
-                      direccionY: {'Marcos de concreto Y': true},
-                      murosMamposteria: {'Muros confinados': true},
-                      sistemasPiso: {'Losa maciza': true},
-                      sistemasTecho: {'Igual al piso': true},
-                      otroTecho: '',
-                      cimentacion: {'Zapatas aisladas': true},
-                      vulnerabilidad: {'Columna corta': false},
-                      posicionManzana: {'Medio': true},
-                      otrasCaracteristicas: {
-                        'Grandes masas en pisos superiores': false
-                      },
-                      separacionEdificios: 5.0,
-                    );
-                  });
+                // Verificar que el resultado sea un mapa con la estructura correcta
+                if (resultado != null && resultado is Map<String, dynamic>) {
+                  if (resultado['completado'] == true &&
+                      resultado['datos'] != null) {
+                    setState(() {
+                      sistemaEstructuralCompletado = true;
+                      sistemaEstructural =
+                          resultado['datos'] as SistemaEstructural;
+                    });
+                  }
                 }
               },
             ),
@@ -299,34 +288,15 @@ class _NuevoFormatoScreenState extends State<NuevoFormatoScreen> {
                   ),
                 );
 
-                if (resultado == true) {
-                  // Simulamos la creación de un objeto EvaluacionDanos
-                  setState(() {
-                    evaluacionDanosCompletado = true;
-                    evaluacionDanos = EvaluacionDanos(
-                      geotecnicos: {
-                        'Grietas en el terreno': false,
-                        'Hundimientos': false
-                      },
-                      inclinacionEdificio: 0.0,
-                      conexionesFalla: {'Falla': false},
-                      danosEstructura: {
-                        'Columnas': {
-                          'Colapso': false,
-                          'Grietas cortante': false
-                        },
-                        'Trabes': {'Colapso': false, 'Grietas cortante': false},
-                      },
-                      mediciones: {
-                        'Columnas': {'Ancho máximo de grieta (mm)': 0.0},
-                        'Trabes': {'Ancho máximo de grieta (mm)': 0.0},
-                      },
-                      columnasConDanoSevero: 0,
-                      totalColumnasEntrepiso: 0,
-                      nivelDano: {'Daño ligero': true},
-                      otrosDanos: {'Vidrios': false},
-                    );
-                  });
+                // Verificar que el resultado sea un mapa con la estructura correcta
+                if (resultado != null && resultado is Map<String, dynamic>) {
+                  if (resultado['completado'] == true &&
+                      resultado['datos'] != null) {
+                    setState(() {
+                      evaluacionDanosCompletado = true;
+                      evaluacionDanos = resultado['datos'] as EvaluacionDanos;
+                    });
+                  }
                 }
               },
             ),

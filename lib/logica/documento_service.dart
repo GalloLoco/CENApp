@@ -74,11 +74,14 @@ class DocumentoService {
           build: (context) => [
             _construirInformacionGeneralPDF(formato.informacionGeneral),
             pw.SizedBox(height: 20),
-            _construirSistemaEstructuralPDFCompleto(formato.sistemaEstructural),
+            _construirSistemaEstructuralPDFCompleto(
+                formato.sistemaEstructural), // Usar versión completa
             pw.SizedBox(height: 20),
-            _construirEvaluacionDanosPDFCompleto(formato.evaluacionDanos),
+            _construirEvaluacionDanosPDFCompleto(
+                formato.evaluacionDanos), // Usar versión completa
             pw.SizedBox(height: 20),
-            _construirUbicacionPDFCompleto(formato.ubicacionGeorreferencial),
+            _construirUbicacionPDFCompleto(
+                formato.ubicacionGeorreferencial), // Usar versión completa
           ],
           footer: (context) => pw.Container(
             alignment: pw.Alignment.centerRight,
@@ -222,6 +225,10 @@ class DocumentoService {
         // Inclinación del edificio
         _filaPDF(
             'Inclinación del edificio:', '${evaluacion.inclinacionEdificio}%'),
+        pw.SizedBox(height: 10),
+
+        // Sección de Losas
+        _construirSeccionLosasPDF(evaluacion),
         pw.SizedBox(height: 10),
 
         // Conexiones con falla
@@ -465,9 +472,29 @@ class DocumentoService {
       String titulo, Map<String, bool> opciones) {
     List<pw.Widget> opcionesSeleccionadas = [];
 
-    // Filtramos para obtener solo las opciones seleccionadas (true)
+    // Agregar un log para depuración
+    print("Sección: $titulo");
+    opciones.forEach((k, v) => print("  - $k: $v"));
+
+    // Caso especial para la Vulnerabilidad con el caso específico
+    if (titulo == 'Vulnerabilidad') {
+      // Verificar manualmente si la opción de geometría irregular está activada
+      bool tieneGeometriaIrregular = opciones.entries.any((entry) =>
+          entry.key.contains('Geometría irregular') && entry.value == true);
+
+      // Si está activada, asegurar que se agregue a la lista
+      if (tieneGeometriaIrregular) {
+        opcionesSeleccionadas.add(pw.Padding(
+          padding: pw.EdgeInsets.only(left: 10, bottom: 2),
+          child: pw.Text('• Geometría irregular en planta "L", "T", "H"'),
+        ));
+      }
+    }
+
+    // Procesamiento normal para el resto de opciones
     opciones.forEach((opcion, seleccionado) {
-      if (seleccionado) {
+      // Saltar la opción de geometría irregular, ya que la manejamos separadamente
+      if (seleccionado && !opcion.contains('Geometría irregular')) {
         opcionesSeleccionadas.add(pw.Padding(
           padding: pw.EdgeInsets.only(left: 10, bottom: 2),
           child: pw.Text('• $opcion'),
@@ -487,6 +514,53 @@ class DocumentoService {
             padding: pw.EdgeInsets.only(left: 10),
             child: pw.Text('Ninguna opción seleccionada'),
           ),
+      ],
+    );
+  }
+
+  pw.Widget _construirSeccionLosasPDF(EvaluacionDanos evaluacion) {
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        pw.Text('Losas:', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+        pw.SizedBox(height: 5),
+        pw.Padding(
+          padding: pw.EdgeInsets.only(left: 10),
+          child: pw.Row(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              // Opción de Colapso utilizando el mismo estilo que otras secciones de checkboxes
+              pw.Row(
+                children: [
+                  pw.Container(
+                    width: 10,
+                    height: 10,
+                    decoration: pw.BoxDecoration(
+                      border: pw.Border.all(),
+                    ),
+                    child: evaluacion.losasColapso
+                        ? pw.Center(
+                            child: pw.Text(
+                              '✓',
+                              style: pw.TextStyle(
+                                fontSize: 8,
+                                fontWeight: pw.FontWeight.bold,
+                              ),
+                            ),
+                          )
+                        : pw.Container(),
+                  ),
+                  pw.SizedBox(width: 5),
+                  pw.Text('Colapso'),
+                ],
+              ),
+              pw.SizedBox(width: 40),
+              pw.Text('Grietas máx: ${evaluacion.losasGrietasMax} mm'),
+              pw.SizedBox(width: 40),
+              pw.Text('Flecha máx: ${evaluacion.losasFlechaMax} cm'),
+            ],
+          ),
+        ),
       ],
     );
   }
@@ -790,9 +864,26 @@ class DocumentoService {
   }
 
   pw.Widget _construirInformacionGeneralPDF(InformacionGeneral info) {
+    // Lista para almacenar elementos de topografía seleccionados
+    List<String> topografiaSeleccionada = [];
+    info.topografia.forEach((key, value) {
+      if (value) {
+        topografiaSeleccionada.add(key);
+      }
+    });
+
+    // Lista para almacenar elementos de uso seleccionados
+    List<String> usosSeleccionados = [];
+    info.usos.forEach((key, value) {
+      if (value) {
+        usosSeleccionados.add(key);
+      }
+    });
+
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
       children: [
+        // Encabezado con fondo azul claro
         pw.Container(
           color: PdfColors.lightBlue50,
           padding: pw.EdgeInsets.all(8),
@@ -805,21 +896,91 @@ class DocumentoService {
           ),
         ),
         pw.SizedBox(height: 10),
+
+        // Datos de identificación
         _filaPDF('Nombre del inmueble:', info.nombreInmueble),
-        _filaPDF('Dirección:',
-            '${info.calle}, ${info.colonia}, CP ${info.codigoPostal}'),
-        _filaPDF('Ubicación:',
-            '${info.ciudadPueblo}, ${info.delegacionMunicipio}, ${info.estado}'),
-        _filaPDF('Persona de contacto:',
-            '${info.personaContacto} - Tel: ${info.telefono}'),
-        pw.SizedBox(height: 10),
-        pw.Text('Dimensiones:',
-            style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+
+        // Dirección completa (desglosada)
+        pw.Container(
+          margin: pw.EdgeInsets.only(top: 10, bottom: 5),
+          child: pw.Text('Dirección:',
+              style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+        ),
+        _filaPDF('Calle y número:', info.calle),
+        _filaPDF('Colonia:', info.colonia),
+        _filaPDF('Código Postal:', info.codigoPostal),
+        _filaPDF('Pueblo o ciudad:', info.ciudadPueblo),
+        _filaPDF('Delegación/Municipio:', info.delegacionMunicipio),
+        _filaPDF('Estado:', info.estado),
+        _filaPDF('Referencias:', info.referencias),
+
+        // Contacto
+        pw.Container(
+          margin: pw.EdgeInsets.only(top: 10, bottom: 5),
+          child: pw.Text('Contacto:',
+              style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+        ),
+        _filaPDF('Persona de contacto:', info.personaContacto),
+        _filaPDF('Teléfono:', info.telefono),
+
+        // Uso del inmueble
+        pw.Container(
+          margin: pw.EdgeInsets.only(top: 10, bottom: 5),
+          child: pw.Text('Uso del inmueble:',
+              style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+        ),
+        usosSeleccionados.isNotEmpty
+            ? pw.Padding(
+                padding: pw.EdgeInsets.only(left: 20),
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: usosSeleccionados
+                      .map((uso) => pw.Text('• $uso'))
+                      .toList(),
+                ),
+              )
+            : pw.Padding(
+                padding: pw.EdgeInsets.only(left: 20),
+                child: pw.Text('No especificado'),
+              ),
+
+        // Otro uso (si existe)
+        info.otroUso.isNotEmpty
+            ? _filaPDF('Otro uso:', info.otroUso)
+            : pw.Container(),
+
+        // Dimensiones
+        pw.Container(
+          margin: pw.EdgeInsets.only(top: 10, bottom: 5),
+          child: pw.Text('Dimensiones:',
+              style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+        ),
         _filaPDF('Frente X:', '${info.frenteX} metros'),
         _filaPDF('Frente Y:', '${info.frenteY} metros'),
         _filaPDF('Niveles:', '${info.niveles}'),
         _filaPDF('Ocupantes:', '${info.ocupantes}'),
         _filaPDF('Sótanos:', '${info.sotanos}'),
+
+        // Topografía
+        pw.Container(
+          margin: pw.EdgeInsets.only(top: 10, bottom: 5),
+          child: pw.Text('Topografía:',
+              style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+        ),
+        topografiaSeleccionada.isNotEmpty
+            ? pw.Padding(
+                padding: pw.EdgeInsets.only(left: 20),
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: topografiaSeleccionada
+                      .map((topo) => pw.Text('• $topo'))
+                      .toList(),
+                ),
+              )
+            : pw.Padding(
+                padding: pw.EdgeInsets.only(left: 20),
+                child: pw.Text('No especificado'),
+              ),
       ],
     );
   }

@@ -216,6 +216,12 @@ class EvaluacionDanos {
   final Map<String, bool> geotecnicos;
   final double inclinacionEdificio;
   final Map<String, bool> conexionesFalla;
+  
+  // Nuevos campos para Losas
+  final bool losasColapso;
+  final double losasGrietasMax;
+  final double losasFlechaMax;
+  
   final Map<String, Map<String, bool>> danosEstructura;
   final Map<String, Map<String, double>> mediciones;
   final int columnasConDanoSevero;
@@ -227,6 +233,12 @@ class EvaluacionDanos {
     required this.geotecnicos,
     required this.inclinacionEdificio,
     required this.conexionesFalla,
+    
+    // Nuevos parámetros requeridos
+    required this.losasColapso,
+    required this.losasGrietasMax,
+    required this.losasFlechaMax,
+    
     required this.danosEstructura,
     required this.mediciones,
     required this.columnasConDanoSevero,
@@ -240,6 +252,12 @@ class EvaluacionDanos {
       'geotecnicos': geotecnicos,
       'inclinacionEdificio': inclinacionEdificio,
       'conexionesFalla': conexionesFalla,
+      
+      // Añadir los nuevos campos al JSON
+      'losasColapso': losasColapso,
+      'losasGrietasMax': losasGrietasMax,
+      'losasFlechaMax': losasFlechaMax,
+      
       'danosEstructura': danosEstructura,
       'mediciones': mediciones,
       'columnasConDanoSevero': columnasConDanoSevero,
@@ -254,6 +272,12 @@ class EvaluacionDanos {
       geotecnicos: Map<String, bool>.from(json['geotecnicos']),
       inclinacionEdificio: json['inclinacionEdificio'],
       conexionesFalla: Map<String, bool>.from(json['conexionesFalla']),
+      
+      // Obtener los nuevos campos del JSON con valores por defecto si no existen
+      losasColapso: json['losasColapso'] ?? false,
+      losasGrietasMax: json['losasGrietasMax'] ?? 0.0,
+      losasFlechaMax: json['losasFlechaMax'] ?? 0.0,
+      
       danosEstructura: Map<String, Map<String, bool>>.from(
         json['danosEstructura'].map((k, v) => MapEntry(k, Map<String, bool>.from(v))),
       ),

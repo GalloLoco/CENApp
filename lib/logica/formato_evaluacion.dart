@@ -294,11 +294,12 @@ class EvaluacionDanos {
 
 /// Modelo para la ubicación georreferencial
 class UbicacionGeorreferencial {
-  final String? existenPlanos; // Cambiado de Map<String, bool> a String?
+  final String? existenPlanos;
   final String direccion;
   final double latitud;
   final double longitud;
   final List<String> rutasFotos;
+  final Map<String, String>? imagenesBase64; // Nuevo campo para imágenes base64
 
   UbicacionGeorreferencial({
     required this.existenPlanos,
@@ -306,6 +307,7 @@ class UbicacionGeorreferencial {
     required this.latitud,
     required this.longitud,
     required this.rutasFotos,
+    this.imagenesBase64, // Opcional para mantener compatibilidad con versiones anteriores
   });
 
   Map<String, dynamic> toJson() {
@@ -315,6 +317,7 @@ class UbicacionGeorreferencial {
       'latitud': latitud,
       'longitud': longitud,
       'rutasFotos': rutasFotos,
+      'imagenesBase64': imagenesBase64, // Incluir imágenes base64
     };
   }
 
@@ -324,7 +327,10 @@ class UbicacionGeorreferencial {
       direccion: json['direccion'],
       latitud: json['latitud'],
       longitud: json['longitud'],
-      rutasFotos: List<String>.from(json['rutasFotos']),
+      rutasFotos: List<String>.from(json['rutasFotos'] ?? []),
+      imagenesBase64: json['imagenesBase64'] != null 
+        ? Map<String, String>.from(json['imagenesBase64']) 
+        : null,
     );
   }
 }

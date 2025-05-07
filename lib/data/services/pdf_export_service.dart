@@ -12,14 +12,14 @@ class PdfExportService {
   final FileStorageService _fileService = FileStorageService();
   
   /// Exporta el formato de evaluación a un archivo PDF
-  Future<String> exportarFormatoPDF(FormatoEvaluacion formato) async {
+  Future<String> exportarFormatoPDF(FormatoEvaluacion formato, {Directory? directorio}) async {
     try {
-      // Obtener directorio de documentos
-      final directorio = await _fileService.obtenerDirectorioDocumentos();
+       // Obtener directorio de documentos o usar el proporcionado
+    final directorioFinal = directorio ?? await _fileService.obtenerDirectorioDocumentos();
 
       // Crear nombre de archivo PDF
-      final nombreArchivo = 'Cenapp${formato.id}.pdf';
-      final rutaArchivo = '${directorio.path}/$nombreArchivo';
+    final nombreArchivo = 'Cenapp${formato.id}.pdf';
+    final rutaArchivo = '${directorioFinal.path}/$nombreArchivo';
 
       // Crear documento PDF
       final pdf = pw.Document(

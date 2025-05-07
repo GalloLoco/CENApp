@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import '../logica/formato_evaluacion.dart';
 import '../data/services/documento_service.dart';
+import '../data/services/image_base64_service.dart';
+import '../data/services/image_conversion_service.dart';
 
 class DocumentoGuardadoScreen extends StatefulWidget {
   final FormatoEvaluacion formato;
@@ -65,141 +67,135 @@ class _DocumentoGuardadoScreenState extends State<DocumentoGuardadoScreen> {
     }
   }
 
-  /// Exporta el documento a PDF
-  Future<void> _exportarPDF() async {
+  /// Exporta el documento a PDF y lo guarda en Descargas
+Future<void> _exportarPDF() async {
+  setState(() {
+    _isLoading = true;
+    _errorMessage = null;
+  });
+
+  try {
+    // Mostrar diálogo de progreso
+    _mostrarIndicadorGuardando(context);
+    
+    // Generar el PDF y guardarlo directamente en Descargas
+    final filePath = await _documentoService.exportarPDF(widget.formato);
+    
+    // Cerrar el diálogo de progreso
+    Navigator.of(context, rootNavigator: true).pop();
+
     setState(() {
-      _isLoading = true;
-      _errorMessage = null;
+      _isLoading = false;
     });
 
-    try {
-      // Mostrar mensaje de progreso
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Generando PDF...'),
-          duration: Duration(seconds: 1),
-        ),
-      );
-
-      final filePath = await _documentoService.exportarPDF(widget.formato);
-
-      setState(() {
-        _isLoading = false;
-      });
-
-      // Mostrar mensaje de éxito
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Archivo PDF creado con éxito'),
-          backgroundColor: Colors.green,
-          duration: Duration(seconds: 2),
-        ),
-      );
-
-      // Pequeña pausa para que el usuario vea el mensaje de éxito
-      await Future.delayed(Duration(milliseconds: 1000));
-
-      // Compartir el archivo
-      _compartirArchivo(filePath, 'application/pdf');
-    } catch (e) {
-      setState(() {
-        _errorMessage = 'Error al exportar a PDF: $e';
-        _isLoading = false;
-      });
-
-      // Mostrar mensaje de error
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error al generar PDF: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
+    // Mostrar diálogo con la ruta donde se guardó el archivo
+    _mostrarArchivoPDFGuardado(context, filePath);
+  } catch (e) {
+    // Cerrar el diálogo de progreso si está abierto
+    Navigator.of(context, rootNavigator: true).pop();
+    
+    setState(() {
+      _errorMessage = 'Error al exportar a PDF: $e';
+      _isLoading = false;
+    });
+    
+    // Mostrar error
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Error al generar PDF: $e'),
+        backgroundColor: Colors.red,
+      ),
+    );
   }
+}
+// Método para mostrar dónde se guardó el PDF
+void _mostrarArchivoPDFGuardado(BuildContext context, String rutaArchivo) {
+  showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text('PDF guardado con éxito'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('El PDF se ha guardado en:'),
+          SizedBox(height: 10),
+          Container(
+            padding: EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.grey[200],
+              borderRadius: BorderRadius.circular(4),
+            ),
+            width: double.infinity,
+            child: Text(
+              rutaArchivo,
+              style: TextStyle(fontFamily: 'monospace', fontSize: 12),
+            ),
+          ),
+          SizedBox(height: 15),
+          Text('Ubicación: Carpeta de Descargas', 
+               style: TextStyle(fontWeight: FontWeight.bold)),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text('Aceptar'),
+        ),
+        TextButton(
+          onPressed: () {
+            Navigator.pop(context);
+            _compartirArchivo(rutaArchivo, 'application/pdf');
+          },
+          child: Text('Compartir'),
+        ),
+      ],
+    ),
+  );
+}
 
   /// Exporta el documento a Excel
   Future<void> _exportarExcel() async {
+  setState(() {
+    _isLoading = true;
+    _errorMessage = null;
+  });
+
+  try {
+    // Mostrar diálogo de progreso
+    _mostrarIndicadorGuardando(context);
+    
+    // Generar el Excel y guardarlo directamente en Descargas
+    final filePath = await _documentoService.exportarExcel(widget.formato);
+    
+    // Cerrar el diálogo de progreso
+    Navigator.of(context, rootNavigator: true).pop();
+
     setState(() {
-      _isLoading = true;
-      _errorMessage = null;
+      _isLoading = false;
     });
 
-    try {
-      // Mostrar mensaje de progreso
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-              'Generando Excel... Este proceso puede tardar unos segundos.'),
-          duration: Duration(seconds: 2),
-        ),
-      );
-
-      // Intentar exportar con un tiempo de espera más largo (90 segundos)
-      String filePath;
-      try {
-        filePath = await _documentoService
-            .exportarExcel(widget.formato)
-            .timeout(Duration(seconds: 90));
-      } catch (exportError) {
-        if (exportError is TimeoutException) {
-          throw Exception(
-              'Tiempo de espera agotado. La operación está tomando demasiado tiempo.');
-        }
-        rethrow;
-      }
-
-      setState(() {
-        _isLoading = false;
-      });
-
-      // Mostrar mensaje de éxito
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Archivo Excel creado con éxito'),
-          backgroundColor: Colors.green,
-          duration: Duration(seconds: 2),
-        ),
-      );
-
-      // Pequeña pausa para que el usuario vea el mensaje de éxito
-      await Future.delayed(Duration(milliseconds: 500));
-
-      // Compartir el archivo
-      _compartirArchivo(filePath, 'application/vnd.ms-excel');
-    } catch (e) {
-      setState(() {
-        _errorMessage = 'Error al exportar a Excel: $e';
-        _isLoading = false;
-      });
-
-      // Mostrar mensaje de error específico para timeouts
-      if (e.toString().contains('tiempo')) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-                'La generación del Excel está tomando demasiado tiempo. Se ha simplificado la exportación.'),
-            backgroundColor: Colors.red,
-            duration: Duration(seconds: 4),
-            action: SnackBarAction(
-              label: 'INTENTAR CSV',
-              onPressed: () {
-                _exportarCSV(); // Método alternativo para exportar a CSV
-              },
-            ),
-          ),
-        );
-      } else {
-        // Otros errores
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error al generar Excel: $e'),
-            backgroundColor: Colors.red,
-            duration: Duration(seconds: 3),
-          ),
-        );
-      }
-    }
+    // Mostrar diálogo con la ruta donde se guardó el archivo
+    _mostrarArchivoExcelGuardado(context, filePath);
+  } catch (e) {
+    // Cerrar el diálogo de progreso si está abierto
+    Navigator.of(context, rootNavigator: true).pop();
+    
+    setState(() {
+      _errorMessage = 'Error al exportar a Excel: $e';
+      _isLoading = false;
+    });
+    
+    // Mostrar error
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Error al generar Excel: $e'),
+        backgroundColor: Colors.red,
+        duration: Duration(seconds: 3),
+      ),
+    );
   }
+}
 
   /// Método alternativo para exportar a CSV (más ligero)
   Future<void> _exportarCSV() async {
@@ -252,6 +248,51 @@ class _DocumentoGuardadoScreenState extends State<DocumentoGuardadoScreen> {
       );
     }
   }
+  // Método para mostrar dónde se guardó el Excel
+void _mostrarArchivoExcelGuardado(BuildContext context, String rutaArchivo) {
+  showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text('Excel guardado con éxito'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('El archivo Excel se ha guardado en:'),
+          SizedBox(height: 10),
+          Container(
+            padding: EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.grey[200],
+              borderRadius: BorderRadius.circular(4),
+            ),
+            width: double.infinity,
+            child: Text(
+              rutaArchivo,
+              style: TextStyle(fontFamily: 'monospace', fontSize: 12),
+            ),
+          ),
+          SizedBox(height: 15),
+          Text('Ubicación: Carpeta de Descargas', 
+               style: TextStyle(fontWeight: FontWeight.bold)),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text('Aceptar'),
+        ),
+        TextButton(
+          onPressed: () {
+            Navigator.pop(context);
+            _compartirArchivo(rutaArchivo, 'application/vnd.ms-excel');
+          },
+          child: Text('Compartir'),
+        ),
+      ],
+    ),
+  );
+}
 
   /// Compartir un archivo
   Future<void> _compartirArchivo(String filePath, String mimeType) async {
@@ -293,7 +334,63 @@ class _DocumentoGuardadoScreenState extends State<DocumentoGuardadoScreen> {
     });
 
     try {
+      // Verificar primero si el JSON ya tiene imágenes base64
+      final File jsonFile = File(_jsonFilePath!);
+      final String jsonContent = await jsonFile.readAsString();
+      final formato = FormatoEvaluacion.fromJsonString(jsonContent);
+
+      // Si faltan imágenes base64, añadirlas
+      if (formato.ubicacionGeorreferencial.rutasFotos.isNotEmpty &&
+          (formato.ubicacionGeorreferencial.imagenesBase64 == null ||
+              formato.ubicacionGeorreferencial.imagenesBase64!.isEmpty)) {
+        // Mostrar mensaje
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Preparando imágenes para compartir...'),
+            duration: Duration(seconds: 1),
+          ),
+        );
+
+        try {
+          // Convertir imágenes a base64
+          Map<String, String> imagenesBase64 =
+              await ImageConversionService.imagePathsToBase64Map(
+                  formato.ubicacionGeorreferencial.rutasFotos);
+
+          // Crear nueva ubicación con imágenes base64
+          UbicacionGeorreferencial ubicacionConBase64 =
+              UbicacionGeorreferencial(
+            existenPlanos: formato.ubicacionGeorreferencial.existenPlanos,
+            direccion: formato.ubicacionGeorreferencial.direccion,
+            latitud: formato.ubicacionGeorreferencial.latitud,
+            longitud: formato.ubicacionGeorreferencial.longitud,
+            rutasFotos: formato.ubicacionGeorreferencial.rutasFotos,
+            imagenesBase64: imagenesBase64,
+          );
+
+          // Actualizar el formato
+          final formatoActualizado = FormatoEvaluacion(
+            id: formato.id,
+            fechaCreacion: formato.fechaCreacion,
+            fechaModificacion: formato.fechaModificacion,
+            usuarioCreador: formato.usuarioCreador,
+            informacionGeneral: formato.informacionGeneral,
+            sistemaEstructural: formato.sistemaEstructural,
+            evaluacionDanos: formato.evaluacionDanos,
+            ubicacionGeorreferencial: ubicacionConBase64,
+          );
+
+          // Guardar el formato actualizado
+          await jsonFile.writeAsString(formatoActualizado.toJsonString());
+        } catch (e) {
+          print("Error al preparar imágenes base64 para compartir: $e");
+          // Continuar compartiendo aunque falle la conversión
+        }
+      }
+
+      // Compartir el archivo
       await _compartirArchivo(_jsonFilePath!, 'application/json');
+
       setState(() {
         _isLoading = false;
       });
@@ -302,130 +399,136 @@ class _DocumentoGuardadoScreenState extends State<DocumentoGuardadoScreen> {
         _errorMessage = 'Error al compartir: $e';
         _isLoading = false;
       });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error al compartir: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
-  /// Función para guardar en descargas y finalizar
-Future<void> _guardarEnDescargasYFinalizar() async {
-  setState(() {
-    _isLoading = true;
-    _errorMessage = null;
-  });
 
-  try {
-    // Mostrar diálogo de progreso
-    _mostrarIndicadorGuardando(context);
-    
-    // Crear una copia en la carpeta de descargas
-    final directorioDescargas = await _documentoService.fileService.obtenerDirectorioDescargas();
-    final nombreArchivo = 'Cenapp${widget.formato.id}.json';
-    
-    // Convertir el formato a JSON
-    final jsonData = widget.formato.toJsonString();
-    
-    // Guardar archivo en descargas
-   final rutaArchivo = await _documentoService.fileService.guardarArchivo(
-      nombreArchivo, 
-      jsonData, 
-      directorio: directorioDescargas
-    );
-
-    // Cerrar el diálogo de progreso
-    Navigator.of(context, rootNavigator: true).pop();
-
+  /// Función para guardar en descargas sin finalizar
+  Future<void> _guardarEnDescargas() async {
     setState(() {
-      _isLoading = false;
+      _isLoading = true;
+      _errorMessage = null;
     });
 
-    // Mostrar mensaje con la ruta
-    _mostrarRutaGuardado(context, rutaArchivo);
-  } catch (e) {
-    // Cerrar el diálogo de progreso si está abierto
-    Navigator.of(context, rootNavigator: true).pop();
-    
-    setState(() {
-      _errorMessage = 'Error al guardar en Descargas: $e';
-      _isLoading = false;
-    });
-    
-    // Mostrar error
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Error al guardar: $e'),
-        backgroundColor: Colors.red,
-        duration: Duration(seconds: 3),
+    try {
+      // Mostrar diálogo de progreso
+      _mostrarIndicadorGuardando(context);
+
+      // Crear una copia en la carpeta de descargas
+      final directorioDescargas =
+          await _documentoService.fileService.obtenerDirectorioDescargas();
+      final nombreArchivo = 'Cenapp${widget.formato.id}.json';
+
+      // Convertir el formato a JSON
+      final jsonData = widget.formato.toJsonString();
+
+      // Guardar archivo en descargas
+      final rutaArchivo = await _documentoService.fileService.guardarArchivo(
+          nombreArchivo, jsonData,
+          directorio: directorioDescargas);
+
+      // Cerrar el diálogo de progreso
+      Navigator.of(context, rootNavigator: true).pop();
+
+      setState(() {
+        _isLoading = false;
+      });
+
+      // Mostrar mensaje con la ruta, pero sin navegación posterior
+      _mostrarRutaGuardado(context, rutaArchivo);
+    } catch (e) {
+      // Cerrar el diálogo de progreso si está abierto
+      Navigator.of(context, rootNavigator: true).pop();
+
+      setState(() {
+        _errorMessage = 'Error al guardar en Descargas: $e';
+        _isLoading = false;
+      });
+
+      // Mostrar error
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error al guardar: $e'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+
+// Mostrar un indicador de progreso mientras se guarda en descargas
+  void _mostrarIndicadorGuardando(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => Dialog(
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 15),
+              Text('Guardando en Descargas...'),
+              SizedBox(height: 10),
+              Text(
+                'No cierre la aplicación',
+                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
-}
-// Mostrar un indicador de progreso mientras se guarda en descargas
-void _mostrarIndicadorGuardando(BuildContext context) {
-  showDialog(
-    context: context,
-    barrierDismissible: false,
-    builder: (context) => Dialog(
-      child: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            CircularProgressIndicator(),
-            SizedBox(height: 15),
-            Text('Guardando en Descargas...'),
-            SizedBox(height: 10),
-            Text(
-              'No cierre la aplicación',
-              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-            ),
-          ],
-        ),
-      ),
-    ),
-  );
-}
 
 // Método mejorado para mostrar la ruta de guardado
-void _mostrarRutaGuardado(BuildContext context, String rutaArchivo) {
-  showDialog(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: Text('Archivo guardado con éxito'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('El documento se ha guardado en:'),
-          SizedBox(height: 10),
-          Container(
-            padding: EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.grey[200],
-              borderRadius: BorderRadius.circular(4),
+  void _mostrarRutaGuardado(BuildContext context, String rutaArchivo) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Archivo guardado con éxito'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('El documento se ha guardado en:'),
+            SizedBox(height: 10),
+            Container(
+              padding: EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.grey[200],
+                borderRadius: BorderRadius.circular(4),
+              ),
+              width: double.infinity,
+              child: Text(
+                rutaArchivo,
+                style: TextStyle(fontFamily: 'monospace', fontSize: 12),
+              ),
             ),
-            width: double.infinity,
-            child: Text(
-              rutaArchivo,
-              style: TextStyle(fontFamily: 'monospace', fontSize: 12),
-            ),
+            SizedBox(height: 15),
+            Text('Ubicación: Carpeta de Descargas',
+                style: TextStyle(fontWeight: FontWeight.bold)),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(
+                  context); // Solo cierra el diálogo, no navega a pantallas anteriores
+            },
+            child: Text('Aceptar'),
           ),
-          SizedBox(height: 15),
-          Text('Ubicación: Carpeta de Descargas', 
-               style: TextStyle(fontWeight: FontWeight.bold)),
         ],
       ),
-      actions: [
-        TextButton(
-          onPressed: () {
-            Navigator.pop(context);
-            // Continuar con la navegación de regreso
-            Navigator.pop(context); // Regresar a NuevoFormatoScreen
-            Navigator.pop(context); // Regresar a HomeScreen
-          },
-          child: Text('Aceptar'),
-        ),
-      ],
-    ),
-  );
-}
+    );
+  }
 
   /// Función para mostrar un mensaje de confirmación antes de regresar
   void _mostrarConfirmacionRegreso(BuildContext context) {
@@ -626,8 +729,8 @@ void _mostrarRutaGuardado(BuildContext context, String rutaArchivo) {
           SizedBox(height: 20),
           _buildExportButton(
             Icons.save_alt,
-            'Guardar y Finalizar',
-            _guardarEnDescargasYFinalizar,
+            'Guardar JSON',
+            _guardarEnDescargas,
             Colors.teal,
           ),
         ],

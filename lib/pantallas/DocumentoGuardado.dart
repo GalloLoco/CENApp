@@ -1,5 +1,6 @@
 import 'dart:async';
-//import 'dart:io';
+import 'dart:io';
+import 'package:flutter/foundation.dart'; // Para compute
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import '../logica/formato_evaluacion.dart';
@@ -303,6 +304,128 @@ class _DocumentoGuardadoScreenState extends State<DocumentoGuardadoScreen> {
       });
     }
   }
+  /// Función para guardar en descargas y finalizar
+Future<void> _guardarEnDescargasYFinalizar() async {
+  setState(() {
+    _isLoading = true;
+    _errorMessage = null;
+  });
+
+  try {
+    // Mostrar diálogo de progreso
+    _mostrarIndicadorGuardando(context);
+    
+    // Crear una copia en la carpeta de descargas
+    final directorioDescargas = await _documentoService.fileService.obtenerDirectorioDescargas();
+    final nombreArchivo = 'Cenapp${widget.formato.id}.json';
+    
+    // Convertir el formato a JSON
+    final jsonData = widget.formato.toJsonString();
+    
+    // Guardar archivo en descargas
+   final rutaArchivo = await _documentoService.fileService.guardarArchivo(
+      nombreArchivo, 
+      jsonData, 
+      directorio: directorioDescargas
+    );
+
+    // Cerrar el diálogo de progreso
+    Navigator.of(context, rootNavigator: true).pop();
+
+    setState(() {
+      _isLoading = false;
+    });
+
+    // Mostrar mensaje con la ruta
+    _mostrarRutaGuardado(context, rutaArchivo);
+  } catch (e) {
+    // Cerrar el diálogo de progreso si está abierto
+    Navigator.of(context, rootNavigator: true).pop();
+    
+    setState(() {
+      _errorMessage = 'Error al guardar en Descargas: $e';
+      _isLoading = false;
+    });
+    
+    // Mostrar error
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Error al guardar: $e'),
+        backgroundColor: Colors.red,
+        duration: Duration(seconds: 3),
+      ),
+    );
+  }
+}
+// Mostrar un indicador de progreso mientras se guarda en descargas
+void _mostrarIndicadorGuardando(BuildContext context) {
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (context) => Dialog(
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 15),
+            Text('Guardando en Descargas...'),
+            SizedBox(height: 10),
+            Text(
+              'No cierre la aplicación',
+              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+// Método mejorado para mostrar la ruta de guardado
+void _mostrarRutaGuardado(BuildContext context, String rutaArchivo) {
+  showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text('Archivo guardado con éxito'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('El documento se ha guardado en:'),
+          SizedBox(height: 10),
+          Container(
+            padding: EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.grey[200],
+              borderRadius: BorderRadius.circular(4),
+            ),
+            width: double.infinity,
+            child: Text(
+              rutaArchivo,
+              style: TextStyle(fontFamily: 'monospace', fontSize: 12),
+            ),
+          ),
+          SizedBox(height: 15),
+          Text('Ubicación: Carpeta de Descargas', 
+               style: TextStyle(fontWeight: FontWeight.bold)),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () {
+            Navigator.pop(context);
+            // Continuar con la navegación de regreso
+            Navigator.pop(context); // Regresar a NuevoFormatoScreen
+            Navigator.pop(context); // Regresar a HomeScreen
+          },
+          child: Text('Aceptar'),
+        ),
+      ],
+    ),
+  );
+}
 
   /// Función para mostrar un mensaje de confirmación antes de regresar
   void _mostrarConfirmacionRegreso(BuildContext context) {
@@ -504,20 +627,7 @@ class _DocumentoGuardadoScreenState extends State<DocumentoGuardadoScreen> {
           _buildExportButton(
             Icons.save_alt,
             'Guardar y Finalizar',
-            () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Documento guardado y finalizado'),
-                  backgroundColor: Colors.green,
-                ),
-              );
-
-              // Esperar un momento y luego regresar a la pantalla de inicio
-              Future.delayed(Duration(seconds: 1), () {
-                Navigator.pop(context); // Regresar a NuevoFormatoScreen
-                Navigator.pop(context); // Regresar a HomeScreen
-              });
-            },
+            _guardarEnDescargasYFinalizar,
             Colors.teal,
           ),
         ],

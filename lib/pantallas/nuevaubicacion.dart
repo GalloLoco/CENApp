@@ -10,8 +10,13 @@ import 'package:image/image.dart' as img;
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
+import '../logica/formato_evaluacion.dart';
 
 class UbicacionGeorreferencialScreen extends StatefulWidget {
+  final UbicacionGeorreferencial? ubicacionExistente;
+  
+  UbicacionGeorreferencialScreen({this.ubicacionExistente});
+
   @override
   _UbicacionGeorreferencialScreenState createState() =>
       _UbicacionGeorreferencialScreenState();
@@ -39,7 +44,23 @@ class _UbicacionGeorreferencialScreenState
   @override
   void initState() {
     super.initState();
-    _checkPermisos();
+    
+    // Cargar datos existentes si los hay
+    if (widget.ubicacionExistente != null) {
+      selectedPlano = widget.ubicacionExistente!.existenPlanos;
+      direccionController.text = widget.ubicacionExistente!.direccion;
+      posicionActual = LatLng(
+        widget.ubicacionExistente!.latitud,
+        widget.ubicacionExistente!.longitud
+      );
+      
+      // Cargar imágenes existentes
+      imagenesAdjuntas = List.from(widget.ubicacionExistente!.rutasFotos);
+      
+      // No solicitamos permisos inmediatamente si ya tenemos una ubicación
+    } else {
+      _checkPermisos();
+    }
   }
 
   // Verificar y solicitar permisos
@@ -297,7 +318,7 @@ class _UbicacionGeorreferencialScreenState
   }
 
   /// Construir sección de fotografías
-  Widget _buildSeccionFotografias() {
+    Widget _buildSeccionFotografias() {
     return Column(
       children: [
         Divider(),
@@ -309,7 +330,7 @@ class _UbicacionGeorreferencialScreenState
         ),
         SizedBox(height: 10),
 
-        // Mostrar fotos adjuntas
+        // Mostrar fotos adjuntas con mejores controles
         if (imagenesAdjuntas.isNotEmpty)
           Container(
             height: 120,
@@ -318,22 +339,41 @@ class _UbicacionGeorreferencialScreenState
               scrollDirection: Axis.horizontal,
               itemCount: imagenesAdjuntas.length,
               itemBuilder: (context, index) {
+                final imagePath = imagenesAdjuntas[index];
+                final File imageFile = File(imagePath);
+                
                 return Padding(
                   padding: const EdgeInsets.only(right: 8.0),
                   child: Stack(
                     children: [
-                      Container(
-                        width: 120,
-                        height: 120,
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: Image.file(
-                            File(imagenesAdjuntas[index]),
-                            fit: BoxFit.cover,
+                      GestureDetector(
+                        onTap: () => _verImagenCompleta(imagePath),
+                        child: Container(
+                          width: 120,
+                          height: 120,
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.grey),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: imageFile.existsSync() 
+                              ? Image.file(
+                                  imageFile,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return Container(
+                                      color: Colors.grey[300],
+                                      child: Icon(Icons.broken_image, size: 32),
+                                      alignment: Alignment.center,
+                                    );
+                                  },
+                                )
+                              : Container(
+                                  color: Colors.grey[300],
+                                  child: Icon(Icons.broken_image, size: 32),
+                                  alignment: Alignment.center,
+                                ),
                           ),
                         ),
                       ),
@@ -413,6 +453,44 @@ class _UbicacionGeorreferencialScreenState
             ),
           ),
       ],
+    );
+  }
+
+
+  // Función para ver imagen completa
+  void _verImagenCompleta(String imagePath) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => Scaffold(
+          appBar: AppBar(
+            backgroundColor: Colors.black,
+            iconTheme: IconThemeData(color: Colors.white),
+            title: Text('Previsualización', style: TextStyle(color: Colors.white)),
+          ),
+          backgroundColor: Colors.black,
+          body: Center(
+            child: InteractiveViewer(
+              panEnabled: true,
+              boundaryMargin: EdgeInsets.all(80),
+              minScale: 0.5,
+              maxScale: 3.0,
+              child: Image.file(
+                File(imagePath),
+                errorBuilder: (context, error, stackTrace) {
+                  return Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.broken_image, size: 64, color: Colors.white70),
+                      SizedBox(height: 16),
+                      Text('No se pudo cargar la imagen', style: TextStyle(color: Colors.white70)),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 

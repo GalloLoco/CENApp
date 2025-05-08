@@ -8,12 +8,18 @@ import 'package:image/image.dart' as img;
 
 /// Servicio para convertir imágenes entre formato de archivo y base64
 class ImageBase64Service {
-  /// Convierte una imagen de archivo a cadena base64
+  /// Convierte una imagen de archivo a cadena base64 de manera optimizada
   static Future<String> imageToBase64(String imagePath) async {
     try {
       final File file = File(imagePath);
       if (!await file.exists()) {
         throw Exception('El archivo de imagen no existe: $imagePath');
+      }
+      
+      // Comprobar el tamaño antes de procesar
+      final fileSize = await file.length();
+      if (fileSize > 10 * 1024 * 1024) { // Si es mayor a 10MB
+        throw Exception('La imagen es demasiado grande para convertir a base64');
       }
       
       // Leer bytes del archivo
@@ -27,16 +33,16 @@ class ImageBase64Service {
       
       // Redimensionar si es demasiado grande (reduce sustancialmente el tamaño)
       img.Image resizedImage = decodedImage;
-      if (decodedImage.width > 1000 || decodedImage.height > 1000) {
+      if (decodedImage.width > 800 || decodedImage.height > 800) {
         resizedImage = img.copyResize(
           decodedImage,
-          width: decodedImage.width > 1000 ? 1000 : decodedImage.width,
-          height: (decodedImage.height * (decodedImage.width > 1000 ? 1000 / decodedImage.width : 1)).toInt(),
+          width: decodedImage.width > 800 ? 800 : decodedImage.width,
+          height: (decodedImage.height * (decodedImage.width > 800 ? 800 / decodedImage.width : 1)).toInt(),
         );
       }
       
-      // Comprimir al 80% de calidad
-      final compressedBytes = img.encodeJpg(resizedImage, quality: 80);
+      // Comprimir al 70% de calidad
+      final compressedBytes = img.encodeJpg(resizedImage, quality: 70);
       
       // Convertir bytes a base64
       final String base64String = base64Encode(compressedBytes);
@@ -48,7 +54,7 @@ class ImageBase64Service {
     }
   }
 
-  /// Convierte una cadena base64 a un archivo de imagen y devuelve la ruta
+  /// Convierte una cadena base64 a un archivo de imagen y devuelve la ruta - versión optimizada
   static Future<String> base64ToImage(String base64String, {String? customFilename}) async {
     try {
       // Decodificar base64 a bytes
@@ -64,9 +70,9 @@ class ImageBase64Service {
       final String fileName = customFilename ?? 'img_$timestamp.jpg';
       final String filePath = '$dirPath/$fileName';
       
-      // Escribir bytes al archivo
+      // Escribir bytes al archivo de manera optimizada
       final File file = File(filePath);
-      await file.writeAsBytes(bytes);
+      await file.writeAsBytes(bytes, flush: true);
       
       return filePath;
     } catch (e) {
@@ -75,40 +81,52 @@ class ImageBase64Service {
     }
   }
   
-  /// Convierte un conjunto de rutas de imágenes a un mapa de base64
+  /// Convierte un conjunto de rutas de imágenes a un mapa de base64 - versión optimizada
   static Future<Map<String, String>> imagesToBase64Map(List<String> imagePaths) async {
     Map<String, String> base64Map = {};
+    List<Exception> errores = [];
     
-    try {
-      for (int i = 0; i < imagePaths.length; i++) {
+    for (int i = 0; i < imagePaths.length; i++) {
+      try {
         final String imagePath = imagePaths[i];
         final String fileName = path.basename(imagePath);
         final String base64String = await imageToBase64(imagePath);
         
         base64Map[fileName] = base64String;
+      } catch (e) {
+        // Acumular errores pero seguir procesando las demás imágenes
+        errores.add(Exception('Error en imagen ${i+1}: $e'));
       }
-      
-      return base64Map;
-    } catch (e) {
-      print('Error al convertir imágenes a mapa base64: $e');
-      throw Exception('Error al convertir imágenes a mapa base64: $e');
     }
+    
+    // Si hubo errores pero se procesaron algunas imágenes, continuar
+    if (errores.isNotEmpty && base64Map.isEmpty) {
+      throw Exception('No se pudo convertir ninguna imagen: ${errores.first}');
+    }
+    
+    return base64Map;
   }
   
-  /// Convierte un mapa de base64 a archivos de imagen y devuelve sus rutas
+  /// Convierte un mapa de base64 a archivos de imagen y devuelve sus rutas - versión optimizada
   static Future<List<String>> base64MapToImages(Map<String, String> base64Map) async {
     List<String> imagePaths = [];
+    List<Exception> errores = [];
     
-    try {
-      for (var entry in base64Map.entries) {
+    for (var entry in base64Map.entries) {
+      try {
         final String filePath = await base64ToImage(entry.value, customFilename: entry.key);
         imagePaths.add(filePath);
+      } catch (e) {
+        // Acumular errores pero seguir procesando las demás imágenes
+        errores.add(Exception('Error al procesar una imagen: $e'));
       }
-      
-      return imagePaths;
-    } catch (e) {
-      print('Error al convertir mapa base64 a imágenes: $e');
-      throw Exception('Error al convertir mapa base64 a imágenes: $e');
     }
+    
+    // Si hubo errores pero se procesaron algunas imágenes, continuar
+    if (errores.isNotEmpty && imagePaths.isEmpty) {
+      throw Exception('No se pudo convertir ninguna imagen: ${errores.first}');
+    }
+    
+    return imagePaths;
   }
 }

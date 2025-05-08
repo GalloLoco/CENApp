@@ -33,6 +33,12 @@ class _NuevoFormatoScreenState extends State<NuevoFormatoScreen> {
   DateTime? fechaCreacion;
   String? usuarioCreador;
 
+  // Modo de edición vs. creación
+  bool esModoEdicion = false;
+
+  // Clave global para el Scaffold (para mostrar SnackBars)
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+
   @override
   void initState() {
     super.initState();
@@ -40,10 +46,23 @@ class _NuevoFormatoScreenState extends State<NuevoFormatoScreen> {
     // Si hay un formato existente, cargar sus datos
     if (widget.formatoExistente != null) {
       _cargarFormatoExistente(widget.formatoExistente!);
+      esModoEdicion = true;
+
+      // Notificar al usuario que está editando un formato existente
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                'Editando formato existente: ${widget.formatoExistente!.id}'),
+            backgroundColor: Colors.blue,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      });
     }
   }
 
-  /// Carga los datos de un formato existente
+  /// Carga los datos de un formato existente de manera optimizada
   void _cargarFormatoExistente(FormatoEvaluacion formato) {
     setState(() {
       // Cargar los datos de cada sección
@@ -65,53 +84,61 @@ class _NuevoFormatoScreenState extends State<NuevoFormatoScreen> {
     });
   }
 
-  // Método para validar y continuar (modificado)
+  // Método para validar y continuar
   Future<void> _validarYContinuar() async {
-    if (informacionGeneralCompletado &&
-        sistemaEstructuralCompletado &&
-        evaluacionDanosCompletado &&
-        ubicacionGeorreferencialCompletado) {
-      try {
-        // Crear el formato de evaluación completo
-        final formato = FormatoEvaluacion(
-          informacionGeneral: informacionGeneral!,
-          sistemaEstructural: sistemaEstructural!,
-          evaluacionDanos: evaluacionDanos!,
-          ubicacionGeorreferencial: ubicacionGeorreferencial!,
-          id: formatoId ??
-              _generarId(), // Usar el ID original si existe, o generar uno nuevo
-          fechaCreacion: fechaCreacion ??
-              DateTime.now(), // Mantener fecha de creación original
-          fechaModificacion: DateTime.now(), // Actualizar fecha de modificación
-          usuarioCreador:
-              usuarioCreador ?? "Joel", // Mantener usuario creador original
-        );
+    if (!_validarDatosFormato()) {
+      return; // Si la validación falla, no continuar
+    }
 
-        // Mostrar indicador de carga
-        _mostrarCargando(context, 'Preparando formato...');
+    try {
+      // Mostrar indicador de carga
+      _mostrarCargando(context, 'Preparando formato...');
 
-        // Simular un breve proceso
-        await Future.delayed(const Duration(milliseconds: 500));
+      // Crear el formato de evaluación completo
+      final formato = FormatoEvaluacion(
+        informacionGeneral: informacionGeneral!,
+        sistemaEstructural: sistemaEstructural!,
+        evaluacionDanos: evaluacionDanos!,
+        ubicacionGeorreferencial: ubicacionGeorreferencial!,
+        id: formatoId ??
+            _generarId(), // Usar el ID original si existe, o generar uno nuevo
+        fechaCreacion: fechaCreacion ??
+            DateTime.now(), // Mantener fecha de creación original
+        fechaModificacion: DateTime.now(), // Actualizar fecha de modificación
+        usuarioCreador:
+            usuarioCreador ?? "Joel", // Mantener usuario creador original
+      );
 
-        // Cerrar el indicador de carga
-        Navigator.pop(context);
+      // Breve retraso para mostrar el indicador
+      await Future.delayed(const Duration(milliseconds: 500));
 
-        // Navegar a la pantalla de documento guardado
-        await Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => DocumentoGuardadoScreen(formato: formato),
-          ),
-        );
-      } catch (e) {
-        // Cerrar indicador de carga si está activo
-        Navigator.of(context, rootNavigator: true).pop();
+      // Cerrar el indicador de carga
+      Navigator.pop(context);
 
-        // Mostrar error
-        _mostrarError('Error al generar formato: $e');
-      }
-    } else {
-      // Mostrar mensaje detallado de las secciones que faltan
+      // Navegar a la pantalla de documento guardado
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => DocumentoGuardadoScreen(formato: formato),
+        ),
+      );
+    } catch (e) {
+      // Cerrar indicador de carga si está activo
+      Navigator.of(context, rootNavigator: true).pop();
+
+      // Mostrar error
+      _mostrarError('Error al generar formato: $e');
+    }
+  }
+
+  /// Valida que todos los datos del formato estén correctos
+  bool _validarDatosFormato() {
+    // Verificar que todos los apartados estén completados
+    if (!informacionGeneralCompletado ||
+        !sistemaEstructuralCompletado ||
+        !evaluacionDanosCompletado ||
+        !ubicacionGeorreferencialCompletado) {
+      // Preparar mensaje detallado
       String mensaje = 'Faltan completar los siguientes apartados:';
       if (!informacionGeneralCompletado) mensaje += '\n- Información general';
       if (!sistemaEstructuralCompletado) mensaje += '\n- Sistema estructural';
@@ -120,7 +147,25 @@ class _NuevoFormatoScreenState extends State<NuevoFormatoScreen> {
         mensaje += '\n- Ubicación georreferencial';
 
       _mostrarAlerta('Faltan apartados', mensaje);
+      return false;
     }
+
+    // Verificaciones adicionales por sección
+    // Información general
+    if (informacionGeneral?.nombreInmueble.isEmpty ?? true) {
+      _mostrarAlerta(
+          'Información General', 'El nombre del inmueble es obligatorio');
+      return false;
+    }
+
+    // Verificar que haya al menos una foto en ubicación
+    if (ubicacionGeorreferencial?.rutasFotos.isEmpty ?? true) {
+      _mostrarAlerta('Ubicación Georreferencial',
+          'Se requiere al menos una fotografía del inmueble');
+      return false;
+    }
+
+    return true;
   }
 
   // Genera un ID único para el formato
@@ -137,10 +182,16 @@ class _NuevoFormatoScreenState extends State<NuevoFormatoScreen> {
         return AlertDialog(
           title: Text(titulo),
           content: Text(mensaje),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
               child: Text('OK'),
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.blue,
+              ),
             ),
           ],
         );
@@ -156,10 +207,16 @@ class _NuevoFormatoScreenState extends State<NuevoFormatoScreen> {
         return AlertDialog(
           title: Text('Error'),
           content: Text(mensaje),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
               child: Text('OK'),
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.red,
+              ),
             ),
           ],
         );
@@ -190,20 +247,87 @@ class _NuevoFormatoScreenState extends State<NuevoFormatoScreen> {
     );
   }
 
+  // Función para mostrar un mensaje de confirmación antes de regresar
+  void _mostrarConfirmacionRegreso(BuildContext context) {
+    // Verificar si hay cambios no guardados
+    bool tieneModificaciones = false;
+
+    // Si estamos en modo edición y alguna sección ha sido completada, podría haber cambios
+    if (esModoEdicion) {
+      if (informacionGeneralCompletado ||
+          sistemaEstructuralCompletado ||
+          evaluacionDanosCompletado ||
+          ubicacionGeorreferencialCompletado) {
+        tieneModificaciones = true;
+      }
+    } else {
+      // Si no estamos en modo edición, cualquier sección completada representa cambios
+      if (informacionGeneralCompletado ||
+          sistemaEstructuralCompletado ||
+          evaluacionDanosCompletado ||
+          ubicacionGeorreferencialCompletado) {
+        tieneModificaciones = true;
+      }
+    }
+
+    // Si hay modificaciones, mostrar diálogo de confirmación
+    if (tieneModificaciones) {
+      showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: Text('¿Descartar cambios?'),
+            content: Text(
+                'Hay cambios no guardados. Si regresas, se perderán todos los cambios.'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text('Cancelar'),
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.blue,
+                ),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context); // Cerrar el diálogo
+                  Navigator.pop(context); // Regresar a la pantalla anterior
+                },
+                child: Text('Descartar'),
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.red,
+                ),
+              ),
+            ],
+          );
+        },
+      );
+    } else {
+      // Si no hay cambios, simplemente regresar
+      Navigator.pop(context);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      key: _scaffoldKey,
+      backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => _mostrarConfirmacionRegreso(context),
+        ),
+        title: Text(
+          esModoEdicion ? 'Editar Formato' : 'Nuevo Formato',
+          style: TextStyle(color: Colors.black),
         ),
         actions: [
           IconButton(
             icon: Icon(Icons.checklist, color: Colors.black),
             onPressed: _validarYContinuar,
+            tooltip: 'Guardar y continuar',
           ),
         ],
       ),
@@ -215,15 +339,31 @@ class _NuevoFormatoScreenState extends State<NuevoFormatoScreen> {
             SizedBox(height: 10),
             Text(
               'Categorias:',
-              style: TextStyle(fontSize: 48, fontWeight: FontWeight.bold),
+              style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
             ),
             SizedBox(height: 15),
             Text(
-              'Rellene correctamente cada apartado',
+              esModoEdicion
+                  ? 'Revise y modifique los apartados según sea necesario'
+                  : 'Rellene correctamente cada apartado',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 18, color: Colors.black54),
+              style: TextStyle(fontSize: 16, color: Colors.black54),
             ),
-            SizedBox(height: 100),
+            if (esModoEdicion) ...[
+              SizedBox(height: 8),
+              Text(
+                'ID: $formatoId',
+                style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.blue[700],
+                    fontWeight: FontWeight.w500),
+              ),
+              Text(
+                'Creado: ${_formatearFecha(fechaCreacion ?? DateTime.now())}',
+                style: TextStyle(fontSize: 14, color: Colors.blue[700]),
+              ),
+            ],
+            SizedBox(height: 40),
             _buildButton(
               context,
               'Información general del inmueble',
@@ -233,7 +373,9 @@ class _NuevoFormatoScreenState extends State<NuevoFormatoScreen> {
                 final resultado = await Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => InformacionGeneralScreen(),
+                    builder: (context) => InformacionGeneralScreen(
+                      informacionExistente: informacionGeneral,
+                    ),
                   ),
                 );
 
@@ -249,7 +391,7 @@ class _NuevoFormatoScreenState extends State<NuevoFormatoScreen> {
                 }
               },
             ),
-            SizedBox(height: 40),
+            SizedBox(height: 20),
             _buildButton(
               context,
               'Sistema Estructural',
@@ -275,7 +417,7 @@ class _NuevoFormatoScreenState extends State<NuevoFormatoScreen> {
                 }
               },
             ),
-            SizedBox(height: 40),
+            SizedBox(height: 20),
             _buildButton(
               context,
               'Evaluación de daños',
@@ -284,7 +426,9 @@ class _NuevoFormatoScreenState extends State<NuevoFormatoScreen> {
                 final resultado = await Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => EvaluacionDanosScreen(),
+                    builder: (context) => EvaluacionDanosScreen(
+                      evaluacionExistente: evaluacionDanos,
+                    ),
                   ),
                 );
 
@@ -300,7 +444,7 @@ class _NuevoFormatoScreenState extends State<NuevoFormatoScreen> {
                 }
               },
             ),
-            SizedBox(height: 40),
+            SizedBox(height: 20),
             _buildButton(
               context,
               'Ubicación georreferencial',
@@ -309,7 +453,9 @@ class _NuevoFormatoScreenState extends State<NuevoFormatoScreen> {
                 final resultado = await Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => UbicacionGeorreferencialScreen(),
+                    builder: (context) => UbicacionGeorreferencialScreen(
+                      ubicacionExistente: ubicacionGeorreferencial,
+                    ),
                   ),
                 );
 
@@ -327,12 +473,41 @@ class _NuevoFormatoScreenState extends State<NuevoFormatoScreen> {
                         latitud: datos['latitud'],
                         longitud: datos['longitud'],
                         rutasFotos: List<String>.from(datos['rutasFotos']),
+                        imagenesBase64: datos['imagenesBase64'] != null
+                            ? Map<String, String>.from(datos['imagenesBase64'])
+                            : null,
                       );
                     });
                   }
                 }
               },
             ),
+
+            // Información sobre modo edición/creación
+            Spacer(),
+            if (esModoEdicion)
+              Container(
+                padding: EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.blue[50],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.blue[200]!),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.info_outline, color: Colors.blue[700], size: 20),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Estás editando un formato existente. Completa todos los apartados y presiona el botón de verificación para guardar los cambios.',
+                        style: TextStyle(color: Colors.blue[700], fontSize: 12),
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            else
+              SizedBox(height: 20), // Espaciador para modo creación
           ],
         ),
       ),
@@ -351,6 +526,7 @@ class _NuevoFormatoScreenState extends State<NuevoFormatoScreen> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10),
           ),
+          elevation: 3,
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -359,16 +535,24 @@ class _NuevoFormatoScreenState extends State<NuevoFormatoScreen> {
               child: Text(
                 text,
                 style: TextStyle(
-                  fontSize: 18,
-                  color: Colors.black,
+                  fontSize: 16,
+                  color: completado ? Colors.white : Colors.black87,
                   fontWeight: FontWeight.bold,
                 ),
               ),
             ),
-            if (completado) Icon(Icons.check_circle, color: Colors.white)
+            if (completado)
+              Icon(Icons.check_circle, color: Colors.white)
+            else
+              Icon(Icons.arrow_forward_ios, color: Colors.black54, size: 18),
           ],
         ),
       ),
     );
+  }
+
+  // Formatea una fecha para mostrarla en formato DD/MM/YYYY
+  String _formatearFecha(DateTime fecha) {
+    return '${fecha.day.toString().padLeft(2, '0')}/${fecha.month.toString().padLeft(2, '0')}/${fecha.year}';
   }
 }

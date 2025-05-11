@@ -5,7 +5,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:file_picker/file_picker.dart';
 import '../logica/formato_evaluacion.dart';
 import 'package:flutter/material.dart';
-import '../data/utils/permisos_modernos.dart';
+import 'dart:convert';
 
 class FileService {
   /// Verificar y solicitar permisos adaptados a Android moderno
@@ -206,79 +206,102 @@ class FileService {
     }
   }
 
-  /// Selecciona y carga un archivo JSON de manera optimizada
-  /// Selecciona y carga un archivo JSON con manejo mejorado de permisos
   /// Selecciona y carga un archivo JSON con manejo mejorado de permisos
   static Future<FormatoEvaluacion?> seleccionarYCargarFormato(
       BuildContext context) async {
+    print("📂 SERVICIO: Iniciando seleccionarYCargarFormato...");
+
     try {
-      // Verificar permisos primero usando el enfoque moderno
+      // Verificar permisos primero
+      print("📂 SERVICIO: Verificando permisos...");
       bool tienePermiso = await _solicitarPermisosModernos(context);
       if (!tienePermiso) {
-        throw Exception(
-            'Permisos de almacenamiento denegados. Para continuar, por favor otorga permisos de almacenamiento en la configuración.');
+        print("❌ SERVICIO: Permisos de almacenamiento denegados");
+        throw Exception('Permisos de almacenamiento denegados');
       }
+      print("✅ SERVICIO: Permisos verificados");
 
-      // Usar FilePicker con configuración optimizada para archivos JSON
+      // Configuración para FilePicker
+      print("📂 SERVICIO: Mostrando selector de archivos...");
       FilePickerResult? result = await FilePicker.platform
           .pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['json'],
+        type: FileType.any, // Ver todos los archivos
         allowMultiple: false,
         lockParentWindow: true,
-        dialogTitle: 'Seleccionar formato de evaluación',
-        // Añadir parámetros adicionales para mejor detección
-        withData: true, // Cargar datos directamente
-        allowCompression: false, // No comprimir los datos
+        dialogTitle: 'Seleccionar archivo JSON',
+        withData: true,
       )
           .catchError((error) {
-        // Manejar errores de FilePicker
-        print('Error en FilePicker: $error');
-        return null; // Regresar null si hay error sin crashear
+        print("❌ SERVICIO: Error en FilePicker: $error");
+        return null;
       });
 
-      // Usuario canceló la selección o hubo un error
-      if (result == null || result.files.isEmpty) {
+      // Verificar si el usuario seleccionó un archivo
+      if (result == null) {
+        print("⚠️ SERVICIO: Selección cancelada (result null)");
         return null;
       }
 
-      // Verificar que obtuvimos una ruta válida
+      if (result.files.isEmpty) {
+        print("⚠️ SERVICIO: Selección cancelada (files vacío)");
+        return null;
+      }
+
       if (result.files.single.path == null) {
-        print('No se pudo obtener la ruta del archivo');
-        return null; // Regresar null en lugar de lanzar excepción
+        print("❌ SERVICIO: Path del archivo es null");
+        throw Exception('No se pudo obtener la ruta del archivo');
       }
 
       final path = result.files.single.path!;
+      print("✅ SERVICIO: Archivo seleccionado: $path");
 
-      // Verificar extensión de forma no sensible a mayúsculas/minúsculas
+      // Verificar que sea un archivo JSON
       if (!path.toLowerCase().endsWith('.json')) {
-        // Mostrar diálogo en lugar de lanzar excepción
-        await _mostrarDialogoFormatoIncorrecto(context);
-        return null;
+        print("❌ SERVICIO: El archivo no es JSON: $path");
+        throw Exception('El archivo seleccionado no es de tipo JSON');
       }
+      print("✅ SERVICIO: Verificación de extensión .json correcta");
 
-      // Primero verificar si el archivo existe
+      // Verificar si el archivo existe
       final file = File(path);
       if (!await file.exists()) {
-        print('El archivo no existe: $path');
-        return null;
+        print("❌ SERVICIO: El archivo no existe físicamente");
+        throw Exception('El archivo seleccionado no existe');
+      }
+      print("✅ SERVICIO: El archivo existe físicamente");
+
+      // Verificar tamaño del archivo
+      int fileSize = await file.length();
+      print("📊 SERVICIO: Tamaño del archivo: ${fileSize} bytes");
+
+      if (fileSize == 0) {
+        print("❌ SERVICIO: El archivo está vacío");
+        throw Exception("El archivo está vacío");
       }
 
-      // Intentar cargar el archivo
+      // Intentar leer los primeros bytes para diagnóstico
       try {
-        return await cargarFormatoJSON(path);
+        String filePreview = await file.readAsString().then((content) =>
+            content.length > 100 ? content.substring(0, 100) : content);
+        print("📄 SERVICIO: Primeros 100 caracteres: $filePreview");
       } catch (e) {
-        print('Error al cargar formato JSON: $e');
-        await _mostrarDialogoFormatoInvalido(context);
-        return null; // Regresar null en lugar de propagar el error
+        print("⚠️ SERVICIO: No se pudo leer vista previa: $e");
+      }
+
+      // Leer el contenido del archivo de forma segura
+      print("📂 SERVICIO: Cargando FormatoEvaluacion desde $path...");
+
+      try {
+        FormatoEvaluacion formato = await cargarFormatoJSON(path);
+        print("✅ SERVICIO: Formato cargado exitosamente: ID=${formato.id}");
+        return formato;
+      } catch (e) {
+        print("❌ SERVICIO: Error al cargar formato JSON: $e");
+        throw Exception('El archivo no parece ser un formato válido: $e');
       }
     } catch (e) {
-      print('Error al seleccionar archivo: $e');
-      // Solo relanzar ciertos tipos de errores
-      if (e.toString().contains('Permisos')) {
-        rethrow;
-      }
-      return null; // Para otros errores, regresar null sin crashear
+      print("❌❌ SERVICIO ERROR GENERAL en seleccionarYCargarFormato: $e");
+      throw e; // Propagar el error para manejarlo en HomeScreen
     }
   }
 
@@ -342,78 +365,78 @@ class FileService {
 
   /// Carga un formato de evaluación desde un archivo JSON con manejo optimizado de imágenes
   static Future<FormatoEvaluacion> cargarFormatoJSON(String rutaArchivo) async {
+    print("🔄 SERVICIO: Iniciando cargarFormatoJSON desde: $rutaArchivo");
+
     try {
+      // Verificar existencia del archivo
       final archivo = File(rutaArchivo);
       if (!await archivo.exists()) {
+        print("❌ SERVICIO: El archivo no existe");
         throw Exception('El archivo no existe');
       }
 
-      // Leer archivo con manejo de memoria optimizado para archivos grandes
-      final jsonString = await archivo.readAsString();
-      FormatoEvaluacion formato;
-
+      // Leer contenido del archivo
+      print("🔄 SERVICIO: Leyendo contenido del archivo...");
+      String jsonString;
       try {
-        formato = FormatoEvaluacion.fromJsonString(jsonString);
+        jsonString = await archivo.readAsString();
+        print(
+            "✅ SERVICIO: Archivo leído correctamente (${jsonString.length} bytes)");
+
+        if (jsonString.isEmpty) {
+          print("❌ SERVICIO: El contenido del archivo está vacío");
+          throw Exception('El archivo está vacío');
+        }
       } catch (e) {
-        throw Exception('No se puede decodificar el formato: $e');
+        print("❌ SERVICIO: Error al leer el archivo: $e");
+        throw Exception('Error al leer el archivo: $e');
       }
 
-      // Verificar si hay imágenes en base64 para restaurar
-      if (formato.ubicacionGeorreferencial.imagenesBase64 != null &&
-          formato.ubicacionGeorreferencial.imagenesBase64!.isNotEmpty) {
-        // Mostrar indicador de progreso (implementar en UI)
-        print(
-            'Procesando ${formato.ubicacionGeorreferencial.imagenesBase64!.length} imágenes en base64...');
-
-        // Optimización: Procesar solo un máximo de 10 imágenes para evitar problemas de memoria
-        var imagenesBase64 = formato.ubicacionGeorreferencial.imagenesBase64!;
-        int maxImagenes =
-            imagenesBase64.length > 10 ? 10 : imagenesBase64.length;
-        Map<String, String> imagenesLimitadas = {};
-
-        int i = 0;
-        for (var entry in imagenesBase64.entries) {
-          if (i < maxImagenes) {
-            imagenesLimitadas[entry.key] = entry.value;
-            i++;
-          } else {
-            break;
+      // Intentar parsear el JSON
+      print("🔄 SERVICIO: Convirtiendo JSON a objeto FormatoEvaluacion...");
+      FormatoEvaluacion formato;
+      try {
+        // Verificar si la cadena JSON es válida
+        try {
+          final jsonData = jsonDecode(jsonString);
+          if (jsonData is! Map<String, dynamic>) {
+            print("❌ SERVICIO: El JSON no representa un objeto válido");
+            throw Exception('El JSON no representa un objeto válido');
           }
+          print("✅ SERVICIO: JSON decodificado correctamente");
+        } catch (e) {
+          print("❌ SERVICIO: Error al decodificar JSON: $e");
+          throw Exception('Error al decodificar JSON: $e');
         }
 
-        // Convertir base64 a archivos de imagen de forma optimizada
-        List<String> rutasFotosRecuperadas =
-            await ImageBase64Service.base64MapToImages(imagenesLimitadas);
-
-        // Crear una copia del formato con las rutas actualizadas
-        UbicacionGeorreferencial ubicacionActualizada =
-            UbicacionGeorreferencial(
-          existenPlanos: formato.ubicacionGeorreferencial.existenPlanos,
-          direccion: formato.ubicacionGeorreferencial.direccion,
-          latitud: formato.ubicacionGeorreferencial.latitud,
-          longitud: formato.ubicacionGeorreferencial.longitud,
-          rutasFotos: rutasFotosRecuperadas,
-          imagenesBase64: formato.ubicacionGeorreferencial.imagenesBase64,
-        );
-
-        // Actualizar el formato
-        formato = FormatoEvaluacion(
-          id: formato.id,
-          fechaCreacion: formato.fechaCreacion,
-          fechaModificacion: formato.fechaModificacion,
-          usuarioCreador: formato.usuarioCreador,
-          informacionGeneral: formato.informacionGeneral,
-          sistemaEstructural: formato.sistemaEstructural,
-          evaluacionDanos: formato.evaluacionDanos,
-          ubicacionGeorreferencial: ubicacionActualizada,
-        );
+        // Crear el objeto FormatoEvaluacion
+        formato = FormatoEvaluacion.fromJsonString(jsonString);
+        print("✅ SERVICIO: FormatoEvaluacion creado exitosamente");
+        print(
+            "📋 SERVICIO: ID=${formato.id}, Usuario=${formato.usuarioCreador}");
+        print(
+            "📋 SERVICIO: Nombre inmueble=${formato.informacionGeneral.nombreInmueble}");
+      } catch (e) {
+        print("❌ SERVICIO: Error al crear FormatoEvaluacion: $e");
+        throw Exception('No se pudo crear el objeto FormatoEvaluacion: $e');
       }
 
+      // Verificar imágenes en base64 y procesarlas si existen
+      print("🔄 SERVICIO: Verificando imágenes base64...");
+      if (formato.ubicacionGeorreferencial.imagenesBase64 != null &&
+          formato.ubicacionGeorreferencial.imagenesBase64!.isNotEmpty) {
+        print(
+            "📷 SERVICIO: Hay ${formato.ubicacionGeorreferencial.imagenesBase64!.length} imágenes en base64");
+        // Continuar con procesamiento de imágenes...
+      } else {
+        print("📷 SERVICIO: No hay imágenes base64 para procesar");
+      }
+
+      print("✅ SERVICIO: cargarFormatoJSON completado exitosamente");
       return formato;
     } catch (e) {
-      print('Error detallado al cargar formato: $e');
-      throw Exception(
-          'Error al cargar formato: ${e.toString().split('\n')[0]}');
+      print("❌❌ SERVICIO ERROR GENERAL en cargarFormatoJSON: $e");
+      throw Exception('Error al cargar formato: $e');
     }
   }
 }

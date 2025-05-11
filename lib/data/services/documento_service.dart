@@ -185,6 +185,7 @@ Future<String> exportarPDF(FormatoEvaluacion formato) async {
     // Obtener directorio de descargas en lugar de usar el directorio por defecto del PdfService
     final directorioDescargas = await fileService.obtenerDirectorioDescargas();
     
+    
     // Generar el PDF usando el servicio pero especificando el directorio de descargas
     final rutaPDF = await _pdfService.exportarFormatoPDF(formato, directorio: directorioDescargas);
     

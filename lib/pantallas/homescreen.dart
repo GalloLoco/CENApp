@@ -2,9 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:cenapp/pantallas/NuevoFormato.dart';
 import 'package:cenapp/pantallas/buscarServidor.dart';
 import 'package:cenapp/pantallas/generarreporte.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:cenapp/logica/file_service.dart';
 import 'package:permission_handler/permission_handler.dart'; // Añade esta importación para openAppSettings
 import 'package:cenapp/data/utils/permisos_modernos.dart'; // Importación de la nueva clase
+import '../logica/formato_evaluacion.dart';
+import 'package:cenapp/main.dart';
+
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -89,12 +93,14 @@ class HomeScreen extends StatelessWidget {
           // Verificar permisos para botones que requieren almacenamiento
           if (text == 'Abrir' || text == 'Nuevo') {
             // Usar el enfoque moderno para solicitar permisos
-            bool tienePermisos = await PermisosModernos.solicitarPermisosAlmacenamiento(context);
+            bool tienePermisos =
+                await PermisosModernos.solicitarPermisosAlmacenamiento(context);
             if (!tienePermisos) {
               // Si no hay permisos, mostrar un mensaje amigable
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text('Para continuar, se necesitan permisos de acceso a archivos.'),
+                  content: Text(
+                      'Para continuar, se necesitan permisos de acceso a archivos.'),
                   backgroundColor: Colors.orange,
                   duration: Duration(seconds: 3),
                   action: SnackBarAction(
@@ -109,7 +115,7 @@ class HomeScreen extends StatelessWidget {
               return;
             }
           }
-          
+
           // Continuar con la navegación normal
           if (screen is Widget) {
             Navigator.push(
@@ -146,47 +152,17 @@ class HomeScreen extends StatelessWidget {
         return Wrap(
           children: [
             ListTile(
-  leading: Icon(Icons.folder, color: Colors.blue),
-  title: Text('Archivos'),
-  subtitle: Text('Abrir formato desde el dispositivo'),
-  onTap: () async {
-    // Cerrar el diálogo primero
-    Navigator.pop(context);
-    
-    try {
-      // Mostrar indicador de carga
-      _mostrarCargando(context, 'Buscando archivos...');
-      
-      // Pasar el contexto a la función para que pueda mostrar diálogos
-      final formato = await FileService.seleccionarYCargarFormato(context);
-      
-      // Cerrar el indicador de carga (solo si está activo)
-      if (Navigator.of(context, rootNavigator: true).canPop()) {
-        Navigator.of(context, rootNavigator: true).pop();
-      }
-      
-      // Solo navegar si se seleccionó un formato válido
-      if (formato != null) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => NuevoFormatoScreen(formatoExistente: formato),
-          ),
-        );
-      } 
-      // No hacemos nada si formato == null (el usuario canceló o no hay archivos)
-      
-    } catch (e) {
-      // Cerrar indicador de carga si está abierto
-      if (Navigator.of(context, rootNavigator: true).canPop()) {
-        Navigator.of(context, rootNavigator: true).pop();
-      }
-      
-      // Mostrar mensaje de error con opción para ir a configuración
-      _mostrarErrorConConfig(context, e.toString());
-    }
-  },
-),
+              leading: Icon(Icons.folder, color: Colors.blue),
+              title: Text('Archivos'),
+              subtitle: Text('Abrir formato desde el dispositivo'),
+              onTap: () {
+                // Cerrar el diálogo bottom sheet primero
+                Navigator.pop(context);
+
+                // Usar un método que no dependa de contextos anidados
+                _seleccionarArchivo(context);
+              },
+            ),
             ListTile(
               leading: Icon(Icons.cloud, color: Colors.lightBlue),
               title: Text('Servidor'),
@@ -195,7 +171,8 @@ class HomeScreen extends StatelessWidget {
                 Navigator.pop(context);
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => BuscarServidorScreen()),
+                  MaterialPageRoute(
+                      builder: (context) => BuscarServidorScreen()),
                 );
               },
             ),
@@ -210,6 +187,89 @@ class HomeScreen extends StatelessWidget {
       },
     );
   }
+
+ 
+ // En HomeScreen.dart, modifica tu método _seleccionarArchivo
+void _seleccionarArchivo(BuildContext context) async {
+  print("🔍 DIAGNÓSTICO: Iniciando selección de archivo...");
+  
+  // 1. Cierra el diálogo bottom sheet primero
+  Navigator.pop(context);
+  
+  // 2. Guardar una referencia global al contexto de la aplicación
+  final navState = navigatorKey.currentState;
+  if (navState == null) {
+    print("❌ No se puede obtener el estado del navegador global");
+    return;
+  }
+  
+  
+  
+  try {
+    // 4. Seleccionar archivo directamente
+    FilePickerResult? result = await FilePicker.platform.pickFiles(
+      type: FileType.any,
+      allowMultiple: false,
+    );
+    
+    if (result == null || result.files.isEmpty || result.files.first.path == null) {
+      print("⚠️ Selección cancelada o archivo inválido");
+      return;
+    }
+    
+    String filePath = result.files.first.path!;
+    print("✅ Archivo seleccionado: $filePath");
+    
+    // Verificar extensión .json
+    if (!filePath.toLowerCase().endsWith('.json')) {
+      ScaffoldMessenger.of(navigatorKey.currentContext!).showSnackBar(
+        SnackBar(content: Text('Por favor selecciona un archivo JSON'))
+      );
+      return;
+    }
+    
+    
+    
+    // 6. Cargar el formato
+    FormatoEvaluacion? formato;
+    try {
+      formato = await FileService.cargarFormatoJSON(filePath);
+      print("✅ Formato cargado con éxito: ID=${formato.id}");
+    } catch (e) {
+      print("❌ Error al cargar formato: $e");
+      
+      
+      ScaffoldMessenger.of(navigatorKey.currentContext!).showSnackBar(
+        SnackBar(content: Text('Error al cargar el formato: ${e.toString()}'))
+      );
+      return;
+    }
+    
+    
+    
+    // 8. Navegar usando el navigatorKey global
+    print("🔍 Navegando a NuevoFormatoScreen...");
+    
+    // Importante: Usar pushReplacement para evitar problemas de navegación
+    navState.pushReplacement(
+      MaterialPageRoute(
+        builder: (context) => NuevoFormatoScreen(formatoExistente: formato),
+      ),
+    );
+    
+    print("✅ Navegación iniciada");
+    
+  } catch (e) {
+    
+    
+    print("❌❌ ERROR GENERAL: ${e.toString()}");
+    
+    // Mostrar mensaje de error usando el contexto global
+    ScaffoldMessenger.of(navigatorKey.currentContext!).showSnackBar(
+      SnackBar(content: Text('Error inesperado: ${e.toString()}'))
+    );
+  }
+}
 
   // Función para mostrar un indicador de carga
   void _mostrarCargando(BuildContext context, String mensaje) {
@@ -233,91 +293,10 @@ class HomeScreen extends StatelessWidget {
       },
     );
   }
-  /// Muestra un mensaje de error con opción para ir a la configuración
-void _mostrarErrorConConfig(BuildContext context, String mensaje) {
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(
-      content: Text(
-        mensaje.replaceAll('Exception: ', ''), // Eliminar el "Exception: " del mensaje
-        style: TextStyle(color: Colors.white),
-      ),
-      backgroundColor: Colors.red,
-      duration: Duration(seconds: 5),
-      action: SnackBarAction(
-        label: 'Configuración',
-        textColor: Colors.white,
-        onPressed: () {
-          openAppSettings();
-        },
-      ),
-    ),
-  );
+
+  
+
+
+  
 }
 
-  // Implementación completa para abrir formatos existentes
-  void _abrirFormatoExistente(BuildContext context) async {
-    try {
-      // Verificar permisos modernos antes de continuar
-      bool tienePermisos = await PermisosModernos.solicitarPermisosAlmacenamiento(context);
-      if (!tienePermisos) {
-        return;
-      }
-      
-      // Mostrar indicador de carga
-      _mostrarCargando(context, 'Cargando formato...');
-      
-      // Seleccionar y cargar archivo
-      final formato = await FileService.seleccionarYCargarFormato(context);
-      
-      // Cerrar indicador de carga
-      Navigator.of(context, rootNavigator: true).pop();
-      
-      if (formato != null) {
-        // Navegar a la pantalla de edición con el formato cargado
-        await Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => NuevoFormatoScreen(formatoExistente: formato),
-          ),
-        );
-      }
-    } catch (e) {
-      // Cerrar indicador de carga si está abierto
-      Navigator.of(context, rootNavigator: true).pop();
-      
-      // Mostrar error
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error al abrir el formato: ${e.toString().split(':').last.trim()}'),
-          backgroundColor: Colors.red,
-          duration: Duration(seconds: 3),
-        ),
-      );
-    }
-  }
-  
-  // Diálogo de error mejorado
-  void _mostrarError(BuildContext context, String titulo, String mensaje) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text(titulo),
-          content: Text(mensaje),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text('Aceptar'),
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.blue,
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-}

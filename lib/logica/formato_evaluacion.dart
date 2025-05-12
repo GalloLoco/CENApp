@@ -10,6 +10,7 @@ class FormatoEvaluacion {
   final DateTime fechaCreacion;
   final DateTime fechaModificacion;
   final String usuarioCreador;
+  final String? gradoUsuario; // Nuevo campo para almacenar el grado
 
   FormatoEvaluacion({
     required this.informacionGeneral,
@@ -20,15 +21,18 @@ class FormatoEvaluacion {
     required this.fechaCreacion,
     required this.fechaModificacion,
     required this.usuarioCreador,
+    this.gradoUsuario, // Parámetro opcional con valor por defecto
   });
 
-  /// Convierte el objeto a un mapa para serialización
+  
+  // Actualizar el método toJson para incluir el nuevo campo
   Map<String, dynamic> toJson() {
     return {
       'id': id,
       'fechaCreacion': fechaCreacion.toIso8601String(),
       'fechaModificacion': fechaModificacion.toIso8601String(),
       'usuarioCreador': usuarioCreador,
+      'gradoUsuario': gradoUsuario, // Incluir el grado en el JSON
       'informacionGeneral': informacionGeneral.toJson(),
       'sistemaEstructural': sistemaEstructural.toJson(),
       'evaluacionDanos': evaluacionDanos.toJson(),
@@ -37,18 +41,21 @@ class FormatoEvaluacion {
   }
 
   /// Crea un objeto desde un mapa deserializado
+   // Actualizar el método factory para incluir el nuevo campo
   factory FormatoEvaluacion.fromJson(Map<String, dynamic> json) {
     return FormatoEvaluacion(
       id: json['id'],
       fechaCreacion: DateTime.parse(json['fechaCreacion']),
       fechaModificacion: DateTime.parse(json['fechaModificacion']),
       usuarioCreador: json['usuarioCreador'],
+      gradoUsuario: json['gradoUsuario'], // Cargar el grado desde el JSON
       informacionGeneral: InformacionGeneral.fromJson(json['informacionGeneral']),
       sistemaEstructural: SistemaEstructural.fromJson(json['sistemaEstructural']),
       evaluacionDanos: EvaluacionDanos.fromJson(json['evaluacionDanos']),
       ubicacionGeorreferencial: UbicacionGeorreferencial.fromJson(json['ubicacionGeorreferencial']),
     );
   }
+
 
   /// Serializa el objeto a una cadena JSON
   String toJsonString() {
@@ -298,16 +305,18 @@ class UbicacionGeorreferencial {
   final String direccion;
   final double latitud;
   final double longitud;
+  final double altitud; // Nuevo campo para almacenar la altitud
   final List<String> rutasFotos;
-  final Map<String, String>? imagenesBase64; // Nuevo campo para imágenes base64
+  final Map<String, String>? imagenesBase64;
 
   UbicacionGeorreferencial({
     required this.existenPlanos,
     required this.direccion,
     required this.latitud,
     required this.longitud,
+    this.altitud = 0.0, // Parámetro opcional con valor por defecto
     required this.rutasFotos,
-    this.imagenesBase64, // Opcional para mantener compatibilidad con versiones anteriores
+    this.imagenesBase64,
   });
 
   Map<String, dynamic> toJson() {
@@ -316,8 +325,9 @@ class UbicacionGeorreferencial {
       'direccion': direccion,
       'latitud': latitud,
       'longitud': longitud,
+      'altitud': altitud, // Incluir altitud en el JSON
       'rutasFotos': rutasFotos,
-      'imagenesBase64': imagenesBase64, // Incluir imágenes base64
+      'imagenesBase64': imagenesBase64,
     };
   }
 
@@ -327,6 +337,7 @@ class UbicacionGeorreferencial {
       direccion: json['direccion'],
       latitud: json['latitud'],
       longitud: json['longitud'],
+      altitud: json['altitud'] ?? 0.0, // Cargar la altitud desde el JSON, con valor por defecto
       rutasFotos: List<String>.from(json['rutasFotos'] ?? []),
       imagenesBase64: json['imagenesBase64'] != null 
         ? Map<String, String>.from(json['imagenesBase64']) 

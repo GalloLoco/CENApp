@@ -24,6 +24,12 @@ class ExcelExportService {
       // Usar solo una hoja para todos los datos
       final hojaUnica = excel['Formato Completo'];
 
+      // Formatear coordenadas para mostrarlas en formato amigable
+      String coordenadasFormateadas = _formatearCoordenadas(
+          formato.ubicacionGeorreferencial.latitud,
+          formato.ubicacionGeorreferencial.longitud,
+          formato.ubicacionGeorreferencial.altitud);
+
       // Eliminar la hoja por defecto si es diferente
       if (excel.sheets.containsKey('Sheet1') &&
           'Sheet1' != 'Formato Completo') {
@@ -38,7 +44,8 @@ class ExcelExportService {
           hojaUnica, filaActual++, 0, 'FORMATO DE EVALUACIÓN DE INMUEBLE');
       _escribirCelda(hojaUnica, filaActual++, 0, 'ID: ${formato.id}');
       _escribirCelda(hojaUnica, filaActual++, 0,
-          'Fecha: ${_formatearFecha(formato.fechaCreacion)} - Usuario: ${formato.usuarioCreador}');
+          'Fecha de evaluacion: ${_formatearFecha(formato.fechaCreacion)} - Nombre del evaluador: ${formato.usuarioCreador} - Grado: ${formato.gradoUsuario}');
+      _escribirCelda(hojaUnica, filaActual++, 0, 'Coordenadas: ${coordenadasFormateadas}');
 
       // Separador
       filaActual++;
@@ -427,6 +434,10 @@ class ExcelExportService {
       // Encabezado de sección
       _escribirCeldaResaltada(hoja, fila++, 0, 'UBICACIÓN GEORREFERENCIAL');
 
+      // Formatear coordenadas para mostrarlas en formato amigable
+      String coordenadasFormateadas = _formatearCoordenadas(
+          ubicacion.latitud, ubicacion.longitud, ubicacion.altitud);
+
       // Datos básicos
       _escribirCelda(hoja, fila, 0, 'Existen planos:');
       _escribirCelda(
@@ -435,29 +446,10 @@ class ExcelExportService {
       _escribirCelda(hoja, fila, 0, 'Dirección:');
       _escribirCelda(hoja, fila++, 1, ubicacion.direccion);
 
-      _escribirCelda(hoja, fila, 0, 'Latitud:');
-      _escribirCelda(hoja, fila++, 1, ubicacion.latitud.toString());
+      _escribirCelda(hoja, fila, 0, 'Coordenadas:');
+      _escribirCelda(hoja, fila++, 1, coordenadasFormateadas);
 
-      _escribirCelda(hoja, fila, 0, 'Longitud:');
-      _escribirCelda(hoja, fila++, 1, ubicacion.longitud.toString());
-
-      // Fotografías
-      fila++;
-      _escribirCeldaSubtitulo(hoja, fila++, 0, 'FOTOGRAFÍAS ADJUNTAS');
-
-      if (ubicacion.rutasFotos.isNotEmpty) {
-        _escribirCelda(hoja, fila, 0, 'Total fotografías:');
-        _escribirCelda(hoja, fila++, 1, ubicacion.rutasFotos.length.toString());
-
-        // Listar nombres de fotos
-        for (int i = 0; i < ubicacion.rutasFotos.length; i++) {
-          String nombreFoto = ubicacion.rutasFotos[i].split('/').last;
-          _escribirCelda(hoja, fila, 0, 'Foto ${i + 1}:');
-          _escribirCelda(hoja, fila++, 1, nombreFoto);
-        }
-      } else {
-        _escribirCelda(hoja, fila++, 0, 'No hay fotografías adjuntas');
-      }
+      // ... resto del código ...
 
       return fila; // Retornar la siguiente fila disponible
     } catch (e) {
@@ -467,6 +459,21 @@ class ExcelExportService {
   }
 
   // Métodos auxiliares optimizados
+
+  // Agregar método para formatear coordenadas
+  String _formatearCoordenadas(
+      double latitud, double longitud, double altitud) {
+    // Redondear a 4 decimales para mayor precisión
+    double lat = double.parse(latitud.toStringAsFixed(4));
+    double lng = double.parse(longitud.toStringAsFixed(4));
+    int alt = altitud.round(); // Redondear la altitud a entero
+
+    String latDir = lat >= 0 ? "N" : "S";
+    String lngDir = lng >= 0 ? "E" : "O";
+
+    // Formato: "19.4326 N, 99.1332 O, 2240 msnm"
+    return "${lat.abs()} $latDir, ${lng.abs()} $lngDir, ${alt.abs()} msnm";
+  }
 
   void _escribirCelda(Sheet hoja, int fila, int columna, String valor) {
     try {

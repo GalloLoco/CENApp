@@ -64,32 +64,61 @@ class PdfExportService {
   }
 
   // Widgets para construir las diferentes secciones del PDF
-  pw.Widget _construirEncabezadoPDF(FormatoEvaluacion formato) {
-    return pw.Container(
-      alignment: pw.Alignment.center,
-      margin: const pw.EdgeInsets.only(bottom: 10),
-      child: pw.Column(
-        children: [
-          pw.Text(
-            'FORMATO DE EVALUACIÓN DE INMUEBLE',
-            style: pw.TextStyle(
-              fontSize: 16,
-              fontWeight: pw.FontWeight.bold,
-            ),
+ pw.Widget _construirEncabezadoPDF(FormatoEvaluacion formato) {
+  // Formatear las coordenadas
+  String coordenadasFormateadas = _formatearCoordenadas(
+    formato.ubicacionGeorreferencial.latitud,
+    formato.ubicacionGeorreferencial.longitud,
+    formato.ubicacionGeorreferencial.altitud
+  );
+  
+  return pw.Container(
+    alignment: pw.Alignment.center,
+    margin: const pw.EdgeInsets.only(bottom: 10),
+    child: pw.Column(
+      children: [
+        pw.Text(
+          'FORMATO DE EVALUACIÓN DE INMUEBLE',
+          style: pw.TextStyle(
+            fontSize: 16,
+            fontWeight: pw.FontWeight.bold,
           ),
-          pw.SizedBox(height: 5),
-          pw.Text(
-            'ID: ${formato.id}',
-            style: pw.TextStyle(fontSize: 10),
-          ),
-          pw.Text(
-            'Creado: ${_formatearFecha(formato.fechaCreacion)} - Nombre del evaluador: ${formato.usuarioCreador}',
-            style: pw.TextStyle(fontSize: 10),
-          ),
-        ],
-      ),
-    );
-  }
+        ),
+        pw.SizedBox(height: 5),
+        pw.Text(
+          'ID: ${formato.id}',
+          style: pw.TextStyle(fontSize: 10),
+        ),
+        pw.Text(
+          'Fecha de creación: ${_formatearFecha(formato.fechaCreacion)}',
+          style: pw.TextStyle(fontSize: 10),
+        ),
+        pw.Text(
+          'Evaluador: ${formato.gradoUsuario ?? ""} ${formato.usuarioCreador}',
+          style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
+        ),
+        pw.Text(
+          'Ubicación: $coordenadasFormateadas',
+          style: pw.TextStyle(fontSize: 10),
+        ),
+      ],
+    ),
+  );
+}
+
+// Añadir método para formatear coordenadas
+String _formatearCoordenadas(double latitud, double longitud, double altitud) {
+  // Redondear a 4 decimales para mayor precisión
+  double lat = double.parse(latitud.toStringAsFixed(4));
+  double lng = double.parse(longitud.toStringAsFixed(4));
+  int alt = altitud.round(); // Redondear la altitud a entero
+  
+  String latDir = lat >= 0 ? "N" : "S";
+  String lngDir = lng >= 0 ? "E" : "O";
+  
+  // Formato: "19.4326 N, 99.1332 O, 2240 msnm"
+  return "${lat.abs()} $latDir, ${lng.abs()} $lngDir, ${alt.abs()} msnm";
+}
 
   pw.Widget _construirInformacionGeneralPDF(InformacionGeneral info) {
     // Lista para almacenar elementos de topografía seleccionados

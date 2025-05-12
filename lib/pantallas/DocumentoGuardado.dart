@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import '../logica/formato_evaluacion.dart';
 import '../data/services/documento_service.dart';
-import '../data/services/image_base64_service.dart';
 import '../data/services/image_conversion_service.dart';
 
 class DocumentoGuardadoScreen extends StatefulWidget {
@@ -197,57 +196,7 @@ void _mostrarArchivoPDFGuardado(BuildContext context, String rutaArchivo) {
   }
 }
 
-  /// Método alternativo para exportar a CSV (más ligero)
-  Future<void> _exportarCSV() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
-    try {
-      // Mostrar mensaje de progreso
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Generando CSV...'),
-          duration: Duration(seconds: 1),
-        ),
-      );
-
-      // CSV es más simple y rápido que Excel
-      final filePath = await _documentoService
-          .exportarCSV(widget.formato)
-          .timeout(Duration(seconds: 30));
-
-      setState(() {
-        _isLoading = false;
-      });
-
-      // Mostrar mensaje de éxito
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Archivo CSV creado con éxito'),
-          backgroundColor: Colors.green,
-          duration: Duration(seconds: 2),
-        ),
-      );
-
-      // Compartir el archivo
-      _compartirArchivo(filePath, 'text/csv');
-    } catch (e) {
-      setState(() {
-        _errorMessage = 'Error al exportar a CSV: $e';
-        _isLoading = false;
-      });
-
-      // Mostrar mensaje de error
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error al generar CSV: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-  }
+  
   // Método para mostrar dónde se guardó el Excel
 void _mostrarArchivoExcelGuardado(BuildContext context, String rutaArchivo) {
   showDialog(

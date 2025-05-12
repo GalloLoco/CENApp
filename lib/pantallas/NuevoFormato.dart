@@ -5,6 +5,7 @@ import 'nuevaubicacion.dart';
 import 'nuevoinfogen.dart';
 import 'nuevosisest.dart';
 import 'nuevaevaluacion.dart';
+import '../data/services/user_service.dart';
 
 class NuevoFormatoScreen extends StatefulWidget {
   final FormatoEvaluacion? formatoExistente;
@@ -94,6 +95,11 @@ class _NuevoFormatoScreenState extends State<NuevoFormatoScreen> {
       // Mostrar indicador de carga
       _mostrarCargando(context, 'Preparando formato...');
 
+      // Obtener datos del usuario actual
+      final userService = UserService();
+      String nombreCompleto = await userService.getUserFullName();
+      String gradoUsuario = await userService.getUserGrado();
+
       // Crear el formato de evaluación completo
       final formato = FormatoEvaluacion(
         informacionGeneral: informacionGeneral!,
@@ -106,7 +112,8 @@ class _NuevoFormatoScreenState extends State<NuevoFormatoScreen> {
             DateTime.now(), // Mantener fecha de creación original
         fechaModificacion: DateTime.now(), // Actualizar fecha de modificación
         usuarioCreador:
-            usuarioCreador ?? "Joel", // Mantener usuario creador original
+            nombreCompleto, // Usar el nombre completo del usuario actual
+        gradoUsuario: gradoUsuario, // Incluir el grado del usuario
       );
 
       // Breve retraso para mostrar el indicador
@@ -472,6 +479,8 @@ class _NuevoFormatoScreenState extends State<NuevoFormatoScreen> {
                         direccion: datos['direccion'],
                         latitud: datos['latitud'],
                         longitud: datos['longitud'],
+                        altitud: datos['altitud'] ??
+                            0.0, // Asegurar que incluimos la altitud
                         rutasFotos: List<String>.from(datos['rutasFotos']),
                         imagenesBase64: datos['imagenesBase64'] != null
                             ? Map<String, String>.from(datos['imagenesBase64'])

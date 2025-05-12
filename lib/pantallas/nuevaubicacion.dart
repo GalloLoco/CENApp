@@ -28,9 +28,12 @@ class _UbicacionGeorreferencialScreenState
   String? selectedPlano;
 
   // Variables para el mapa
-  final MapController mapController = MapController();
+   final MapController mapController = MapController();
   LatLng posicionActual = LatLng(24.1426, -110.3128); // La Paz, BCS por defecto
+  double altitudActual = 0.0; // Nueva variable para almacenar la altitud
   bool isLoadingLocation = false;
+
+  
 
   // Variables para imágenes
   final ImagePicker _picker = ImagePicker();
@@ -96,33 +99,35 @@ class _UbicacionGeorreferencialScreenState
 
   // Obtener ubicación actual
   Future<void> _obtenerUbicacionActual() async {
-    try {
-      setState(() {
-        isLoadingLocation = true;
-      });
+  try {
+    setState(() {
+      isLoadingLocation = true;
+    });
 
-      Position position = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.high);
+    Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high);
 
-      LatLng nuevaPosicion = LatLng(position.latitude, position.longitude);
+    LatLng nuevaPosicion = LatLng(position.latitude, position.longitude);
+    double altitud = position.altitude; // Obtener la altitud
 
-      setState(() {
-        posicionActual = nuevaPosicion;
-        isLoadingLocation = false;
-      });
+    setState(() {
+      posicionActual = nuevaPosicion;
+      altitudActual = altitud; // Almacenar la altitud en una variable de la clase
+      isLoadingLocation = false;
+    });
 
-      // Centrar mapa en la ubicación actual
-      mapController.move(posicionActual, 15.0);
+    // Centrar mapa en la ubicación actual
+    mapController.move(posicionActual, 15.0);
 
-      // Obtener dirección a partir de coordenadas
-      _obtenerDireccion(posicionActual);
-    } catch (e) {
-      setState(() {
-        isLoadingLocation = false;
-      });
-      _mostrarError('Error al obtener ubicación: $e');
-    }
+    // Obtener dirección a partir de coordenadas
+    _obtenerDireccion(posicionActual);
+  } catch (e) {
+    setState(() {
+      isLoadingLocation = false;
+    });
+    _mostrarError('Error al obtener ubicación: $e');
   }
+}
 
   // Obtener dirección a partir de coordenadas (geocodificación inversa)
   Future<void> _obtenerDireccion(LatLng coordenadas) async {
@@ -645,14 +650,14 @@ class _UbicacionGeorreferencialScreenState
   }
 
   /// Guardar y regresar a la pantalla anterior
-  void _guardarYRegresar() {
+   void _guardarYRegresar() {
     // Validar datos mínimos
     if (direccionController.text.isEmpty) {
       _mostrarError('Por favor ingresa una dirección');
       return;
     }
 
-    // Crear objeto de ubicación con los datos ingresados
+    // Crear objeto de ubicación con los datos ingresados, incluyendo la altitud
     final ubicacion = {
       'completado': true,
       'datos': {
@@ -660,6 +665,7 @@ class _UbicacionGeorreferencialScreenState
         'direccion': direccionController.text,
         'latitud': posicionActual.latitude,
         'longitud': posicionActual.longitude,
+        'altitud': altitudActual, // Incluir la altitud
         'rutasFotos': imagenesAdjuntas,
       },
     };
@@ -667,6 +673,7 @@ class _UbicacionGeorreferencialScreenState
     // Regresar con los datos
     Navigator.pop(context, ubicacion);
   }
+
 
   @override
   void dispose() {

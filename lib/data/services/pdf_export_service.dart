@@ -83,7 +83,7 @@ class PdfExportService {
             style: pw.TextStyle(fontSize: 10),
           ),
           pw.Text(
-            'Creado: ${_formatearFecha(formato.fechaCreacion)} - Usuario: ${formato.usuarioCreador}',
+            'Creado: ${_formatearFecha(formato.fechaCreacion)} - Nombre del evaluador: ${formato.usuarioCreador}',
             style: pw.TextStyle(fontSize: 10),
           ),
         ],

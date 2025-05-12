@@ -8,10 +8,77 @@ import 'package:permission_handler/permission_handler.dart'; // Añade esta impo
 import 'package:cenapp/data/utils/permisos_modernos.dart'; // Importación de la nueva clase
 import '../logica/formato_evaluacion.dart';
 import 'package:cenapp/main.dart';
+import 'package:cenapp/data/services/user_service.dart';
+import 'package:cenapp/data/services/location_service.dart';
 
-
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  _HomeScreenState createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  // Servicios
+  final UserService _userService = UserService();
+  final LocationService _locationService = LocationService();
+  
+  // Variables para almacenar datos dinámicos
+  String _nombreCompleto = "Cargando...";
+  String _grado = "Cargando...";
+  String _fechaActual = "Cargando...";
+  String _ubicacionActual = "Cargando...";
+  
+  @override
+  void initState() {
+    super.initState();
+    _cargarDatosUsuario();
+    _cargarFechaYUbicacion();
+  }
+  
+  /// Carga datos del usuario autenticado
+  Future<void> _cargarDatosUsuario() async {
+    try {
+      // Cargar nombre
+      String nombre = await _userService.getUserFullName();
+      
+      // Cargar grado
+      String grado = await _userService.getUserGrado();
+      
+      // Actualizar estado
+      setState(() {
+        _nombreCompleto = nombre;
+        _grado = grado;
+      });
+    } catch (e) {
+      print("Error al cargar datos del usuario: $e");
+      // Mostrar mensaje de error si es necesario
+    }
+  }
+  
+  /// Carga fecha actual y ubicación
+  Future<void> _cargarFechaYUbicacion() async {
+    try {
+      // Cargar fecha
+      String fecha = _locationService.getCurrentFormattedDate();
+      
+      // Actualizar estado parcialmente
+      setState(() {
+        _fechaActual = fecha;
+      });
+      
+      // Cargar ubicación (puede tardar más)
+      String ubicacion = await _locationService.getFormattedLocation();
+      
+      // Actualizar estado
+      setState(() {
+        _ubicacionActual = ubicacion;
+      });
+    } catch (e) {
+      print("Error al cargar fecha y ubicación: $e");
+      // Mostrar mensaje de error si es necesario
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -24,7 +91,9 @@ class HomeScreen extends StatelessWidget {
         actions: [
           IconButton(
             icon: Icon(Icons.logout, color: Colors.black),
-            onPressed: () {
+            onPressed: () async {
+              // Cerrar sesión y volver a la pantalla de inicio
+              await _userService.signOut();
               Navigator.pop(context);
             },
           ),
@@ -44,7 +113,8 @@ class HomeScreen extends StatelessWidget {
                 Align(
                   alignment: Alignment.topLeft,
                   child: Text(
-                    '2 de Febrero del 2025    1587 N, 251 O, 100 msnm',
+                    // Fecha y ubicación dinámica
+                    '$_fechaActual    $_ubicacionActual',
                     style: TextStyle(
                         fontSize: constraints.maxWidth * 0.04,
                         color: Colors.black54),
@@ -54,9 +124,8 @@ class HomeScreen extends StatelessWidget {
                 Image.asset('assets/logoCenapp.png',
                     height: constraints.maxHeight * 0.3),
                 SizedBox(height: constraints.maxHeight * 0.02),
-                _buildInfoText('Bienvenido: Joel', constraints.maxWidth),
-                _buildInfoText('Clave: 777', constraints.maxWidth),
-                _buildInfoText('Grado: Ingeniero', constraints.maxWidth),
+                _buildInfoText('Bienvenido: $_nombreCompleto', constraints.maxWidth),
+                _buildInfoText('Grado: $_grado', constraints.maxWidth),
                 SizedBox(height: constraints.maxHeight * 0.05),
                 _buildButton(context, 'Nuevo', Icons.add_box_outlined,
                     buttonWidth, buttonHeight, NuevoFormatoScreen()),
@@ -188,88 +257,75 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
- 
- // En HomeScreen.dart, modifica tu método _seleccionarArchivo
-void _seleccionarArchivo(BuildContext context) async {
-  print("🔍 DIAGNÓSTICO: Iniciando selección de archivo...");
-  
-  // 1. Cierra el diálogo bottom sheet primero
-  Navigator.pop(context);
-  
-  // 2. Guardar una referencia global al contexto de la aplicación
-  final navState = navigatorKey.currentState;
-  if (navState == null) {
-    print("❌ No se puede obtener el estado del navegador global");
-    return;
-  }
-  
-  
-  
-  try {
-    // 4. Seleccionar archivo directamente
-    FilePickerResult? result = await FilePicker.platform.pickFiles(
-      type: FileType.any,
-      allowMultiple: false,
-    );
+  // Función para seleccionar archivo
+  void _seleccionarArchivo(BuildContext context) async {
+    print("🔍 DIAGNÓSTICO: Iniciando selección de archivo...");
     
-    if (result == null || result.files.isEmpty || result.files.first.path == null) {
-      print("⚠️ Selección cancelada o archivo inválido");
+    // Guardar una referencia global al contexto de la aplicación
+    final navState = navigatorKey.currentState;
+    if (navState == null) {
+      print("❌ No se puede obtener el estado del navegador global");
       return;
     }
     
-    String filePath = result.files.first.path!;
-    print("✅ Archivo seleccionado: $filePath");
-    
-    // Verificar extensión .json
-    if (!filePath.toLowerCase().endsWith('.json')) {
-      ScaffoldMessenger.of(navigatorKey.currentContext!).showSnackBar(
-        SnackBar(content: Text('Por favor selecciona un archivo JSON'))
-      );
-      return;
-    }
-    
-    
-    
-    // 6. Cargar el formato
-    FormatoEvaluacion? formato;
     try {
-      formato = await FileService.cargarFormatoJSON(filePath);
-      print("✅ Formato cargado con éxito: ID=${formato.id}");
-    } catch (e) {
-      print("❌ Error al cargar formato: $e");
-      
-      
-      ScaffoldMessenger.of(navigatorKey.currentContext!).showSnackBar(
-        SnackBar(content: Text('Error al cargar el formato: ${e.toString()}'))
+      // Seleccionar archivo directamente
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.any,
+        allowMultiple: false,
       );
-      return;
+      
+      if (result == null || result.files.isEmpty || result.files.first.path == null) {
+        print("⚠️ Selección cancelada o archivo inválido");
+        return;
+      }
+      
+      String filePath = result.files.first.path!;
+      print("✅ Archivo seleccionado: $filePath");
+      
+      // Verificar extensión .json
+      if (!filePath.toLowerCase().endsWith('.json')) {
+        ScaffoldMessenger.of(navigatorKey.currentContext!).showSnackBar(
+          SnackBar(content: Text('Por favor selecciona un archivo JSON'))
+        );
+        return;
+      }
+      
+      // Cargar el formato
+      FormatoEvaluacion? formato;
+      try {
+        formato = await FileService.cargarFormatoJSON(filePath);
+        print("✅ Formato cargado con éxito: ID=${formato.id}");
+      } catch (e) {
+        print("❌ Error al cargar formato: $e");
+        
+        ScaffoldMessenger.of(navigatorKey.currentContext!).showSnackBar(
+          SnackBar(content: Text('Error al cargar el formato: ${e.toString()}'))
+        );
+        return;
+      }
+      
+      // Navegar usando el navigatorKey global
+      print("🔍 Navegando a NuevoFormatoScreen...");
+      
+      // Importante: Usar pushReplacement para evitar problemas de navegación
+      navState.pushReplacement(
+        MaterialPageRoute(
+          builder: (context) => NuevoFormatoScreen(formatoExistente: formato),
+        ),
+      );
+      
+      print("✅ Navegación iniciada");
+      
+    } catch (e) {
+      print("❌❌ ERROR GENERAL: ${e.toString()}");
+      
+      // Mostrar mensaje de error usando el contexto global
+      ScaffoldMessenger.of(navigatorKey.currentContext!).showSnackBar(
+        SnackBar(content: Text('Error inesperado: ${e.toString()}'))
+      );
     }
-    
-    
-    
-    // 8. Navegar usando el navigatorKey global
-    print("🔍 Navegando a NuevoFormatoScreen...");
-    
-    // Importante: Usar pushReplacement para evitar problemas de navegación
-    navState.pushReplacement(
-      MaterialPageRoute(
-        builder: (context) => NuevoFormatoScreen(formatoExistente: formato),
-      ),
-    );
-    
-    print("✅ Navegación iniciada");
-    
-  } catch (e) {
-    
-    
-    print("❌❌ ERROR GENERAL: ${e.toString()}");
-    
-    // Mostrar mensaje de error usando el contexto global
-    ScaffoldMessenger.of(navigatorKey.currentContext!).showSnackBar(
-      SnackBar(content: Text('Error inesperado: ${e.toString()}'))
-    );
   }
-}
 
   // Función para mostrar un indicador de carga
   void _mostrarCargando(BuildContext context, String mensaje) {
@@ -293,10 +349,4 @@ void _seleccionarArchivo(BuildContext context) async {
       },
     );
   }
-
-  
-
-
-  
 }
-

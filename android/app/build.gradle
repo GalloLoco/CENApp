@@ -1,5 +1,8 @@
 plugins {
     id "com.android.application"
+    // START: FlutterFire Configuration
+    id 'com.google.gms.google-services'
+    // END: FlutterFire Configuration
     id "kotlin-android"
     id "dev.flutter.flutter-gradle-plugin"
 }
@@ -20,7 +23,7 @@ android {
 
     defaultConfig {
         applicationId = "com.example.cenapp"
-        minSdk = 21  // Mínimo recomendado para permisos
+        minSdk = 23  // Mínimo recomendado para permisos
         targetSdk = 34  // Mantener targetSdk en 34 es buena práctica
         versionCode = flutter.versionCode
         versionName = flutter.versionName

@@ -1,6 +1,7 @@
 import 'package:cenapp/pantallas/iniciarsesion.dart';
 import 'package:cenapp/pantallas/registrarse.dart';
 import 'package:flutter/material.dart';
+import 'package:cenapp/pantallas/recuperarContrasena.dart';
 
 class LoginScreen extends StatelessWidget {
   const LoginScreen({super.key});
@@ -37,11 +38,21 @@ class LoginScreen extends StatelessWidget {
                 ),
                 SizedBox(height: constraints.maxHeight * 0.1),
                 _buildButton(
-                  context, 'Iniciar Sesión', buttonWidth, buttonHeight, UserLoginScreen(),
+                  context,
+                  'Iniciar Sesión',
+                  buttonWidth,
+                  buttonHeight,
+                  UserLoginScreen(),
                 ),
                 SizedBox(height: constraints.maxHeight * 0.02),
                 TextButton(
-                  onPressed: () {},
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => ForgotPasswordScreen()),
+                    );
+                  },
                   child: Text(
                     '¿Olvidaste tu contraseña?',
                     style: TextStyle(
@@ -52,7 +63,11 @@ class LoginScreen extends StatelessWidget {
                 ),
                 SizedBox(height: constraints.maxHeight * 0.02),
                 _buildButton(
-                  context, 'Registrarse', buttonWidth, buttonHeight, RegisterScreen(),
+                  context,
+                  'Registrarse',
+                  buttonWidth,
+                  buttonHeight,
+                  RegisterScreen(),
                 ),
                 SizedBox(height: constraints.maxHeight * 0.1),
               ],
@@ -63,7 +78,8 @@ class LoginScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildButton(BuildContext context, String text, double width, double height, Widget screen) {
+  Widget _buildButton(BuildContext context, String text, double width,
+      double height, Widget screen) {
     return ElevatedButton(
       onPressed: () {
         Navigator.push(
@@ -90,5 +106,3 @@ class LoginScreen extends StatelessWidget {
     );
   }
 }
-
-

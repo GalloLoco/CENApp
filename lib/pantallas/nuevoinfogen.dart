@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../logica/formato_evaluacion.dart';
+import '../data/services/ciudad_colonia_service.dart';
 
 class InformacionGeneralScreen extends StatefulWidget {
   final InformacionGeneral? informacionExistente;
@@ -14,11 +15,7 @@ class _InformacionGeneralScreenState extends State<InformacionGeneralScreen> {
   // Controladores para campos de texto
   late TextEditingController nombreInmuebleController;
   late TextEditingController calleController;
-  late TextEditingController coloniaController;
   late TextEditingController cpController;
-  late TextEditingController ciudadController;
-  late TextEditingController delegacionController;
-  late TextEditingController estadoController;
   late TextEditingController referenciasController;
   late TextEditingController personaContactoController;
   late TextEditingController telefonoController;
@@ -29,12 +26,28 @@ class _InformacionGeneralScreenState extends State<InformacionGeneralScreen> {
   late TextEditingController ocupantesController;
   late TextEditingController sotanosController;
 
+  // Variables para los dropdowns
+  String? _municipioSeleccionado;
+  String? _ciudadSeleccionada;
+  String? _coloniaSeleccionada;
+  
+  // Listas para los dropdowns
+  List<String> _municipios = [];
+  List<String> _ciudades = [];
+  List<String> _colonias = [];
+  
+  // Servicio para gestionar datos de ciudades y colonias
+  final CiudadColoniaService _ciudadService = CiudadColoniaService();
+  
+  // Variable para controlar si se mostró el diálogo de confirmación
+  bool _mostradoConfirmacion = false;
+  
   // Mapa para almacenar los valores de los checkboxes
   late Map<String, bool> selectedUsos;
   late Map<String, bool> selectedTopografia;
   
-  // Variable para controlar si se mostró el diálogo de confirmación
-  bool _mostradoConfirmacion = false;
+  // Flag para controlar si estamos cargando datos iniciales
+  bool _cargandoDatos = true;
 
   @override
   void initState() {
@@ -45,16 +58,8 @@ class _InformacionGeneralScreenState extends State<InformacionGeneralScreen> {
       text: widget.informacionExistente?.nombreInmueble ?? '');
     calleController = TextEditingController(
       text: widget.informacionExistente?.calle ?? '');
-    coloniaController = TextEditingController(
-      text: widget.informacionExistente?.colonia ?? '');
     cpController = TextEditingController(
       text: widget.informacionExistente?.codigoPostal ?? '');
-    ciudadController = TextEditingController(
-      text: widget.informacionExistente?.ciudadPueblo ?? '');
-    delegacionController = TextEditingController(
-      text: widget.informacionExistente?.delegacionMunicipio ?? '');
-    estadoController = TextEditingController(
-      text: widget.informacionExistente?.estado ?? '');
     referenciasController = TextEditingController(
       text: widget.informacionExistente?.referencias ?? '');
     personaContactoController = TextEditingController(
@@ -112,17 +117,58 @@ class _InformacionGeneralScreenState extends State<InformacionGeneralScreen> {
         }
       });
     }
+    
+    // Cargar datos de ciudades y municipios
+    _cargarDatos();
   }
+  
+  /// Carga los datos de municipios, ciudades y colonias
+  Future<void> _cargarDatos() async {
+    // Cargar lista de municipios
+    _municipios = await _ciudadService.getMunicipios();
+    
+    // Valores por defecto o existentes
+    if (widget.informacionExistente != null) {
+      // Si hay datos existentes, cargar municipio, ciudad y colonia
+      _municipioSeleccionado = widget.informacionExistente!.delegacionMunicipio;
+      _ciudadSeleccionada = widget.informacionExistente!.ciudadPueblo;
+      _coloniaSeleccionada = widget.informacionExistente!.colonia;
+      
+      // Cargar ciudades del municipio seleccionado
+      if (_municipioSeleccionado != null && _municipioSeleccionado!.isNotEmpty) {
+        _ciudades = await _ciudadService.getCiudadesByMunicipio(_municipioSeleccionado!);
+      }
+      
+      // Cargar colonias de la ciudad seleccionada
+      if (_ciudadSeleccionada != null && _ciudadSeleccionada!.isNotEmpty) {
+        _colonias = await _ciudadService.getColoniasByCiudad(_ciudadSeleccionada!);
+      }
+    } else {
+      // Por defecto, seleccionar La Paz
+      _municipioSeleccionado = 'La Paz';
+      _ciudadSeleccionada = 'La Paz';
+      
+      // Cargar ciudades del municipio de La Paz
+      _ciudades = await _ciudadService.getCiudadesByMunicipio('La Paz');
+      
+      // Cargar colonias de La Paz
+      _colonias = await _ciudadService.getColoniasByCiudad('La Paz');
+    }
+    
+    // Actualizar estado cuando finalice la carga
+    if (mounted) {
+      setState(() {
+        _cargandoDatos = false;
+      });
+    }
+  }
+  
   @override
   void dispose() {
     // Liberar recursos
     nombreInmuebleController.dispose();
     calleController.dispose();
-    coloniaController.dispose();
     cpController.dispose();
-    ciudadController.dispose();
-    delegacionController.dispose();
-    estadoController.dispose();
     referenciasController.dispose();
     personaContactoController.dispose();
     telefonoController.dispose();
@@ -162,63 +208,129 @@ class _InformacionGeneralScreenState extends State<InformacionGeneralScreen> {
             ),
           ],
         ),
-        body: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Text(
-                    'Información General',
-                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                  ),
-                ),
-                SizedBox(height: 10),
-                _buildTextField('Nombre del inmueble', nombreInmuebleController),
-                _buildTextField('Calle y número', calleController),
-                Row(
+        body: _cargandoDatos 
+          ? _buildLoadingScreen()
+          : SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(child: _buildTextField('Colonia', coloniaController)),
-                    SizedBox(width: 10),
-                    Expanded(child: _buildTextField('Código Postal', cpController, keyboardType: TextInputType.number)),
+                    Center(
+                      child: Text(
+                        'Información General',
+                        style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    SizedBox(height: 10),
+                    _buildTextField('Nombre del inmueble', nombreInmuebleController),
+                    _buildTextField('Calle y número', calleController),
+                    
+                    // Sección de ubicación con dropdowns
+                    _buildDropdownField('Municipio', _municipios, _municipioSeleccionado, (String? value) {
+                      if (value != _municipioSeleccionado) {
+                        setState(() {
+                          _municipioSeleccionado = value;
+                          _ciudadSeleccionada = null;
+                          _coloniaSeleccionada = null;
+                          _ciudades = [];
+                          _colonias = [];
+                        });
+                        
+                        // Actualizar ciudades cuando cambie el municipio
+                        if (value != null) {
+                          _ciudadService.getCiudadesByMunicipio(value).then((ciudades) {
+                            setState(() {
+                              _ciudades = ciudades;
+                              if (ciudades.isNotEmpty) {
+                                _ciudadSeleccionada = ciudades.first;
+                                
+                                // Cargar colonias de la primera ciudad
+                                _ciudadService.getColoniasByCiudad(ciudades.first).then((colonias) {
+                                  setState(() {
+                                    _colonias = colonias;
+                                    _coloniaSeleccionada = null; // Inicialmente ninguna colonia seleccionada
+                                  });
+                                });
+                              }
+                            });
+                          });
+                        }
+                      }
+                    }),
+                    
+                    _buildDropdownField('Ciudad/Pueblo', _ciudades, _ciudadSeleccionada, (String? value) {
+                      if (value != _ciudadSeleccionada) {
+                        setState(() {
+                          _ciudadSeleccionada = value;
+                          _coloniaSeleccionada = null;
+                          _colonias = [];
+                        });
+                        
+                        // Actualizar colonias cuando cambie la ciudad
+                        if (value != null) {
+                          _ciudadService.getColoniasByCiudad(value).then((colonias) {
+                            setState(() {
+                              _colonias = colonias;
+                            });
+                          });
+                        }
+                      }
+                    }),
+                    
+                    _buildDropdownField('Colonia', _colonias, _coloniaSeleccionada, (String? value) {
+                      setState(() {
+                        _coloniaSeleccionada = value;
+                      });
+                    }),
+                    
+                    _buildTextField('Código Postal', cpController, keyboardType: TextInputType.number),
+                    _buildTextField('Referencias', referenciasController, hint: '(entre calles "A" y "B", un sitio notable, etc)'),
+                    
+                    Row(
+                      children: [
+                        Expanded(child: _buildTextField('Persona contactada', personaContactoController)),
+                        SizedBox(width: 10),
+                        Expanded(child: _buildTextField('Teléfono', telefonoController, hint: '+(  )')),
+                      ],
+                    ),
+                    
+                    SizedBox(height: 10),
+                    Text('Uso:', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    _buildCheckboxOptions(selectedUsos),
+                    _buildTextField('Otro uso (Especifique)', otroUsoController),
+                    
+                    SizedBox(height: 10),
+                    Text('Dimensiones:', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    _buildTextField('Frente X =', frenteXController, suffix: 'metros.', keyboardType: TextInputType.number),
+                    _buildTextField('Frente Y =', frenteYController, suffix: 'metros.', keyboardType: TextInputType.number),
+                    _buildTextField('No. niveles, n =', nivelesController, keyboardType: TextInputType.number),
+                    _buildTextField('No. ocupantes =', ocupantesController, keyboardType: TextInputType.number),
+                    _buildTextField('No. sótanos =', sotanosController, keyboardType: TextInputType.number),
+                    
+                    SizedBox(height: 10),
+                    Text('Topografía:', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    _buildCheckboxOptions(selectedTopografia),
+                    
+                    SizedBox(height: 20),
                   ],
                 ),
-                Row(
-                  children: [
-                    Expanded(child: _buildTextField('Pueblo o ciudad', ciudadController)),
-                    SizedBox(width: 10),
-                    Expanded(child: _buildTextField('Delegación/Municipio', delegacionController)),
-                  ],
-                ),
-                _buildTextField('Estado', estadoController),
-                _buildTextField('Referencias', referenciasController, hint: '(entre calles "A" y "B", un sitio notable, etc)'),
-                Row(
-                  children: [
-                    Expanded(child: _buildTextField('Persona contactada', personaContactoController)),
-                    SizedBox(width: 10),
-                    Expanded(child: _buildTextField('Teléfono', telefonoController, hint: '+(  )')),
-                  ],
-                ),
-                SizedBox(height: 10),
-                Text('Uso:', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                _buildCheckboxOptions(selectedUsos),
-                _buildTextField('Otro uso (Especifique)', otroUsoController),
-                SizedBox(height: 10),
-                Text('Dimensiones:', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                _buildTextField('Frente X =', frenteXController, suffix: 'metros.', keyboardType: TextInputType.number),
-                _buildTextField('Frente Y =', frenteYController, suffix: 'metros.', keyboardType: TextInputType.number),
-                _buildTextField('No. niveles, n =', nivelesController, keyboardType: TextInputType.number),
-                _buildTextField('No. ocupantes =', ocupantesController, keyboardType: TextInputType.number),
-                _buildTextField('No. sótanos =', sotanosController, keyboardType: TextInputType.number),
-                SizedBox(height: 10),
-                Text('Topografía:', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                _buildCheckboxOptions(selectedTopografia),
-                SizedBox(height: 20),
-              ],
+              ),
             ),
-          ),
-        ),
+      ),
+    );
+  }
+
+  /// Widget para mostrar pantalla de carga
+  Widget _buildLoadingScreen() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircularProgressIndicator(),
+          SizedBox(height: 20),
+          Text('Cargando datos...'),
+        ],
       ),
     );
   }
@@ -241,6 +353,35 @@ class _InformacionGeneralScreenState extends State<InformacionGeneralScreen> {
           suffixText: suffix,
           border: OutlineInputBorder(),
         ),
+      ),
+    );
+  }
+
+  Widget _buildDropdownField(
+    String label,
+    List<String> options,
+    String? selectedValue,
+    ValueChanged<String?> onChanged
+  ) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: DropdownButtonFormField<String>(
+        decoration: InputDecoration(
+          labelText: label,
+          border: OutlineInputBorder(),
+        ),
+        value: selectedValue,
+        isExpanded: true,
+        icon: Icon(Icons.arrow_drop_down),
+        elevation: 16,
+        style: TextStyle(color: Colors.black),
+        onChanged: onChanged,
+        items: options.map<DropdownMenuItem<String>>((String value) {
+          return DropdownMenuItem<String>(
+            value: value,
+            child: Text(value),
+          );
+        }).toList(),
       ),
     );
   }
@@ -296,17 +437,27 @@ class _InformacionGeneralScreenState extends State<InformacionGeneralScreen> {
       _mostrarAlerta('El nombre del inmueble es obligatorio');
       return;
     }
+    
+    if (_municipioSeleccionado == null) {
+      _mostrarAlerta('Por favor seleccione un municipio');
+      return;
+    }
+    
+    if (_ciudadSeleccionada == null) {
+      _mostrarAlerta('Por favor seleccione una ciudad o pueblo');
+      return;
+    }
 
     try {
       // Crear objeto de información general
       final informacionGeneral = InformacionGeneral(
         nombreInmueble: nombreInmuebleController.text,
         calle: calleController.text,
-        colonia: coloniaController.text,
+        colonia: _coloniaSeleccionada ?? '',
         codigoPostal: cpController.text,
-        ciudadPueblo: ciudadController.text,
-        delegacionMunicipio: delegacionController.text,
-        estado: estadoController.text,
+        ciudadPueblo: _ciudadSeleccionada ?? '',
+        delegacionMunicipio: _municipioSeleccionado ?? '',
+        estado: 'Baja California Sur', // Valor fijo para este proyecto
         referencias: referenciasController.text,
         personaContacto: personaContactoController.text,
         telefono: telefonoController.text,

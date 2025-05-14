@@ -7,15 +7,20 @@ import 'package:firebase_core/firebase_core.dart';
 
 
 
+// Asegúrate de que el archivo ciudades_colonia.json esté en la carpeta assets
+// y que esté correctamente referenciado en pubspec.yaml
+
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-   // Inicializar Firebase
+  // Inicializar Firebase
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
   
+  // Precarga del archivo de ciudades para mejorar rendimiento
+  await precacheAssets();
 
   // Solicitar permisos básicos al inicio
   if (Platform.isAndroid) {
@@ -28,6 +33,19 @@ void main() async {
   }
   
   runApp(const CENApp());
+}
+
+/// Precarga recursos que pueden ser usados frecuentemente
+Future<void> precacheAssets() async {
+  try {
+    // Esto no carga realmente el JSON, solo asegura que esté disponible
+    // cuando se necesite en la aplicación
+    final manifestContent = await DefaultAssetBundle.of(navigatorKey.currentContext ?? (GlobalKey<NavigatorState>().currentContext!)).loadString('AssetManifest.json');
+    print('Asset manifest precargado: $manifestContent.length bytes');
+  } catch (e) {
+    print('Error al precargar recursos: $e');
+    // La aplicación puede continuar, esto es solo una optimización
+  }
 }
 
 class CENApp extends StatelessWidget {

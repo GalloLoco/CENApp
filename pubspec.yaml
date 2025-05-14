@@ -65,3 +65,4 @@ flutter:
   uses-material-design: true
   assets:
     - assets/logoCenapp.png
+    - assets/ciudades_colonia.json  

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart'; // Para compute
+import '../data/services/cloud_storage_service.dart';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import '../logica/formato_evaluacion.dart';
@@ -66,8 +67,8 @@ class _DocumentoGuardadoScreenState extends State<DocumentoGuardadoScreen> {
     }
   }
 
-  /// Exporta el documento a PDF y lo guarda en Descargas
-Future<void> _exportarPDF() async {
+  // Luego, añade este método a la clase _DocumentoGuardadoScreenState
+  Future<void> _guardarEnServidor() async {
   setState(() {
     _isLoading = true;
     _errorMessage = null;
@@ -77,8 +78,14 @@ Future<void> _exportarPDF() async {
     // Mostrar diálogo de progreso
     _mostrarIndicadorGuardando(context);
     
-    // Generar el PDF y guardarlo directamente en Descargas
-    final filePath = await _documentoService.exportarPDF(widget.formato);
+    // Crear una instancia del servicio CloudStorage
+    final CloudStorageService cloudService = CloudStorageService();
+    
+    // Verificar si el formato ya existe (para tener información previa)
+    bool existiaPreviamente = await cloudService.verificarExistenciaFormato(widget.formato.id);
+    
+    // Subir el formato al servidor
+    String documentId = await cloudService.subirFormato(widget.formato);
     
     // Cerrar el diálogo de progreso
     Navigator.of(context, rootNavigator: true).pop();
@@ -87,108 +94,57 @@ Future<void> _exportarPDF() async {
       _isLoading = false;
     });
 
-    // Mostrar diálogo con la ruta donde se guardó el archivo
-    _mostrarArchivoPDFGuardado(context, filePath);
-  } catch (e) {
-    // Cerrar el diálogo de progreso si está abierto
-    Navigator.of(context, rootNavigator: true).pop();
-    
-    setState(() {
-      _errorMessage = 'Error al exportar a PDF: $e';
-      _isLoading = false;
-    });
-    
-    // Mostrar error
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Error al generar PDF: $e'),
-        backgroundColor: Colors.red,
-      ),
-    );
-  }
-}
-// Método para mostrar dónde se guardó el PDF
-void _mostrarArchivoPDFGuardado(BuildContext context, String rutaArchivo) {
-  showDialog(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: Text('PDF guardado con éxito'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('El PDF se ha guardado en:'),
-          SizedBox(height: 10),
-          Container(
-            padding: EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.grey[200],
-              borderRadius: BorderRadius.circular(4),
+    // Mostrar mensaje con el ID del documento y si fue actualización o creación
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(existiaPreviamente ? 'Formato Actualizado' : 'Formato Guardado'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(existiaPreviamente 
+              ? 'El formato con ID "${widget.formato.id}" ha sido actualizado exitosamente en el servidor.'
+              : 'El formato ha sido guardado exitosamente en el servidor.'),
+            SizedBox(height: 15),
+            Text('ID de documento en Firestore:', 
+                 style: TextStyle(fontWeight: FontWeight.bold)),
+            SizedBox(height: 5),
+            Container(
+              padding: EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.grey[200],
+                borderRadius: BorderRadius.circular(4),
+              ),
+              width: double.infinity,
+              child: Text(
+                documentId,
+                style: TextStyle(fontFamily: 'monospace', fontSize: 12),
+              ),
             ),
-            width: double.infinity,
-            child: Text(
-              rutaArchivo,
-              style: TextStyle(fontFamily: 'monospace', fontSize: 12),
-            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Aceptar'),
           ),
-          SizedBox(height: 15),
-          Text('Ubicación: Carpeta de Descargas', 
-               style: TextStyle(fontWeight: FontWeight.bold)),
         ],
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: Text('Aceptar'),
-        ),
-        TextButton(
-          onPressed: () {
-            Navigator.pop(context);
-            _compartirArchivo(rutaArchivo, 'application/pdf');
-          },
-          child: Text('Compartir'),
-        ),
-      ],
-    ),
-  );
-}
-
-  /// Exporta el documento a Excel
-  Future<void> _exportarExcel() async {
-  setState(() {
-    _isLoading = true;
-    _errorMessage = null;
-  });
-
-  try {
-    // Mostrar diálogo de progreso
-    _mostrarIndicadorGuardando(context);
-    
-    // Generar el Excel y guardarlo directamente en Descargas
-    final filePath = await _documentoService.exportarExcel(widget.formato);
-    
-    // Cerrar el diálogo de progreso
-    Navigator.of(context, rootNavigator: true).pop();
-
-    setState(() {
-      _isLoading = false;
-    });
-
-    // Mostrar diálogo con la ruta donde se guardó el archivo
-    _mostrarArchivoExcelGuardado(context, filePath);
+    );
   } catch (e) {
     // Cerrar el diálogo de progreso si está abierto
     Navigator.of(context, rootNavigator: true).pop();
     
     setState(() {
-      _errorMessage = 'Error al exportar a Excel: $e';
+      _errorMessage = 'Error al guardar en servidor: $e';
       _isLoading = false;
     });
     
     // Mostrar error
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Error al generar Excel: $e'),
+        content: Text('Error al guardar en servidor: $e'),
         backgroundColor: Colors.red,
         duration: Duration(seconds: 3),
       ),
@@ -196,52 +152,268 @@ void _mostrarArchivoPDFGuardado(BuildContext context, String rutaArchivo) {
   }
 }
 
+// Añade este método para mostrar un diálogo después de una subida exitosa
+  void _mostrarDialogoSubidaExitosa(BuildContext context, String documentId) {
+  // Obtener información del formato actual
+  String formatoId = widget.formato.id;
   
-  // Método para mostrar dónde se guardó el Excel
-void _mostrarArchivoExcelGuardado(BuildContext context, String rutaArchivo) {
-  showDialog(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: Text('Excel guardado con éxito'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('El archivo Excel se ha guardado en:'),
-          SizedBox(height: 10),
-          Container(
-            padding: EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.grey[200],
-              borderRadius: BorderRadius.circular(4),
+  // Consultar si ya existía este formato (por ID)
+  CloudStorageService cloudService = CloudStorageService();
+  cloudService.verificarExistenciaFormato(formatoId).then((bool existiaPreviamente) {
+    // Mostrar el diálogo con información específica
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(existiaPreviamente ? 'Formato Actualizado' : 'Formato Guardado'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(existiaPreviamente 
+              ? 'El formato con ID "$formatoId" ha sido actualizado exitosamente en el servidor.'
+              : 'El formato ha sido guardado exitosamente en el servidor.'),
+            SizedBox(height: 15),
+            Text('ID de documento en Firestore:', 
+                 style: TextStyle(fontWeight: FontWeight.bold)),
+            SizedBox(height: 5),
+            Container(
+              padding: EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.grey[200],
+                borderRadius: BorderRadius.circular(4),
+              ),
+              width: double.infinity,
+              child: Text(
+                documentId,
+                style: TextStyle(fontFamily: 'monospace', fontSize: 12),
+              ),
             ),
-            width: double.infinity,
-            child: Text(
-              rutaArchivo,
-              style: TextStyle(fontFamily: 'monospace', fontSize: 12),
-            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Aceptar'),
           ),
-          SizedBox(height: 15),
-          Text('Ubicación: Carpeta de Descargas', 
-               style: TextStyle(fontWeight: FontWeight.bold)),
         ],
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: Text('Aceptar'),
+    );
+  }).catchError((error) {
+    // En caso de error, mostrar el diálogo simple
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Formato Guardado'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('El formato ha sido guardado exitosamente en el servidor.'),
+            SizedBox(height: 15),
+            Text('ID de documento en Firestore:', 
+                 style: TextStyle(fontWeight: FontWeight.bold)),
+            SizedBox(height: 5),
+            Container(
+              padding: EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.grey[200],
+                borderRadius: BorderRadius.circular(4),
+              ),
+              width: double.infinity,
+              child: Text(
+                documentId,
+                style: TextStyle(fontFamily: 'monospace', fontSize: 12),
+              ),
+            ),
+          ],
         ),
-        TextButton(
-          onPressed: () {
-            Navigator.pop(context);
-            _compartirArchivo(rutaArchivo, 'application/vnd.ms-excel');
-          },
-          child: Text('Compartir'),
-        ),
-      ],
-    ),
-  );
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Aceptar'),
+          ),
+        ],
+      ),
+    );
+  });
 }
+
+  /// Exporta el documento a PDF y lo guarda en Descargas
+  Future<void> _exportarPDF() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      // Mostrar diálogo de progreso
+      _mostrarIndicadorGuardando(context);
+
+      // Generar el PDF y guardarlo directamente en Descargas
+      final filePath = await _documentoService.exportarPDF(widget.formato);
+
+      // Cerrar el diálogo de progreso
+      Navigator.of(context, rootNavigator: true).pop();
+
+      setState(() {
+        _isLoading = false;
+      });
+
+      // Mostrar diálogo con la ruta donde se guardó el archivo
+      _mostrarArchivoPDFGuardado(context, filePath);
+    } catch (e) {
+      // Cerrar el diálogo de progreso si está abierto
+      Navigator.of(context, rootNavigator: true).pop();
+
+      setState(() {
+        _errorMessage = 'Error al exportar a PDF: $e';
+        _isLoading = false;
+      });
+
+      // Mostrar error
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error al generar PDF: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+// Método para mostrar dónde se guardó el PDF
+  void _mostrarArchivoPDFGuardado(BuildContext context, String rutaArchivo) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('PDF guardado con éxito'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('El PDF se ha guardado en:'),
+            SizedBox(height: 10),
+            Container(
+              padding: EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.grey[200],
+                borderRadius: BorderRadius.circular(4),
+              ),
+              width: double.infinity,
+              child: Text(
+                rutaArchivo,
+                style: TextStyle(fontFamily: 'monospace', fontSize: 12),
+              ),
+            ),
+            SizedBox(height: 15),
+            Text('Ubicación: Carpeta de Descargas',
+                style: TextStyle(fontWeight: FontWeight.bold)),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Aceptar'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _compartirArchivo(rutaArchivo, 'application/pdf');
+            },
+            child: Text('Compartir'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Exporta el documento a Excel
+  Future<void> _exportarExcel() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      // Mostrar diálogo de progreso
+      _mostrarIndicadorGuardando(context);
+
+      // Generar el Excel y guardarlo directamente en Descargas
+      final filePath = await _documentoService.exportarExcel(widget.formato);
+
+      // Cerrar el diálogo de progreso
+      Navigator.of(context, rootNavigator: true).pop();
+
+      setState(() {
+        _isLoading = false;
+      });
+
+      // Mostrar diálogo con la ruta donde se guardó el archivo
+      _mostrarArchivoExcelGuardado(context, filePath);
+    } catch (e) {
+      // Cerrar el diálogo de progreso si está abierto
+      Navigator.of(context, rootNavigator: true).pop();
+
+      setState(() {
+        _errorMessage = 'Error al exportar a Excel: $e';
+        _isLoading = false;
+      });
+
+      // Mostrar error
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error al generar Excel: $e'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+
+  // Método para mostrar dónde se guardó el Excel
+  void _mostrarArchivoExcelGuardado(BuildContext context, String rutaArchivo) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Excel guardado con éxito'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('El archivo Excel se ha guardado en:'),
+            SizedBox(height: 10),
+            Container(
+              padding: EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.grey[200],
+                borderRadius: BorderRadius.circular(4),
+              ),
+              width: double.infinity,
+              child: Text(
+                rutaArchivo,
+                style: TextStyle(fontFamily: 'monospace', fontSize: 12),
+              ),
+            ),
+            SizedBox(height: 15),
+            Text('Ubicación: Carpeta de Descargas',
+                style: TextStyle(fontWeight: FontWeight.bold)),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Aceptar'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _compartirArchivo(rutaArchivo, 'application/vnd.ms-excel');
+            },
+            child: Text('Compartir'),
+          ),
+        ],
+      ),
+    );
+  }
 
   /// Compartir un archivo
   Future<void> _compartirArchivo(String filePath, String mimeType) async {
@@ -681,6 +853,13 @@ void _mostrarArchivoExcelGuardado(BuildContext context, String rutaArchivo) {
             'Guardar JSON',
             _guardarEnDescargas,
             Colors.teal,
+          ),
+          SizedBox(height: 20),
+          _buildExportButton(
+            Icons.cloud_upload,
+            'Guardar en Servidor',
+            _guardarEnServidor,
+            Colors.deepPurple,
           ),
         ],
       ),

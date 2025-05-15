@@ -152,6 +152,15 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+  Widget _buildInfoTextNombre(String text) {
+    return Align(
+      alignment: Alignment.topLeft,
+      child: Text(
+        text,
+        style: TextStyle(fontWeight: FontWeight.bold),
+      ),
+    );
+  }
 
   Widget _buildButton(BuildContext context, String text, IconData icon,
       double width, double height, dynamic screen) {

@@ -20,22 +20,14 @@ class LoginScreen extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                SizedBox(height: constraints.maxHeight * 0.05),
+                SizedBox(height: constraints.maxHeight * 0.15),
                 Image.asset(
                   'assets/logoCenapp.png',
                   height: logoHeight,
                   fit: BoxFit.contain,
                 ),
-                SizedBox(height: constraints.maxHeight * 0.05),
-                Text(
-                  'CENApp',
-                  style: TextStyle(
-                    fontFamily: 'Open Sans',
-                    fontSize: constraints.maxWidth * 0.1,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
-                  ),
-                ),
+                SizedBox(height: constraints.maxHeight * 0.001),
+                
                 SizedBox(height: constraints.maxHeight * 0.1),
                 _buildButton(
                   context,

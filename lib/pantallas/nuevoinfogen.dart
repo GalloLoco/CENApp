@@ -447,14 +447,18 @@ class _InformacionGeneralScreenState extends State<InformacionGeneralScreen> {
       _mostrarAlerta('Por favor seleccione una ciudad o pueblo');
       return;
     }
+    if (_coloniaSeleccionada == null) {
+      _mostrarAlerta('Por favor seleccione una colonia');
+      return;
+    }
 
     try {
       // Crear objeto de información general
       final informacionGeneral = InformacionGeneral(
-        nombreInmueble: nombreInmuebleController.text,
-        calle: calleController.text,
+        nombreInmueble: nombreInmuebleController.text.toUpperCase().trim(),
+        calle: calleController.text.trim(),
         colonia: _coloniaSeleccionada ?? '',
-        codigoPostal: cpController.text,
+        codigoPostal: cpController.text.trim(),
         ciudadPueblo: _ciudadSeleccionada ?? '',
         delegacionMunicipio: _municipioSeleccionado ?? '',
         estado: 'Baja California Sur', // Valor fijo para este proyecto

@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cenapp/data/services/cloud_storage_service.dart';
 import 'package:cenapp/pantallas/NuevoFormato.dart';
 import '../logica/formato_evaluacion.dart';
+import '../data/services/ciudad_colonia_service.dart';
 
 class BuscarServidorScreen extends StatefulWidget {
   const BuscarServidorScreen({super.key});
@@ -16,38 +17,45 @@ class BuscarServidorScreen extends StatefulWidget {
 class _BuscarServidorScreenState extends State<BuscarServidorScreen> {
   // Instancia del servicio de almacenamiento en la nube
   final CloudStorageService _cloudService = CloudStorageService();
-  
+
   // Controladores para los campos de búsqueda básicos
   final TextEditingController _idController = TextEditingController();
-  final TextEditingController _nombreInmuebleController = TextEditingController();
-  final TextEditingController _fechaCreacionController = TextEditingController();
-  final TextEditingController _fechaModificacionController = TextEditingController();
-  final TextEditingController _usuarioCreadorController = TextEditingController();
-  
+  final TextEditingController _nombreInmuebleController =
+      TextEditingController();
+  final TextEditingController _fechaCreacionController =
+      TextEditingController();
+  final TextEditingController _fechaModificacionController =
+      TextEditingController();
+  final TextEditingController _usuarioCreadorController =
+      TextEditingController();
+
   // Controladores para los campos de ubicación
   final TextEditingController _calleNumeroController = TextEditingController();
   final TextEditingController _codigoPostalController = TextEditingController();
-  final TextEditingController _puebloCiudadController = TextEditingController();
-  final TextEditingController _delegacionMunicipioController = TextEditingController();
-  final TextEditingController _estadoController = TextEditingController();
-  
-  // Valores para el dropdown de colonias
+
+  String? _municipioSeleccionado = 'La Paz';
+  String? _ciudadSeleccionada = 'La Paz';
   String? _coloniaSeleccionada;
-  final List<String> _colonias = ['', 'Santa Fe', 'Centro', 'Camino Real', 'El Pedregal', 'Otra'];
-  
+  String _estadoSeleccionado = 'Baja California Sur';
+  List<String> _municipios = [];
+  List<String> _ciudades = [];
+  List<String> _colonias = [];
+  final CiudadColoniaService _ciudadService = CiudadColoniaService();
+  bool _cargandoDatos = true;
+
   // Variables para fechas
   DateTime? _fechaCreacion;
   DateTime? _fechaModificacion;
-  
+
   // Variable para controlar el estado de carga
   bool _isLoading = false;
-  
+
   // Lista para almacenar los resultados de la búsqueda
   List<Map<String, dynamic>> _resultados = [];
-  
+
   // Variable para controlar si se muestran los campos de ubicación extendidos
   bool _mostrarCamposUbicacionExtendidos = false;
-  
+
   @override
   void dispose() {
     // Liberar recursos de controladores básicos
@@ -56,17 +64,20 @@ class _BuscarServidorScreenState extends State<BuscarServidorScreen> {
     _fechaCreacionController.dispose();
     _fechaModificacionController.dispose();
     _usuarioCreadorController.dispose();
-    
+
     // Liberar recursos de controladores de ubicación
     _calleNumeroController.dispose();
     _codigoPostalController.dispose();
-    _puebloCiudadController.dispose();
-    _delegacionMunicipioController.dispose();
-    _estadoController.dispose();
-    
+
     super.dispose();
   }
-  
+
+  @override
+  void initState() {
+    super.initState();
+    _cargarDatos();
+  }
+
   // Función para seleccionar fecha
   Future<void> _seleccionarFecha(BuildContext context, bool esCreacion) async {
     final DateTime? fechaSeleccionada = await showDatePicker(
@@ -85,20 +96,32 @@ class _BuscarServidorScreenState extends State<BuscarServidorScreen> {
         );
       },
     );
-    
+
     if (fechaSeleccionada != null) {
       setState(() {
         if (esCreacion) {
-          _fechaCreacion = fechaSeleccionada;
-          _fechaCreacionController.text = DateFormat('dd/MM/yyyy').format(fechaSeleccionada);
+          // Para búsqueda, usamos el inicio del día (00:00:00)
+          _fechaCreacion = DateTime(
+            fechaSeleccionada.year,
+            fechaSeleccionada.month,
+            fechaSeleccionada.day,
+          );
+          _fechaCreacionController.text =
+              DateFormat('dd/MM/yyyy').format(fechaSeleccionada);
         } else {
-          _fechaModificacion = fechaSeleccionada;
-          _fechaModificacionController.text = DateFormat('dd/MM/yyyy').format(fechaSeleccionada);
+          // Para búsqueda, usamos el inicio del día (00:00:00)
+          _fechaModificacion = DateTime(
+            fechaSeleccionada.year,
+            fechaSeleccionada.month,
+            fechaSeleccionada.day,
+          );
+          _fechaModificacionController.text =
+              DateFormat('dd/MM/yyyy').format(fechaSeleccionada);
         }
       });
     }
   }
-  
+
   // Función para limpiar una fecha
   void _limpiarFecha(bool esCreacion) {
     setState(() {
@@ -111,10 +134,10 @@ class _BuscarServidorScreenState extends State<BuscarServidorScreen> {
       }
     });
   }
-  
+
   // Función para realizar la búsqueda
   Future<void> _buscar() async {
-    // Validar que al menos un campo tenga valor
+    /*// Validar que al menos un campo tenga valor
     bool hayAlgunCampoLleno = _idController.text.isNotEmpty ||
         _nombreInmuebleController.text.isNotEmpty ||
         _fechaCreacion != null ||
@@ -122,11 +145,10 @@ class _BuscarServidorScreenState extends State<BuscarServidorScreen> {
         _coloniaSeleccionada != null && _coloniaSeleccionada!.isNotEmpty ||
         _calleNumeroController.text.isNotEmpty ||
         _codigoPostalController.text.isNotEmpty ||
-        _puebloCiudadController.text.isNotEmpty ||
-        _delegacionMunicipioController.text.isNotEmpty ||
-        _estadoController.text.isNotEmpty ||
+        _ciudadSeleccionada == 'La Paz' ||
+        _municipioSeleccionado == 'La Paz' ||
         _usuarioCreadorController.text.isNotEmpty;
-        
+
     if (!hayAlgunCampoLleno) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -135,38 +157,75 @@ class _BuscarServidorScreenState extends State<BuscarServidorScreen> {
         ),
       );
       return;
-    }
-    
+    }*/
+
     setState(() {
       _isLoading = true;
     });
-    
+
     try {
-      // Realizar la búsqueda utilizando el servicio
-      List<Map<String, dynamic>> resultados = await _cloudService.buscarFormatos(
+      // Preparar fechas para la búsqueda
+      DateTime? fechaCreacionHasta;
+      DateTime? fechaModificacionHasta;
+
+      // Si se seleccionó una fecha de creación, crear el rango de ese día completo
+      if (_fechaCreacion != null) {
+        // Fecha hasta = final del día seleccionado (23:59:59)
+        fechaCreacionHasta = DateTime(
+          _fechaCreacion!.year,
+          _fechaCreacion!.month,
+          _fechaCreacion!.day,
+          23,
+          59,
+          59,
+          999,
+        );
+      }
+
+      // Si se seleccionó una fecha de modificación, crear el rango de ese día completo
+      if (_fechaModificacion != null) {
+        // Fecha hasta = final del día seleccionado (23:59:59)
+        fechaModificacionHasta = DateTime(
+          _fechaModificacion!.year,
+          _fechaModificacion!.month,
+          _fechaModificacion!.day,
+          23,
+          59,
+          59,
+          999,
+        );
+      }
+
+      // Realizar la búsqueda utilizando el servicio con fechas ajustadas
+      List<Map<String, dynamic>> resultados =
+          await _cloudService.buscarFormatos(
         id: _idController.text,
-        nombreInmueble: _nombreInmuebleController.text,
+        nombreInmueble: _nombreInmuebleController.text.toUpperCase(),
         fechaCreacionDesde: _fechaCreacion,
+        fechaCreacionHasta: fechaCreacionHasta,
         fechaModificacionDesde: _fechaModificacion,
-        ubicacionColonia: _coloniaSeleccionada?.isEmpty ?? true ? null : _coloniaSeleccionada,
+        fechaModificacionHasta: fechaModificacionHasta,
+        ubicacionColonia:
+            _coloniaSeleccionada?.isEmpty ?? true ? null : _coloniaSeleccionada,
         ubicacionCalle: _calleNumeroController.text,
         ubicacionCodigoPostal: _codigoPostalController.text,
-        ubicacionCiudad: _puebloCiudadController.text,
-        ubicacionMunicipio: _delegacionMunicipioController.text,
-        ubicacionEstado: _estadoController.text,
+        ubicacionCiudad: _ciudadSeleccionada,
+        ubicacionMunicipio: _municipioSeleccionado,
+        ubicacionEstado: _estadoSeleccionado,
         usuarioCreador: _usuarioCreadorController.text,
       );
-      
+
       setState(() {
         _resultados = resultados;
         _isLoading = false;
       });
-      
+
       // Mostrar mensaje según los resultados
       if (_resultados.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('No se encontraron resultados con los criterios especificados'),
+            content: Text(
+                'No se encontraron resultados con los criterios especificados'),
             backgroundColor: Colors.blue,
           ),
         );
@@ -182,13 +241,15 @@ class _BuscarServidorScreenState extends State<BuscarServidorScreen> {
       setState(() {
         _isLoading = false;
       });
-      
+
       // Detectar error específico de índice faltante
       String errorMsg = e.toString();
-      if (errorMsg.contains('requires an index') || errorMsg.contains('no index defined')) {
+      if (errorMsg.contains('requires an index') ||
+          errorMsg.contains('no index defined')) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Se requiere crear un índice en Firebase para esta consulta. Por favor, contacta al administrador.'),
+            content: Text(
+                'Se requiere crear un índice en Firebase para esta consulta. Por favor, contacta al administrador.'),
             backgroundColor: Colors.orange,
             duration: Duration(seconds: 6),
           ),
@@ -204,7 +265,7 @@ class _BuscarServidorScreenState extends State<BuscarServidorScreen> {
       }
     }
   }
-  
+
   // Función para limpiar todos los filtros
   void _limpiarFiltros() {
     setState(() {
@@ -214,16 +275,16 @@ class _BuscarServidorScreenState extends State<BuscarServidorScreen> {
       _fechaCreacionController.clear();
       _fechaModificacion = null;
       _fechaModificacionController.clear();
-      _coloniaSeleccionada = '';
+      _coloniaSeleccionada = 'Arcos del Sol';
       _calleNumeroController.clear();
       _codigoPostalController.clear();
-      _puebloCiudadController.clear();
-      _delegacionMunicipioController.clear();
-      _estadoController.clear();
+      _municipioSeleccionado = 'La Paz';
+    _ciudadSeleccionada = 'La Paz';
+    _estadoSeleccionado = 'Baja California Sur';
       _usuarioCreadorController.clear();
       _resultados = [];
     });
-    
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('Todos los filtros han sido limpiados'),
@@ -231,28 +292,29 @@ class _BuscarServidorScreenState extends State<BuscarServidorScreen> {
       ),
     );
   }
-  
+
   // Función para abrir un formato
   Future<void> _abrirFormato(String documentId) async {
     setState(() {
       _isLoading = true;
     });
-    
+
     try {
       // Mostrar diálogo de carga
       _mostrarDialogoCarga(context, 'Cargando formato...');
-      
+
       // Obtener el formato completo
-      FormatoEvaluacion? formato = await _cloudService.obtenerFormatoPorId(documentId);
-      
+      FormatoEvaluacion? formato =
+          await _cloudService.obtenerFormatoPorId(documentId);
+
       // Cerrar diálogo de carga
       Navigator.of(context, rootNavigator: true).pop();
-      
+
       if (formato != null) {
         setState(() {
           _isLoading = false;
         });
-        
+
         // Navegar a la pantalla de edición
         Navigator.push(
           context,
@@ -264,7 +326,7 @@ class _BuscarServidorScreenState extends State<BuscarServidorScreen> {
         setState(() {
           _isLoading = false;
         });
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('No se pudo cargar el formato seleccionado'),
@@ -275,11 +337,11 @@ class _BuscarServidorScreenState extends State<BuscarServidorScreen> {
     } catch (e) {
       // Cerrar diálogo de carga si está abierto
       Navigator.of(context, rootNavigator: true).pop();
-      
+
       setState(() {
         _isLoading = false;
       });
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error al abrir el formato: $e'),
@@ -288,7 +350,7 @@ class _BuscarServidorScreenState extends State<BuscarServidorScreen> {
       );
     }
   }
-  
+
   // Método para mostrar diálogo de carga
   void _mostrarDialogoCarga(BuildContext context, String mensaje) {
     showDialog(
@@ -315,7 +377,7 @@ class _BuscarServidorScreenState extends State<BuscarServidorScreen> {
       ),
     );
   }
-  
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -328,87 +390,90 @@ class _BuscarServidorScreenState extends State<BuscarServidorScreen> {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: _isLoading 
-        ? Center(child: CircularProgressIndicator())
-        : SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Text(
-                    'Buscar Formato',
-                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                  ),
-                ),
-                SizedBox(height: 20),
-                
-                // Sección de búsqueda
-                _buildSearchSection(),
-                
-                SizedBox(height: 20),
-                
-                // Botones de acción
-                Row(
+      body: _isLoading
+          ? Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 20.0, vertical: 10.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: _buscar,
-                        icon: Icon(Icons.search),
-                        label: Text('Buscar'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Color(0xFF80C0ED),
-                          padding: EdgeInsets.symmetric(vertical: 15),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
+                    Center(
+                      child: Text(
+                        'Buscar Formato',
+                        style: TextStyle(
+                            fontSize: 24, fontWeight: FontWeight.bold),
                       ),
                     ),
-                    SizedBox(width: 10),
-                    ElevatedButton.icon(
-                      onPressed: _limpiarFiltros,
-                      icon: Icon(Icons.clear_all),
-                      label: Text('Limpiar'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.grey,
-                        padding: EdgeInsets.symmetric(vertical: 15),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                
-                SizedBox(height: 20),
-                
-                // Tabla de resultados
-                _resultados.isNotEmpty
-                  ? _buildResultsTable()
-                  : Center(
-                      child: Column(
-                        children: [
-                          Icon(Icons.search, size: 50, color: Colors.grey[400]),
-                          SizedBox(height: 10),
-                          Text(
-                            'Ingresa criterios de búsqueda y presiona "Buscar"',
-                            style: TextStyle(
-                              color: Colors.grey[600],
-                              fontStyle: FontStyle.italic,
+                    SizedBox(height: 20),
+
+                    // Sección de búsqueda
+                    _buildSearchSection(),
+
+                    SizedBox(height: 20),
+
+                    // Botones de acción
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: _buscar,
+                            icon: Icon(Icons.search),
+                            label: Text('Buscar'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Color(0xFF80C0ED),
+                              padding: EdgeInsets.symmetric(vertical: 15),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
                             ),
                           ),
-                        ],
-                      ),
+                        ),
+                        SizedBox(width: 10),
+                        ElevatedButton.icon(
+                          onPressed: _limpiarFiltros,
+                          icon: Icon(Icons.clear_all),
+                          label: Text('Limpiar'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.grey,
+                            padding: EdgeInsets.symmetric(vertical: 15),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-              ],
+
+                    SizedBox(height: 20),
+
+                    // Tabla de resultados
+                    _resultados.isNotEmpty
+                        ? _buildResultsTable()
+                        : Center(
+                            child: Column(
+                              children: [
+                                Icon(Icons.search,
+                                    size: 50, color: Colors.grey[400]),
+                                SizedBox(height: 10),
+                                Text(
+                                  'Ingresa criterios de búsqueda y presiona "Buscar"',
+                                  style: TextStyle(
+                                    color: Colors.grey[600],
+                                    fontStyle: FontStyle.italic,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                  ],
+                ),
+              ),
             ),
-          ),
-        ),
     );
   }
-  
+
   // Construye la sección de búsqueda
   Widget _buildSearchSection() {
     return Column(
@@ -417,7 +482,7 @@ class _BuscarServidorScreenState extends State<BuscarServidorScreen> {
         // ID y nombre del inmueble
         _buildSectionTitle('Búsqueda por ID o nombre del inmueble'),
         SizedBox(height: 5),
-        
+
         // Campo ID más grande
         TextField(
           controller: _idController,
@@ -427,9 +492,9 @@ class _BuscarServidorScreenState extends State<BuscarServidorScreen> {
             prefixIcon: Icon(Icons.tag),
           ),
         ),
-        
+
         SizedBox(height: 10),
-        
+
         // Campo de nombre de inmueble
         TextField(
           controller: _nombreInmuebleController,
@@ -439,12 +504,12 @@ class _BuscarServidorScreenState extends State<BuscarServidorScreen> {
             prefixIcon: Icon(Icons.business),
           ),
         ),
-        
+
         SizedBox(height: 20),
-        
+
         // Fechas
         _buildSectionTitle('Fechas'),
-        
+
         // Fecha de creación con botón para limpiar
         Row(
           children: [
@@ -469,9 +534,9 @@ class _BuscarServidorScreenState extends State<BuscarServidorScreen> {
               ),
           ],
         ),
-        
+
         SizedBox(height: 10),
-        
+
         // Fecha de modificación con botón para limpiar
         Row(
           children: [
@@ -496,9 +561,9 @@ class _BuscarServidorScreenState extends State<BuscarServidorScreen> {
               ),
           ],
         ),
-        
+
         SizedBox(height: 20),
-        
+
         // Ubicación geográfica
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -506,104 +571,194 @@ class _BuscarServidorScreenState extends State<BuscarServidorScreen> {
             _buildSectionTitle('Ubicación geográfica'),
             TextButton.icon(
               icon: Icon(
-                _mostrarCamposUbicacionExtendidos ? Icons.arrow_drop_up : Icons.arrow_drop_down,
+                _mostrarCamposUbicacionExtendidos
+                    ? Icons.arrow_drop_up
+                    : Icons.arrow_drop_down,
               ),
-              label: Text(_mostrarCamposUbicacionExtendidos ? 'Mostrar menos' : 'Mostrar más'),
+              label: Text(_mostrarCamposUbicacionExtendidos
+                  ? 'Mostrar menos'
+                  : 'Mostrar más'),
               onPressed: () {
                 setState(() {
-                  _mostrarCamposUbicacionExtendidos = !_mostrarCamposUbicacionExtendidos;
+                  _mostrarCamposUbicacionExtendidos =
+                      !_mostrarCamposUbicacionExtendidos;
                 });
               },
             ),
           ],
         ),
-        
-        // Campos básicos de ubicación
-        Row(
-          children: [
-            Expanded(
-              child: DropdownButtonFormField<String>(
-                value: _coloniaSeleccionada,
-                isExpanded: true,
-                decoration: InputDecoration(
-                  labelText: 'Colonia',
-                  border: OutlineInputBorder(),
+
+// Campos básicos de ubicación
+        _cargandoDatos
+            ? Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(10.0),
+                  child: CircularProgressIndicator(strokeWidth: 2),
                 ),
-                items: _colonias.map((String colonia) {
-                  return DropdownMenuItem<String>(
-                    value: colonia,
-                    child: Text(colonia.isEmpty ? 'Todas' : colonia),
-                  );
-                }).toList(),
-                onChanged: (String? newValue) {
-                  setState(() {
-                    _coloniaSeleccionada = newValue;
-                  });
-                },
+              )
+            : Column(
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _calleNumeroController,
+                          decoration: InputDecoration(
+                            labelText: 'Calle y número',
+                            border: OutlineInputBorder(),
+                            prefixIcon: Icon(Icons.location_on),
+                          ),
+                        ),
+                      ),
+                      SizedBox(width: 10),
+                      Expanded(
+                        child: DropdownButtonFormField<String>(
+                          value: _coloniaSeleccionada,
+                          isExpanded: true,
+                          decoration: InputDecoration(
+                            labelText: 'Colonia',
+                            border: OutlineInputBorder(),
+                            prefixIcon: Icon(Icons.home),
+                          ),
+                          items: [
+                            DropdownMenuItem<String>(
+                              value: null,
+                              child: Text('Todas'),
+                            ),
+                            ..._colonias.map((String colonia) {
+                              return DropdownMenuItem<String>(
+                                value: colonia,
+                                child: Text(colonia),
+                              );
+                            }).toList(),
+                          ],
+                          onChanged: (String? newValue) {
+                            setState(() {
+                              _coloniaSeleccionada = newValue;
+                            });
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  // Campos extendidos de ubicación
+                  if (_mostrarCamposUbicacionExtendidos) ...[
+                    SizedBox(height: 10),
+                    DropdownButtonFormField<String>(
+                      value: _ciudadSeleccionada,
+                      isExpanded: true,
+                      decoration: InputDecoration(
+                        labelText: 'Ciudad/Pueblo',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.location_city),
+                      ),
+                      items: _ciudades.map((String ciudad) {
+                        return DropdownMenuItem<String>(
+                          value: ciudad,
+                          child: Text(ciudad),
+                        );
+                      }).toList(),
+                      onChanged: (String? value) {
+                        if (value != _ciudadSeleccionada) {
+                          setState(() {
+                            _ciudadSeleccionada = value;
+                            _coloniaSeleccionada = null;
+                            _colonias = [];
+                          });
+
+                          // Actualizar colonias cuando cambie la ciudad
+                          if (value != null) {
+                            _ciudadService
+                                .getColoniasByCiudad(value)
+                                .then((colonias) {
+                              setState(() {
+                                _colonias = colonias;
+                              });
+                            });
+                          }
+                        }
+                      },
+                    ),
+                    SizedBox(height: 10),
+                    DropdownButtonFormField<String>(
+                      value: _municipioSeleccionado,
+                      isExpanded: true,
+                      decoration: InputDecoration(
+                        labelText: 'Delegación/Municipio',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.apartment),
+                      ),
+                      items: _municipios.map((String municipio) {
+                        return DropdownMenuItem<String>(
+                          value: municipio,
+                          child: Text(municipio),
+                        );
+                      }).toList(),
+                      onChanged: (String? value) {
+                        if (value != _municipioSeleccionado) {
+                          setState(() {
+                            _municipioSeleccionado = value;
+                            _ciudadSeleccionada = null;
+                            _coloniaSeleccionada = null;
+                            _ciudades = [];
+                            _colonias = [];
+                          });
+
+                          // Actualizar ciudades cuando cambie el municipio
+                          if (value != null) {
+                            _ciudadService
+                                .getCiudadesByMunicipio(value)
+                                .then((ciudades) {
+                              setState(() {
+                                _ciudades = ciudades;
+                                if (ciudades.isNotEmpty) {
+                                  _ciudadSeleccionada = ciudades.first;
+
+                                  // Cargar colonias de la primera ciudad
+                                  _ciudadService
+                                      .getColoniasByCiudad(ciudades.first)
+                                      .then((colonias) {
+                                    setState(() {
+                                      _colonias = colonias;
+                                      _coloniaSeleccionada = null;
+                                    });
+                                  });
+                                }
+                              });
+                            });
+                          }
+                        }
+                      },
+                    ),
+                    SizedBox(height: 10),
+                    TextField(
+                      controller: _codigoPostalController,
+                      decoration: InputDecoration(
+                        labelText: 'Código Postal',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.markunread_mailbox),
+                      ),
+                      keyboardType: TextInputType.number,
+                    ),
+                    SizedBox(height: 10),
+                    TextField(
+                      readOnly: true,
+                      decoration: InputDecoration(
+                        labelText: 'Estado',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.map),
+                        hintText: _estadoSeleccionado,
+                        filled: true,
+                        fillColor: Colors.grey[100],
+                      ),
+                    ),
+                  ],
+                ],
               ),
-            ),
-            SizedBox(width: 10),
-            Expanded(
-              child: TextField(
-                controller: _calleNumeroController,
-                decoration: InputDecoration(
-                  labelText: 'Calle y número',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-            ),
-          ],
-        ),
-        
-        // Campos extendidos de ubicación
-        if (_mostrarCamposUbicacionExtendidos) ...[
-          SizedBox(height: 10),
-          
-          TextField(
-            controller: _codigoPostalController,
-            decoration: InputDecoration(
-              labelText: 'Código Postal',
-              border: OutlineInputBorder(),
-              prefixIcon: Icon(Icons.location_on),
-            ),
-          ),
-          
-          SizedBox(height: 10),
-          
-          TextField(
-            controller: _puebloCiudadController,
-            decoration: InputDecoration(
-              labelText: 'Pueblo o Ciudad',
-              border: OutlineInputBorder(),
-              prefixIcon: Icon(Icons.location_city),
-            ),
-          ),
-          
-          SizedBox(height: 10),
-          
-          TextField(
-            controller: _delegacionMunicipioController,
-            decoration: InputDecoration(
-              labelText: 'Delegación/Municipio',
-              border: OutlineInputBorder(),
-              prefixIcon: Icon(Icons.apartment),
-            ),
-          ),
-          
-          SizedBox(height: 10),
-          
-          TextField(
-            controller: _estadoController,
-            decoration: InputDecoration(
-              labelText: 'Estado',
-              border: OutlineInputBorder(),
-              prefixIcon: Icon(Icons.map),
-            ),
-          ),
-        ],
-        
+
         SizedBox(height: 20),
-        
+
         // Búsqueda por usuario creador
         _buildSectionTitle('Búsqueda por usuario creador'),
         TextField(
@@ -617,7 +772,7 @@ class _BuscarServidorScreenState extends State<BuscarServidorScreen> {
       ],
     );
   }
-  
+
   // Construye título de sección
   Widget _buildSectionTitle(String title) {
     return Padding(
@@ -632,7 +787,7 @@ class _BuscarServidorScreenState extends State<BuscarServidorScreen> {
       ),
     );
   }
-  
+
   // Construye la tabla de resultados
   Widget _buildResultsTable() {
     return Column(
@@ -661,8 +816,9 @@ class _BuscarServidorScreenState extends State<BuscarServidorScreen> {
               rows: _resultados.map((resultado) {
                 // Formato de fechas
                 String fechaCreacion = _formatDate(resultado['fechaCreacion']);
-                String fechaModificacion = _formatDate(resultado['fechaModificacion']);
-                
+                String fechaModificacion =
+                    _formatDate(resultado['fechaModificacion']);
+
                 return DataRow(cells: [
                   DataCell(Text(resultado['id'])),
                   DataCell(
@@ -693,7 +849,8 @@ class _BuscarServidorScreenState extends State<BuscarServidorScreen> {
                       onPressed: () => _abrirFormato(resultado['documentId']),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.blue,
-                        padding: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        padding:
+                            EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                       ),
                     ),
                   ),
@@ -705,25 +862,63 @@ class _BuscarServidorScreenState extends State<BuscarServidorScreen> {
       ],
     );
   }
-  
+
+  /// Carga los datos de municipios, ciudades y colonias
+  Future<void> _cargarDatos() async {
+    try {
+      setState(() {
+        _cargandoDatos = true;
+      });
+
+      // Cargar lista de municipios
+      _municipios = await _ciudadService.getMunicipios();
+
+      // Establecer valores por defecto
+      _municipioSeleccionado = 'La Paz';
+      _ciudadSeleccionada = 'La Paz';
+      _estadoSeleccionado = 'Baja California Sur';
+
+      // Cargar ciudades del municipio seleccionado
+      _ciudades = await _ciudadService.getCiudadesByMunicipio('La Paz');
+
+      // Cargar colonias de La Paz
+      _colonias = await _ciudadService.getColoniasByCiudad('La Paz');
+
+      // Actualizar estado cuando finalice la carga
+      setState(() {
+        _cargandoDatos = false;
+      });
+    } catch (e) {
+      print('Error al cargar datos: $e');
+      setState(() {
+        _cargandoDatos = false;
+        _municipios = ['La Paz'];
+        _ciudades = ['La Paz'];
+        _colonias = [];
+      });
+    }
+  }
+
   // Formatea una fecha para mostrar en la tabla
   String _formatDate(dynamic date) {
     if (date == null) return 'N/A';
-    
+
     if (date is Timestamp) {
       DateTime dateTime = date.toDate();
-      return DateFormat('dd/MM/yyyy').format(dateTime);
+      return DateFormat('dd/MM/yyyy HH:mm').format(dateTime);
     } else if (date is DateTime) {
-      return DateFormat('dd/MM/yyyy').format(date);
+      return DateFormat('dd/MM/yyyy HH:mm').format(date);
     } else if (date is String) {
       try {
+        // Intentar parsear la fecha en formato ISO 8601
         DateTime dateTime = DateTime.parse(date);
-        return DateFormat('dd/MM/yyyy').format(dateTime);
+        return DateFormat('dd/MM/yyyy HH:mm').format(dateTime);
       } catch (e) {
+        // Si no se puede parsear, devolver la cadena original
         return date;
       }
     }
-    
+
     return 'N/A';
   }
 }

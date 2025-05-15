@@ -63,9 +63,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
       
       // Guardar datos adicionales en Firestore
       await FirebaseFirestore.instance.collection('usuarios').doc(userCredential.user!.uid).set({
-        'nombre': _nombreController.text,
-        'apellidoPaterno': _apellidoPaternoController.text,
-        'apellidoMaterno': _apellidoMaternoController.text,
+        'nombre': _nombreController.text.trim(),
+        'apellidoPaterno': _apellidoPaternoController.text.trim(),
+        'apellidoMaterno': _apellidoMaternoController.text.trim(),
         'grado': _gradoSeleccionado,
         'email': _emailController.text.trim(),
         'fechaRegistro': FieldValue.serverTimestamp(),

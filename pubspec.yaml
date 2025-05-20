@@ -66,3 +66,4 @@ flutter:
   assets:
     - assets/logoCenapp.png
     - assets/ciudades_colonia.json  
+    - assets/openSans.ttf

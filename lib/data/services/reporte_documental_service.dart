@@ -7,7 +7,12 @@ import 'dart:typed_data';
 import 'package:intl/intl.dart';
 import 'graficas_service.dart';
 
+
+
+
 class ReporteDocumentalService {
+  static const double ancho = 500;
+static const double alto = 300;
   /// Genera un reporte en formato PDF
   static Future<String> generarReportePDF({
     required String titulo,
@@ -25,7 +30,7 @@ class ReporteDocumentalService {
     );
 
     // Cargar fuente personalizada para soporte completo de caracteres en español
-    final font = await rootBundle.load("assets/fonts/OpenSans-Regular.ttf");
+    final font = await rootBundle.load("assets/openSans.ttf");
     final ttf = pw.Font.ttf(font);
 
     // Definir estilos
@@ -267,42 +272,63 @@ class ReporteDocumentalService {
             widgets.add(pw.SizedBox(height: 10));
           }
 
-          // Agregar gráficas
-          // Agregar gráficas
-          if (datosEstadisticos.containsKey('usosVivienda') &&
-              datosEstadisticos['usosVivienda'].isNotEmpty) {
-            Map<String, int> datosUsos = {};
-            datosEstadisticos['usosVivienda']['frecuencias']
-                .forEach((uso, conteo) {
-              datosUsos[uso] = conteo;
-            });
+          // Agregar gráficas recibidas como parámetro
+          if (graficas.isNotEmpty) {
+            for (var i = 0; i < graficas.length; i++) {
+              widgets.add(
+                pw.Header(
+                  level: 2,
+                  text: i == 0
+                      ? 'Distribución de Uso de Vivienda'
+                      : 'Distribución de Tipos de Topografía',
+                  textStyle: pw.TextStyle(
+                      font: ttf, fontSize: 13, fontWeight: pw.FontWeight.bold),
+                ),
+              );
 
-            widgets.add(
-              GraficasService.crearGraficoCircularPDF(
-                datos: datosUsos,
-                titulo: 'Distribución de Uso de Vivienda',
-                ancho: 500,
-                alto: 300,
-              ),
-            );
-          }
+              // Añadir espacio para el gráfico (será implementado por GraficasService)
+              if (datos.containsKey('usosVivienda') && i == 0) {
+                Map<String, int> datosUsos = {};
 
-          if (datosEstadisticos.containsKey('topografia') &&
-              datosEstadisticos['topografia'].isNotEmpty) {
-            Map<String, int> datosTopografia = {};
-            datosEstadisticos['topografia']['frecuencias']
-                .forEach((tipo, conteo) {
-              datosTopografia[tipo] = conteo;
-            });
+                datos['usosVivienda']['estadisticas'].forEach((uso, stats) {
+                  if (stats['conteo'] > 0) {
+                    datosUsos[uso] = stats['conteo'];
+                  }
+                });
 
-            widgets.add(
-              GraficasService.crearGraficoBarrasPDF(
-                datos: datosTopografia,
-                titulo: 'Distribución de Tipos de Topografía',
-                ancho: 500,
-                alto: 300,
-              ),
-            );
+                if (datosUsos.isNotEmpty) {
+                  widgets.add(
+                    GraficasService.crearGraficoCircularPDF(
+                      datos: datosUsos,
+                      titulo: 'Distribución de Uso de Vivienda',
+                      ancho: ancho - 40, // Ajustar ancho según margen
+                      alto: 300,
+                    ),
+                  );
+                }
+              } else if (datos.containsKey('topografia') && i == 1) {
+                Map<String, int> datosTopografia = {};
+
+                datos['topografia']['estadisticas'].forEach((tipo, stats) {
+                  if (stats['conteo'] > 0) {
+                    datosTopografia[tipo] = stats['conteo'];
+                  }
+                });
+
+                if (datosTopografia.isNotEmpty) {
+                  widgets.add(
+                    GraficasService.crearGraficoBarrasPDF(
+                      datos: datosTopografia,
+                      titulo: 'Distribución de Tipos de Topografía',
+                      ancho: ancho - 40, // Ajustar ancho según margen
+                      alto: 300,
+                    ),
+                  );
+                }
+              }
+
+              widgets.add(pw.SizedBox(height: 20));
+            }
           }
 
           // Conclusiones

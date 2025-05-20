@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../data/services/ciudad_colonia_service.dart';
+import '../data/services/reporte_service.dart';
+import 'package:open_file/open_file.dart';
 
 class ReporteScreen extends StatefulWidget {
   @override
@@ -579,13 +581,7 @@ class _ReporteScreenState extends State<ReporteScreen> {
                             icon: Icon(Icons.assignment),
                             label: Text('Generar Reporte'),
                             onPressed: () {
-                              // Implementación pendiente
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('Funcionalidad pendiente de implementación'),
-                                  backgroundColor: Colors.green,
-                                ),
-                              );
+                              _generarReporte();
                             },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.green,
@@ -604,4 +600,222 @@ class _ReporteScreenState extends State<ReporteScreen> {
             ),
     );
   }
+  /// Genera el reporte basado en los criterios seleccionados
+Future<void> _generarReporte() async {
+  try {
+    // Validar que haya al menos un filtro
+    if (nombreInmuebleController.text.isEmpty && 
+        usuarioCreadorController.text.isEmpty && 
+        _ubicaciones.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Por favor, especifica al menos un criterio de búsqueda'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+    
+    // Mostrar indicador de carga
+    setState(() {
+      _isLoading = true;
+    });
+    
+    // Convertir fechas de string a DateTime
+    DateTime fechaInicio;
+    DateTime fechaFin;
+    
+    try {
+      // Formato dd/MM/yyyy
+      List<String> partesFechaInicio = fechaInicioController.text.split('/');
+      fechaInicio = DateTime(
+        int.parse(partesFechaInicio[2]), // año
+        int.parse(partesFechaInicio[1]), // mes
+        int.parse(partesFechaInicio[0]), // día
+      );
+      
+      List<String> partesFechaFin = fechaFinalController.text.split('/');
+      fechaFin = DateTime(
+        int.parse(partesFechaFin[2]), // año
+        int.parse(partesFechaFin[1]), // mes
+        int.parse(partesFechaFin[0]), // día
+        23, 59, 59, // final del día
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Formato de fecha inválido: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      setState(() {
+        _isLoading = false;
+      });
+      return;
+    }
+    
+    // Crear instancia del servicio de reportes
+    final reporteService = ReporteService();
+    
+    // Limpiar ubicaciones vacías (que no tienen selección de ciudad)
+    List<Map<String, dynamic>> ubicacionesValidas = _ubicaciones
+        .where((ubi) => ubi['ciudad'] != null && ubi['ciudad'].isNotEmpty)
+        .toList();
+    
+    // Determinar qué tipo de reporte generar basado en la selección
+    Map<String, String> rutasReporte;
+    
+    try {
+      if (_tipoReporteSeleccionado == "Uso de vivienda y topografía") {
+        rutasReporte = await reporteService.generarReporteUsoViviendaTopografia(
+          nombreInmueble: nombreInmuebleController.text,
+          fechaInicio: fechaInicio,
+          fechaFin: fechaFin,
+          usuarioCreador: usuarioCreadorController.text,
+          ubicaciones: ubicacionesValidas,
+        );
+      } else {
+        // Por ahora, para otros tipos de reporte, usamos el mismo método
+        // En el futuro puedes implementar métodos específicos para cada tipo
+        rutasReporte = await reporteService.generarReporteUsoViviendaTopografia(
+          nombreInmueble: nombreInmuebleController.text,
+          fechaInicio: fechaInicio,
+          fechaFin: fechaFin,
+          usuarioCreador: usuarioCreadorController.text,
+          ubicaciones: ubicacionesValidas,
+        );
+      }
+      
+      setState(() {
+        _isLoading = false;
+      });
+      
+      // Mostrar diálogo de éxito con opciones para abrir los archivos
+      _mostrarDialogoReporteGenerado(rutasReporte);
+      
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error al generar reporte: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  } catch (e) {
+    setState(() {
+      _isLoading = false;
+    });
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Error inesperado: $e'),
+        backgroundColor: Colors.red,
+      ),
+    );
+  }
+}
+
+/// Muestra un diálogo con las opciones para abrir los archivos generados
+void _mostrarDialogoReporteGenerado(Map<String, String> rutasReporte) {
+  showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        title: Text('Reporte Generado'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('El reporte ha sido generado exitosamente.'),
+            SizedBox(height: 20),
+            Text('Archivos generados:'),
+            SizedBox(height: 10),
+            
+            // Opción de PDF
+            if (rutasReporte.containsKey('pdf'))
+              _buildFileOption(
+                'PDF', 
+                rutasReporte['pdf']!, 
+                Icons.picture_as_pdf, 
+                Colors.red
+              ),
+              
+            SizedBox(height: 10),
+            
+            // Opción de DOCX/TXT
+            if (rutasReporte.containsKey('docx'))
+              _buildFileOption(
+                'Documento de texto', 
+                rutasReporte['docx']!, 
+                Icons.description, 
+                Colors.blue
+              ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cerrar'),
+          ),
+        ],
+      );
+    },
+  );
+}
+
+/// Construye una opción para abrir un archivo
+Widget _buildFileOption(String tipo, String ruta, IconData icono, Color color) {
+  return InkWell(
+    onTap: () {
+      _abrirArchivo(ruta);
+    },
+    child: Row(
+      children: [
+        Icon(icono, color: color),
+        SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(tipo, style: TextStyle(fontWeight: FontWeight.bold)),
+              Text(
+                ruta, 
+                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+/// Abre un archivo usando el sistema operativo
+Future<void> _abrirArchivo(String ruta) async {
+  try {
+       
+    final result = await OpenFile.open(ruta);
+    
+    if (result.type != ResultType.done) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error al abrir el archivo: ${result.message}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Error al abrir el archivo: $e'),
+        backgroundColor: Colors.red,
+      ),
+    );
+  }
+}
 }

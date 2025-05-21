@@ -278,63 +278,17 @@ class ReporteDocumentalService {
           }
 
           // Agregar gráficas recibidas como parámetro
-          if (graficas.isNotEmpty) {
-            for (var i = 0; i < graficas.length; i++) {
-              widgets.add(
-                pw.Header(
-                  level: 2,
-                  text: i == 0
-                      ? 'Distribución de Uso de Vivienda'
-                      : 'Distribución de Tipos de Topografía',
-                  textStyle: pw.TextStyle(
-                      font: ttf, fontSize: 13, fontWeight: pw.FontWeight.bold),
-                ),
-              );
-
-              // Añadir espacio para el gráfico (será implementado por GraficasService)
-              if (datos.containsKey('usosVivienda') && i == 0) {
-                Map<String, int> datosUsos = {};
-
-                datos['usosVivienda']['estadisticas'].forEach((uso, stats) {
-                  if (stats['conteo'] > 0) {
-                    datosUsos[uso] = stats['conteo'];
-                  }
-                });
-
-                if (datosUsos.isNotEmpty) {
-                  widgets.add(
-                    GraficasService.crearGraficoCircularPDF(
-                      datos: datosUsos,
-                      titulo: 'Distribución de Uso de Vivienda',
-                      ancho: ancho - 40, // Ajustar ancho según margen
-                      alto: 300,
-                    ),
-                  );
-                }
-              } else if (datos.containsKey('topografia') && i == 1) {
-                Map<String, int> datosTopografia = {};
-
-                datos['topografia']['estadisticas'].forEach((tipo, stats) {
-                  if (stats['conteo'] > 0) {
-                    datosTopografia[tipo] = stats['conteo'];
-                  }
-                });
-
-                if (datosTopografia.isNotEmpty) {
-                  widgets.add(
-                    GraficasService.crearGraficoBarrasPDF(
-                      datos: datosTopografia,
-                      titulo: 'Distribución de Tipos de Topografía',
-                      ancho: ancho - 40, // Ajustar ancho según margen
-                      alto: 300,
-                    ),
-                  );
-                }
-              }
+          if (graficas.isNotEmpty || datos.isNotEmpty) {
+              // Usar el nuevo método para determinar qué gráficos generar según el tipo de reporte
+              List<pw.Widget> graficosEspecificos = _generarGraficosParaReporte(datos, graficas, metadatos);
+  
+              // Agregar los gráficos generados al documento PDF
+              widgets.addAll(graficosEspecificos);
+  
 
               widgets.add(pw.SizedBox(height: 20));
             }
-          }
+          
 
           // Conclusiones
           if (metadatos.containsKey('conclusiones') &&
@@ -517,6 +471,7 @@ class ReporteDocumentalService {
       rethrow;
     }
   }
+  
 
   /// Genera un reporte en formato DOCX (Word)
   /// Nota: Esta función es un placeholder. Para una implementación real,
@@ -550,4 +505,211 @@ class ReporteDocumentalService {
 
     return filePath;
   }*/
+}
+List<pw.Widget> _generarGraficosParaReporte(
+    Map<String, dynamic> datos, 
+    List<Uint8List> graficas,
+    Map<String, dynamic> metadatos) {
+  
+  List<pw.Widget> widgets = [];
+  
+  // Determinar qué tipo de reporte es basándose en el título o subtítulo
+  String? titulo = metadatos['titulo'] as String?;
+  
+  if (titulo?.contains('Resumen General') == true) {
+    // Es un reporte de resumen general, generar gráficos específicos
+    widgets.addAll(_generarGraficosResumenGeneral(datos, graficas));
+  } else if (titulo?.contains('Uso de Vivienda') == true || titulo?.contains('Topografía') == true) {
+    // Es un reporte de uso de vivienda y topografía
+    widgets.addAll(_generarGraficosUsoViviendaTopografia(datos, graficas));
+  } else {
+    // Reporte genérico, usar gráficos genéricos
+    widgets.addAll(_generarGraficosGenericos(datos, graficas));
+  }
+  
+  return widgets;
+}
+
+// Método para generar gráficos específicos del reporte de resumen general
+List<pw.Widget> _generarGraficosResumenGeneral(
+    Map<String, dynamic> datos, 
+    List<Uint8List> graficas) {
+  
+  List<pw.Widget> widgets = [];
+  
+  // Gráfico 1: Distribución geográfica por ciudades
+  if (datos.containsKey('distribucionGeografica') && 
+      datos['distribucionGeografica'].containsKey('ciudades') &&
+      datos['distribucionGeografica']['ciudades'].isNotEmpty) {
+    
+    widgets.add(
+      pw.Header(
+        level: 2,
+        text: 'Distribución de Evaluaciones por Ciudad',
+        textStyle: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold),
+      ),
+    );
+    
+    widgets.add(
+      GraficasService.crearGraficoBarrasHorizontalesPDF(
+        datos: datos['distribucionGeografica']['ciudades'],
+        titulo: 'Cantidad de Inmuebles Evaluados por Ciudad',
+        ancho: 500,
+        alto: 300,
+      ),
+    );
+    
+    widgets.add(pw.SizedBox(height: 20));
+  }
+  
+  // Gráfico 2: Mapa de áreas (colonias)
+  if (datos.containsKey('distribucionGeografica')) {
+    widgets.add(
+      pw.Header(
+        level: 2,
+        text: 'Distribución Geográfica de Evaluaciones',
+        textStyle: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold),
+      ),
+    );
+    
+    widgets.add(
+      GraficasService.crearGraficoMapaAreasPDF(
+        datos: datos['distribucionGeografica'],
+        titulo: 'Distribución por Áreas Geográficas',
+        ancho: 500,
+        alto: 350,
+      ),
+    );
+    
+    widgets.add(pw.SizedBox(height: 20));
+  }
+  
+  // Gráfico 3: Tendencia temporal (líneas)
+  if (datos.containsKey('distribucionTemporal') && 
+      datos['distribucionTemporal'].containsKey('meses') &&
+      datos['distribucionTemporal']['meses'].isNotEmpty) {
+    
+    widgets.add(
+      pw.Header(
+        level: 2,
+        text: 'Evolución Temporal de Evaluaciones',
+        textStyle: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold),
+      ),
+    );
+    
+    
+    
+    widgets.add(pw.SizedBox(height: 20));
+  }
+  
+  return widgets;
+}
+
+// Método para generar gráficos específicos del reporte de uso y topografía
+List<pw.Widget> _generarGraficosUsoViviendaTopografia(
+    Map<String, dynamic> datos, 
+    List<Uint8List> graficas) {
+  
+  List<pw.Widget> widgets = [];
+  
+  // Gráfico de uso de vivienda
+  if (datos.containsKey('usosVivienda') && 
+      datos['usosVivienda'].containsKey('estadisticas')) {
+    
+    widgets.add(
+      pw.Header(
+        level: 2,
+        text: 'Distribución de Uso de Vivienda',
+        textStyle: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold),
+      ),
+    );
+    
+    Map<String, int> datosUsos = {};
+    datos['usosVivienda']['estadisticas'].forEach((uso, stats) {
+      if (stats['conteo'] > 0) {
+        datosUsos[uso] = stats['conteo'];
+      }
+    });
+    
+    if (datosUsos.isNotEmpty) {
+      widgets.add(
+        GraficasService.crearGraficoCircularPDF(
+          datos: datosUsos,
+          titulo: 'Distribución de Uso de Vivienda',
+          ancho: 500,
+          alto: 300,
+        ),
+      );
+    }
+    
+    widgets.add(pw.SizedBox(height: 20));
+  }
+  
+  // Gráfico de topografía
+  if (datos.containsKey('topografia') && 
+      datos['topografia'].containsKey('estadisticas')) {
+    
+    widgets.add(
+      pw.Header(
+        level: 2,
+        text: 'Distribución de Tipos de Topografía',
+        textStyle: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold),
+      ),
+    );
+    
+    Map<String, int> datosTopografia = {};
+    datos['topografia']['estadisticas'].forEach((tipo, stats) {
+      if (stats['conteo'] > 0) {
+        datosTopografia[tipo] = stats['conteo'];
+      }
+    });
+    
+    if (datosTopografia.isNotEmpty) {
+      widgets.add(
+        GraficasService.crearGraficoBarrasPDF(
+          datos: datosTopografia,
+          titulo: 'Distribución de Tipos de Topografía',
+          ancho: 500,
+          alto: 300,
+        ),
+      );
+    }
+    
+    widgets.add(pw.SizedBox(height: 20));
+  }
+  
+  return widgets;
+}
+
+// Método para generar gráficos genéricos (fallback)
+List<pw.Widget> _generarGraficosGenericos(
+    Map<String, dynamic> datos, 
+    List<Uint8List> graficas) {
+  
+  List<pw.Widget> widgets = [];
+  
+  // Si hay gráficas proporcionadas como placeholders, intentar generar gráficos genéricos
+  for (var i = 0; i < graficas.length; i++) {
+    widgets.add(
+      pw.Header(
+        level: 2,
+        text: 'Gráfico ${i + 1}',
+        textStyle: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold),
+      ),
+    );
+    
+    // Este es un gráfico genérico de barras, se puede personalizar según los datos disponibles
+    widgets.add(
+      pw.Container(
+        width: 500,
+        height: 300,
+        alignment: pw.Alignment.center,
+        child: pw.Text('Gráfico no disponible para este tipo de reporte'),
+      ),
+    );
+    
+    widgets.add(pw.SizedBox(height: 20));
+  }
+  
+  return widgets;
 }

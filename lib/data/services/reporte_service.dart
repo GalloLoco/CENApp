@@ -1,4 +1,4 @@
-// lib/data/services/reporte_service.dart
+// lib/data/services/reporte_service.dart (versión actualizada)
 
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
@@ -69,6 +69,80 @@ class ReporteService {
     /*String rutaDOCX = await ReporteDocumentalService.generarReporteDOCX(
       titulo: 'Reporte Estadístico',
       subtitulo: 'Uso de Vivienda y Topografía',
+      datos: datosEstadisticos,
+      tablas: tablas,
+      graficas: graficas,
+      metadatos: metadatos,
+    );*/
+
+    return {
+      'pdf': rutaPDF,
+      //'docx': rutaDOCX,
+    };
+  }
+
+  /// Genera un reporte de resumen general
+  Future<Map<String, String>> generarReporteResumenGeneral({
+    required String nombreInmueble,
+    required DateTime fechaInicio,
+    required DateTime fechaFin,
+    required String usuarioCreador,
+    required List<Map<String, dynamic>> ubicaciones,
+  }) async {
+    // Paso 1: Buscar formatos que cumplan con los criterios
+    List<FormatoEvaluacion> formatos = await _buscarFormatos(
+      nombreInmueble: nombreInmueble,
+      fechaInicio: fechaInicio,
+      fechaFin: fechaFin,
+      usuarioCreador: usuarioCreador,
+      ubicaciones: ubicaciones,
+    );
+
+    if (formatos.isEmpty) {
+      throw Exception(
+          'No se encontraron formatos que cumplan con los criterios especificados');
+    }
+
+    // Paso 2: Analizar los datos para generar estadísticas de distribución geográfica
+    Map<String, dynamic> datosEstadisticos =
+        _analizarDistribucionGeografica(formatos);
+
+    // Paso 3: Preparar datos para las tablas del reporte
+    List<Map<String, dynamic>> tablas =
+        _prepararTablasResumenGeneral(datosEstadisticos, formatos);
+
+    // Paso 4: Generar gráficas
+    List<Uint8List> graficas =
+        await _generarGraficasResumenGeneral(datosEstadisticos);
+
+    // Paso 5: Construir metadatos para el reporte
+    Map<String, dynamic> metadatos = {
+      'totalFormatos': formatos.length,
+      'nombreInmueble': nombreInmueble.isEmpty ? 'Todos' : nombreInmueble,
+      'fechaInicio': DateFormat('dd/MM/yyyy').format(fechaInicio),
+      'fechaFin': DateFormat('dd/MM/yyyy').format(fechaFin),
+      'usuarioCreador': usuarioCreador.isEmpty ? 'Todos' : usuarioCreador,
+      'ubicaciones': ubicaciones,
+      'periodoEvaluacion':
+    '${DateFormat('MM/yyyy').format(fechaInicio)} - ${DateFormat('MM/yyyy').format(fechaFin)}',
+      'areasGeograficas': _obtenerAreasGeograficas(formatos),
+      'conclusiones':
+          _generarConclusionesResumenGeneral(datosEstadisticos, formatos),
+    };
+
+    // Paso 6: Generar documentos PDF y DOCX
+    String rutaPDF = await ReporteDocumentalService.generarReportePDF(
+      titulo: 'Resumen General de Evaluaciones',
+      subtitulo: 'Período: ${metadatos['periodoEvaluacion']}',
+      datos: datosEstadisticos,
+      tablas: tablas,
+      graficas: graficas,
+      metadatos: metadatos,
+    );
+
+    /*String rutaDOCX = await ReporteDocumentalService.generarReporteDOCX(
+      titulo: 'Resumen General de Evaluaciones',
+      subtitulo: 'Período: ${metadatos['periodoEvaluacion']}',
       datos: datosEstadisticos,
       tablas: tablas,
       graficas: graficas,
@@ -161,7 +235,7 @@ class ReporteService {
     return false;
   }
 
-  /// Prepara los datos de las tablas para el reporte
+  /// Prepara los datos de las tablas para el reporte de uso y topografía
   List<Map<String, dynamic>> _prepararTablasParaReporte(
       Map<String, dynamic> datosEstadisticos) {
     List<Map<String, dynamic>> tablas = [];
@@ -227,8 +301,7 @@ class ReporteService {
     return tablas;
   }
 
-  /// Genera gráficas para el reporte
-  /// Genera gráficas para el reporte
+  /// Genera gráficas para el reporte de uso y topografía
   Future<List<Uint8List>> _generarGraficasReporte(
       Map<String, dynamic> datosEstadisticos) async {
     // En lugar de intentar generar gráficas como Uint8List,
@@ -256,7 +329,7 @@ class ReporteService {
     return graficas;
   }
 
-  /// Genera conclusiones automáticas basadas en los datos
+  /// Genera conclusiones para el reporte de uso y topografía
   String _generarConclusiones(
       Map<String, dynamic> datosEstadisticos, int totalFormatos) {
     StringBuffer conclusiones = StringBuffer();
@@ -314,6 +387,344 @@ class ReporteService {
     // Conclusión general
     conclusiones.writeln(
         '\nEste reporte proporciona una visión general de los patrones de uso y la distribución topográfica de los inmuebles evaluados en el período seleccionado, lo que puede ser útil para la planificación de recursos y la toma de decisiones en futuros proyectos de evaluación estructural.');
+
+    return conclusiones.toString();
+  }
+
+  // Métodos para el reporte de Resumen General
+
+  /// Analiza la distribución geográfica de los formatos
+  Map<String, dynamic> _analizarDistribucionGeografica(
+      List<FormatoEvaluacion> formatos) {
+    // Mapas para almacenar conteos por ubicación geográfica
+    Map<String, int> conteoColonias = {};
+    Map<String, int> conteoCiudades = {};
+    Map<String, int> conteoMunicipios = {};
+    Map<String, int> conteoEstados = {};
+
+    // Para cada formato, contar las ubicaciones
+    for (var formato in formatos) {
+      // Obtener datos de ubicación
+      String colonia = formato.informacionGeneral.colonia;
+      String ciudad = formato.informacionGeneral.ciudadPueblo;
+      String municipio = formato.informacionGeneral.delegacionMunicipio;
+      String estado = formato.informacionGeneral.estado;
+
+      // Incrementar contadores
+      if (colonia.isNotEmpty) {
+        conteoColonias[colonia] = (conteoColonias[colonia] ?? 0) + 1;
+      }
+
+      if (ciudad.isNotEmpty) {
+        conteoCiudades[ciudad] = (conteoCiudades[ciudad] ?? 0) + 1;
+      }
+
+      if (municipio.isNotEmpty) {
+        conteoMunicipios[municipio] = (conteoMunicipios[municipio] ?? 0) + 1;
+      }
+
+      if (estado.isNotEmpty) {
+        conteoEstados[estado] = (conteoEstados[estado] ?? 0) + 1;
+      }
+    }
+
+    // Agrupar por periodos (meses)
+    Map<String, int> conteoPorMes = {};
+
+    // Sin necesidad de inicializar datos de localización
+    for (var formato in formatos) {
+      // Formato MM/yyyy - ejemplo: "05/2025"
+      String mesAnio = DateFormat('MM/yyyy').format(formato.fechaCreacion);
+      conteoPorMes[mesAnio] = (conteoPorMes[mesAnio] ?? 0) + 1;
+    }
+
+    return {
+      'distribucionGeografica': {
+        'colonias': conteoColonias,
+        'ciudades': conteoCiudades,
+        'municipios': conteoMunicipios,
+        'estados': conteoEstados,
+      },
+      'distribucionTemporal': {
+        'meses': conteoPorMes,
+      }
+    };
+  }
+
+  /// Preparar tablas para el resumen general
+  List<Map<String, dynamic>> _prepararTablasResumenGeneral(
+      Map<String, dynamic> datosEstadisticos,
+      List<FormatoEvaluacion> formatos) {
+    List<Map<String, dynamic>> tablas = [];
+
+    // Tabla 1: Resumen total
+    tablas.add({
+      'titulo': 'Resumen Total de Evaluaciones',
+      'descripcion':
+          'Cantidad total de inmuebles evaluados en el período seleccionado.',
+      'encabezados': ['Descripción', 'Cantidad'],
+      'filas': [
+        ['Total de inmuebles evaluados', formatos.length],
+      ],
+    });
+
+    // Tabla 2: Distribución por ciudades
+    Map<String, int> conteoCiudades =
+        datosEstadisticos['distribucionGeografica']['ciudades'];
+
+    if (conteoCiudades.isNotEmpty) {
+      List<List<dynamic>> filasCiudades = [];
+
+      conteoCiudades.forEach((ciudad, conteo) {
+        filasCiudades.add([
+          ciudad,
+          conteo,
+          '${((conteo / formatos.length) * 100).toStringAsFixed(2)}%',
+        ]);
+      });
+
+      // Ordenar por frecuencia (descendente)
+      filasCiudades.sort((a, b) => (b[1] as int).compareTo(a[1] as int));
+
+      tablas.add({
+        'titulo': 'Distribución por Ciudades',
+        'descripcion': 'Cantidad de inmuebles evaluados por ciudad.',
+        'encabezados': ['Ciudad', 'Cantidad', 'Porcentaje'],
+        'filas': filasCiudades,
+      });
+    }
+
+    // Tabla 3: Distribución por colonias (limitada a las 10 más frecuentes)
+    Map<String, int> conteoColonias =
+        datosEstadisticos['distribucionGeografica']['colonias'];
+
+    if (conteoColonias.isNotEmpty) {
+      List<List<dynamic>> filasColonias = [];
+
+      conteoColonias.forEach((colonia, conteo) {
+        filasColonias.add([
+          colonia,
+          conteo,
+          '${((conteo / formatos.length) * 100).toStringAsFixed(2)}%',
+        ]);
+      });
+
+      // Ordenar por frecuencia (descendente)
+      filasColonias.sort((a, b) => (b[1] as int).compareTo(a[1] as int));
+
+      // Limitar a las 10 más frecuentes
+      if (filasColonias.length > 10) {
+        filasColonias = filasColonias.sublist(0, 10);
+      }
+
+      tablas.add({
+        'titulo': 'Distribución por Colonias (Top 10)',
+        'descripcion':
+            'Las 10 colonias con mayor cantidad de inmuebles evaluados.',
+        'encabezados': ['Colonia', 'Cantidad', 'Porcentaje'],
+        'filas': filasColonias,
+      });
+    }
+
+    // Tabla 4: Distribución temporal por meses
+    Map<String, int> conteoPorMes =
+        datosEstadisticos['distribucionTemporal']['meses'];
+
+    if (conteoPorMes.isNotEmpty) {
+      List<List<dynamic>> filasMeses = [];
+
+      conteoPorMes.forEach((mes, conteo) {
+        filasMeses.add([
+          mes,
+          conteo,
+          '${((conteo / formatos.length) * 100).toStringAsFixed(2)}%',
+        ]);
+      });
+
+      // Ordenar por mes (cronológicamente)
+      filasMeses.sort((a, b) {
+        // Extraer mes y año para ordenar
+        List<String> partsA = (a[0] as String).split(' ');
+        List<String> partsB = (b[0] as String).split(' ');
+
+        // Si los años son diferentes, ordenar por año
+        if (partsA[1] != partsB[1]) {
+          return int.parse(partsA[1]).compareTo(int.parse(partsB[1]));
+        }
+
+        // Si los años son iguales, ordenar por mes
+        List<String> meses = [
+          'enero',
+          'febrero',
+          'marzo',
+          'abril',
+          'mayo',
+          'junio',
+          'julio',
+          'agosto',
+          'septiembre',
+          'octubre',
+          'noviembre',
+          'diciembre'
+        ];
+
+        return meses
+            .indexOf(partsA[0].toLowerCase())
+            .compareTo(meses.indexOf(partsB[0].toLowerCase()));
+      });
+
+      tablas.add({
+        'titulo': 'Distribución Temporal',
+        'descripcion': 'Cantidad de inmuebles evaluados por mes.',
+        'encabezados': ['Mes', 'Cantidad', 'Porcentaje'],
+        'filas': filasMeses,
+      });
+    }
+
+    return tablas;
+  }
+
+  /// Generar gráficas para el resumen general
+  Future<List<Uint8List>> _generarGraficasResumenGeneral(
+      Map<String, dynamic> datosEstadisticos) async {
+    // Al igual que en el otro método, usamos placeholders para que las gráficas
+    // sean generadas directamente en el PDF
+    List<Uint8List> graficas = [];
+
+    // Placeholder para gráfica de distribución por ciudades
+    if (datosEstadisticos['distribucionGeografica']['ciudades'].isNotEmpty) {
+      graficas.add(Uint8List(0));
+    }
+
+    // Placeholder para gráfica de distribución por colonia
+    if (datosEstadisticos['distribucionGeografica']['colonias'].isNotEmpty) {
+      graficas.add(Uint8List(0));
+    }
+
+    // Placeholder para gráfica de distribución temporal
+    if (datosEstadisticos['distribucionTemporal']['meses'].isNotEmpty) {
+      graficas.add(Uint8List(0));
+    }
+
+    return graficas;
+  }
+
+  /// Obtener las áreas geográficas cubiertas por las evaluaciones
+  String _obtenerAreasGeograficas(List<FormatoEvaluacion> formatos) {
+    // Extraer conjuntos únicos de ubicaciones
+    Set<String> colonias = {};
+    Set<String> ciudades = {};
+    Set<String> municipios = {};
+
+    for (var formato in formatos) {
+      String colonia = formato.informacionGeneral.colonia;
+      String ciudad = formato.informacionGeneral.ciudadPueblo;
+      String municipio = formato.informacionGeneral.delegacionMunicipio;
+
+      if (colonia.isNotEmpty) colonias.add(colonia);
+      if (ciudad.isNotEmpty) ciudades.add(ciudad);
+      if (municipio.isNotEmpty) municipios.add(municipio);
+    }
+
+    // Construir una cadena que describa las áreas cubiertas
+    StringBuffer areas = StringBuffer();
+
+    if (colonias.isNotEmpty) {
+      areas.write('Colonias: ${colonias.join(", ")}');
+    }
+
+    if (ciudades.isNotEmpty) {
+      if (areas.isNotEmpty) areas.write('\n');
+      areas.write('Ciudades: ${ciudades.join(", ")}');
+    }
+
+    if (municipios.isNotEmpty) {
+      if (areas.isNotEmpty) areas.write('\n');
+      areas.write('Municipios: ${municipios.join(", ")}');
+    }
+
+    return areas.toString();
+  }
+
+  /// Generar conclusiones para el resumen general
+  String _generarConclusionesResumenGeneral(
+      Map<String, dynamic> datosEstadisticos,
+      List<FormatoEvaluacion> formatos) {
+    StringBuffer conclusiones = StringBuffer();
+
+    // Información general
+    conclusiones.writeln(
+        'Se analizaron un total de ${formatos.length} inmuebles en el período seleccionado.');
+
+    // Distribución geográfica
+    Map<String, int> conteoCiudades =
+        datosEstadisticos['distribucionGeografica']['ciudades'];
+    if (conteoCiudades.isNotEmpty) {
+      // Encontrar la ciudad con más evaluaciones
+      String? ciudadPrincipal;
+      int maxCiudad = 0;
+
+      conteoCiudades.forEach((ciudad, conteo) {
+        if (conteo > maxCiudad) {
+          maxCiudad = conteo;
+          ciudadPrincipal = ciudad;
+        }
+      });
+
+      if (ciudadPrincipal != null) {
+        double porcentajeCiudad = (maxCiudad / formatos.length) * 100;
+        conclusiones.writeln(
+            '\nLa ciudad con mayor cantidad de evaluaciones fue "$ciudadPrincipal" con $maxCiudad inmuebles (${porcentajeCiudad.toStringAsFixed(2)}% del total).');
+      }
+    }
+
+    // Distribución por colonias
+    Map<String, int> conteoColonias =
+        datosEstadisticos['distribucionGeografica']['colonias'];
+    if (conteoColonias.isNotEmpty) {
+      // Encontrar la colonia con más evaluaciones
+      String? coloniaPrincipal;
+      int maxColonia = 0;
+
+      conteoColonias.forEach((colonia, conteo) {
+        if (conteo > maxColonia) {
+          maxColonia = conteo;
+          coloniaPrincipal = colonia;
+        }
+      });
+
+      if (coloniaPrincipal != null) {
+        double porcentajeColonia = (maxColonia / formatos.length) * 100;
+        conclusiones.writeln(
+            '\nLa colonia con mayor cantidad de evaluaciones fue "$coloniaPrincipal" con $maxColonia inmuebles (${porcentajeColonia.toStringAsFixed(2)}% del total).');
+      }
+    }
+
+    // Distribución temporal
+    Map<String, int> conteoPorMes =
+        datosEstadisticos['distribucionTemporal']['meses'];
+    if (conteoPorMes.isNotEmpty) {
+      // Encontrar el mes con más evaluaciones
+      String? mesPrincipal;
+      int maxMes = 0;
+
+      conteoPorMes.forEach((mes, conteo) {
+        if (conteo > maxMes) {
+          maxMes = conteo;
+          mesPrincipal = mes;
+        }
+      });
+
+      if (mesPrincipal != null) {
+        double porcentajeMes = (maxMes / formatos.length) * 100;
+        conclusiones.writeln(
+            '\nEl mes con mayor actividad de evaluaciones fue "$mesPrincipal" con $maxMes inmuebles evaluados (${porcentajeMes.toStringAsFixed(2)}% del total).');
+      }
+    }
+
+    // Conclusión general
+    conclusiones.writeln(
+        '\nEste resumen proporciona una visión general de la distribución geográfica y temporal de las evaluaciones realizadas, lo que puede ser útil para la planificación de recursos y la identificación de áreas que requieren mayor atención en futuros períodos de evaluación.');
 
     return conclusiones.toString();
   }

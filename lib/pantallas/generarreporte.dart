@@ -666,7 +666,17 @@ Future<void> _generarReporte() async {
     Map<String, String> rutasReporte;
     
     try {
-      if (_tipoReporteSeleccionado == "Uso de vivienda y topografía") {
+      if (_tipoReporteSeleccionado == "Resumen General") {
+        // Generar reporte de Resumen General (nuevo tipo)
+        rutasReporte = await reporteService.generarReporteResumenGeneral(
+          nombreInmueble: nombreInmuebleController.text,
+          fechaInicio: fechaInicio,
+          fechaFin: fechaFin,
+          usuarioCreador: usuarioCreadorController.text,
+          ubicaciones: ubicacionesValidas,
+        );
+      } else if (_tipoReporteSeleccionado == "Uso de vivienda y topografía") {
+        // Reporte existente de uso de vivienda y topografía
         rutasReporte = await reporteService.generarReporteUsoViviendaTopografia(
           nombreInmueble: nombreInmuebleController.text,
           fechaInicio: fechaInicio,
@@ -675,15 +685,21 @@ Future<void> _generarReporte() async {
           ubicaciones: ubicacionesValidas,
         );
       } else {
-        // Por ahora, para otros tipos de reporte, usamos el mismo método
-        // En el futuro puedes implementar métodos específicos para cada tipo
-        rutasReporte = await reporteService.generarReporteUsoViviendaTopografia(
-          nombreInmueble: nombreInmuebleController.text,
-          fechaInicio: fechaInicio,
-          fechaFin: fechaFin,
-          usuarioCreador: usuarioCreadorController.text,
-          ubicaciones: ubicacionesValidas,
+        // Para otros tipos de reporte (pendientes de implementar)
+        // Por ahora, mostramos un mensaje informativo
+        setState(() {
+          _isLoading = false;
+        });
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('El tipo de reporte "$_tipoReporteSeleccionado" está pendiente de implementación'),
+            backgroundColor: Colors.blue,
+            duration: Duration(seconds: 3),
+          ),
         );
+        
+        return;
       }
       
       setState(() {

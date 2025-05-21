@@ -8,6 +8,402 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:pdf/pdf.dart';
 
 class GraficasService {
+
+    /// Crea un gráfico de barras horizontales para el PDF (útil para distribuciones geográficas)
+static pw.Widget crearGraficoBarrasHorizontalesPDF({
+  required Map<String, int> datos,
+  required String titulo,
+  double ancho = 500,
+  double alto = 300,
+  int maxItems = 10, // Limitamos el número de ítems para mejor visualización
+}) {
+  // Procesar los datos
+  List<MapEntry<String, int>> entradas = datos.entries.toList();
+  
+  // Ordenar por valor (descendente)
+  entradas.sort((a, b) => b.value.compareTo(a.value));
+  
+  // Limitar el número de ítems
+  if (entradas.length > maxItems) {
+    entradas = entradas.sublist(0, maxItems);
+  }
+  
+  // Si no hay datos, mostrar mensaje
+  if (entradas.isEmpty) {
+    return pw.Container(
+      width: ancho,
+      height: alto,
+      alignment: pw.Alignment.center,
+      child: pw.Text('No hay datos disponibles para generar el gráfico'),
+    );
+  }
+  
+  // Calcular total para porcentajes
+  int total = entradas.fold(0, (sum, entry) => sum + entry.value);
+  
+  // Colores para las barras
+  List<PdfColor> colores = [
+    PdfColors.blue,
+    PdfColors.red,
+    PdfColors.green,
+    PdfColors.orange,
+    PdfColors.purple,
+    PdfColors.teal,
+    PdfColors.brown,
+    PdfColors.pink,
+    PdfColors.cyan,
+    PdfColors.amber,
+  ];
+  
+  // Crear el gráfico usando widgets de PDF
+  return pw.Container(
+    width: ancho,
+    height: alto,
+    child: pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.center,
+      children: [
+        // Título
+        pw.Text(
+          titulo,
+          style: pw.TextStyle(
+            fontSize: 14,
+            fontWeight: pw.FontWeight.bold,
+          ),
+        ),
+        pw.SizedBox(height: 10),
+        
+        // Gráfico de barras horizontales
+        pw.Expanded(
+          child: pw.Row(
+            crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+            children: [
+              // Etiquetas de las barras (nombres)
+              pw.Container(
+                width: ancho * 0.3, // 30% del ancho para etiquetas
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.end,
+                  mainAxisAlignment: pw.MainAxisAlignment.spaceEvenly,
+                  children: entradas.map((entry) {
+                    // Truncar etiquetas largas
+                    String etiqueta = entry.key.length > 15 
+                        ? '${entry.key.substring(0, 12)}...' 
+                        : entry.key;
+                    
+                    return pw.Padding(
+                      padding: pw.EdgeInsets.symmetric(vertical: 2),
+                      child: pw.Text(
+                        etiqueta,
+                        style: pw.TextStyle(fontSize: 8),
+                        textAlign: pw.TextAlign.right,
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+              
+              // Separador
+              pw.SizedBox(width: 5),
+              
+              // Gráfico de barras
+              pw.Expanded(
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  mainAxisAlignment: pw.MainAxisAlignment.spaceEvenly,
+                  children: List.generate(
+                    entradas.length,
+                    (index) {
+                      final entry = entradas[index];
+                      final porcentaje = total > 0 ? entry.value / total : 0;
+                      
+                      return pw.Row(
+                        crossAxisAlignment: pw.CrossAxisAlignment.center,
+                        children: [
+                          // Barra
+                          pw.Container(
+                            width: (ancho * 0.6) * porcentaje, // Ancho proporcional al valor
+                            height: 15,
+                            color: colores[index % colores.length],
+                          ),
+                          
+                          // Valor
+                          pw.SizedBox(width: 5),
+                          pw.Text(
+                            '${entry.value} (${(porcentaje * 100).toStringAsFixed(1)}%)',
+                            style: pw.TextStyle(fontSize: 8),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+/// Crea un gráfico de líneas para mostrar tendencias temporales en un PDF
+
+/// Crea un gráfico de mapa de áreas (simplificado para PDF) para mostrar la distribución geográfica
+static pw.Widget crearGraficoMapaAreasPDF({
+  required Map<String, Map<String, int>> datos,
+  required String titulo,
+  double ancho = 500,
+  double alto = 350,
+}) {
+  // Extraer datos de colonias y ciudades
+  Map<String, int> colonias = datos['colonias'] ?? {};
+  Map<String, int> ciudades = datos['ciudades'] ?? {};
+  
+  // Si no hay datos, mostrar mensaje
+  if (colonias.isEmpty && ciudades.isEmpty) {
+    return pw.Container(
+      width: ancho,
+      height: alto,
+      alignment: pw.Alignment.center,
+      child: pw.Text('No hay datos disponibles para generar el gráfico'),
+    );
+  }
+  
+  // Dado que en PDF no podemos crear mapas interactivos reales,
+  // crearemos una representación visual abstracta de la distribución
+  
+  // Colores para las secciones
+  List<PdfColor> colores = [
+    PdfColors.blue100,
+    PdfColors.blue200,
+    PdfColors.blue300,
+    PdfColors.blue400,
+    PdfColors.blue500,
+    PdfColors.blue600,
+    PdfColors.blue700,
+    PdfColors.blue800,
+    PdfColors.blue900,
+  ];
+  
+  // Ordenar ciudades por cantidad (descendente)
+  List<MapEntry<String, int>> entradasCiudades = ciudades.entries.toList();
+  entradasCiudades.sort((a, b) => b.value.compareTo(a.value));
+  
+  // Limitar a las 5 principales ciudades
+  if (entradasCiudades.length > 5) {
+    entradasCiudades = entradasCiudades.sublist(0, 5);
+  }
+  
+  // Ordenar colonias por cantidad (descendente)
+  List<MapEntry<String, int>> entradasColonias = colonias.entries.toList();
+  entradasColonias.sort((a, b) => b.value.compareTo(a.value));
+  
+  // Limitar a las 10 principales colonias
+  if (entradasColonias.length > 10) {
+    entradasColonias = entradasColonias.sublist(0, 10);
+  }
+  
+  return pw.Container(
+    width: ancho,
+    height: alto,
+    child: pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.center,
+      children: [
+        // Título
+        pw.Text(
+          titulo,
+          style: pw.TextStyle(
+            fontSize: 14,
+            fontWeight: pw.FontWeight.bold,
+          ),
+        ),
+        pw.SizedBox(height: 10),
+        
+        // Mapa simplificado (representación visual)
+        pw.Expanded(
+          child: pw.Row(
+            crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+            children: [
+              // Sección para ciudades
+              pw.Expanded(
+                flex: 3,
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Text(
+                      'Distribución por Ciudades',
+                      style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
+                      textAlign: pw.TextAlign.center,
+                    ),
+                    pw.SizedBox(height: 5),
+                    
+                    // Representación de ciudades como bloques proporcionales
+                    pw.Expanded(
+                      child: pw.Column(
+                        children: [
+                          pw.Expanded(
+                            child: pw.GridView(
+                              crossAxisCount: 2,
+                              childAspectRatio: 0.8,
+                              children: List.generate(
+                                entradasCiudades.length,
+                                (index) {
+                                  int total = entradasCiudades.fold(0, (sum, entry) => sum + entry.value);
+                                  MapEntry<String, int> ciudad = entradasCiudades[index];
+                                  double tamano = ciudad.value / total;
+                                  
+                                  return pw.Padding(
+                                    padding: pw.EdgeInsets.all(5),
+                                    child: pw.Stack(
+                                      alignment: pw.Alignment.center,
+                                      children: [
+                                        pw.Container(
+                                          decoration: pw.BoxDecoration(
+                                            color: colores[index % colores.length],
+                                            borderRadius: pw.BorderRadius.circular(5),
+                                          ),
+                                        ),
+                                        pw.Column(
+                                          mainAxisAlignment: pw.MainAxisAlignment.center,
+                                          children: [
+                                            pw.Text(
+                                              ciudad.key,
+                                              style: pw.TextStyle(
+                                                fontSize: 9,
+                                                fontWeight: pw.FontWeight.bold,
+                                                color: PdfColors.white,
+                                              ),
+                                              textAlign: pw.TextAlign.center,
+                                            ),
+                                            pw.SizedBox(height: 5),
+                                            pw.Text(
+                                              '${ciudad.value} inmuebles',
+                                              style: pw.TextStyle(
+                                                fontSize: 8,
+                                                color: PdfColors.white,
+                                              ),
+                                              textAlign: pw.TextAlign.center,
+                                            ),
+                                            pw.SizedBox(height: 3),
+                                            pw.Text(
+                                              '${(tamano * 100).toStringAsFixed(1)}%',
+                                              style: pw.TextStyle(
+                                                fontSize: 8,
+                                                fontWeight: pw.FontWeight.bold,
+                                                color: PdfColors.white,
+                                              ),
+                                              textAlign: pw.TextAlign.center,
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              
+              // Separador
+              pw.SizedBox(width: 10),
+              
+              // Sección para colonias
+              pw.Expanded(
+                flex: 4,
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Text(
+                      'Distribución por Colonias',
+                      style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
+                      textAlign: pw.TextAlign.center,
+                    ),
+                    pw.SizedBox(height: 5),
+                    
+                    // Lista de colonias
+                    pw.Expanded(
+                      child: pw.Wrap(
+                        spacing: 5,
+                        runSpacing: 5,
+                        children: List.generate(
+                          entradasColonias.length,
+                          (index) {
+                            MapEntry<String, int> colonia = entradasColonias[index];
+                            
+                            return pw.Container(
+                              width: (ancho / 2) * 0.45,
+                              height: alto * 0.15,
+                              decoration: pw.BoxDecoration(
+                                color: colores[(colores.length - 1 - index) % colores.length],
+                                borderRadius: pw.BorderRadius.circular(5),
+                              ),
+                              padding: pw.EdgeInsets.all(5),
+                              child: pw.Column(
+                                mainAxisAlignment: pw.MainAxisAlignment.center,
+                                children: [
+                                  pw.Text(
+                                    colonia.key,
+                                    style: pw.TextStyle(
+                                      fontSize: 7,
+                                      fontWeight: pw.FontWeight.bold,
+                                      color: PdfColors.white,
+                                    ),
+                                    textAlign: pw.TextAlign.center,
+                                    maxLines: 2,
+                                    overflow: pw.TextOverflow.clip,
+                                  ),
+                                  pw.SizedBox(height: 3),
+                                  pw.Text(
+                                    '${colonia.value} inmuebles',
+                                    style: pw.TextStyle(
+                                      fontSize: 6,
+                                      color: PdfColors.white,
+                                    ),
+                                    textAlign: pw.TextAlign.center,
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        
+        // Nota explicativa
+        pw.SizedBox(height: 10),
+        pw.Container(
+          padding: pw.EdgeInsets.all(5),
+          decoration: pw.BoxDecoration(
+            color: PdfColors.grey100,
+            borderRadius: pw.BorderRadius.circular(5),
+          ),
+          child: pw.Text(
+            'Nota: El tamaño de cada bloque es proporcional a la cantidad de inmuebles evaluados en esa área geográfica.',
+            style: pw.TextStyle(fontSize: 7, fontStyle: pw.FontStyle.italic),
+            textAlign: pw.TextAlign.center,
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+
+
+
+
+
   /// Genera datos para un gráfico de barras (como lista de puntos)
   static List<Map<String, dynamic>> generarDatosGraficoBarra(Map<String, int> datos) {
     // Convertir los datos a un formato que podamos usar en PDF

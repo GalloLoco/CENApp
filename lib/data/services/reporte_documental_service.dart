@@ -522,7 +522,12 @@ List<pw.Widget> _generarGraficosParaReporte(
   } else if (titulo?.contains('Uso de Vivienda') == true || titulo?.contains('Topografía') == true) {
     // Es un reporte de uso de vivienda y topografía
     widgets.addAll(_generarGraficosUsoViviendaTopografia(datos, graficas));
-  } else {
+  }else if (titulo?.contains('Sistema Estructural') == true) {
+    // Es un reporte de sistema estructural
+  widgets.addAll(_generarGraficosSistemaEstructural(datos, graficas));
+
+  } 
+  else {
     // Reporte genérico, usar gráficos genéricos
     widgets.addAll(_generarGraficosGenericos(datos, graficas));
   }
@@ -530,6 +535,64 @@ List<pw.Widget> _generarGraficosParaReporte(
   return widgets;
 }
 
+
+// Graficos sistema estructural
+List<pw.Widget> _generarGraficosSistemaEstructural(
+    Map<String, dynamic> datos, 
+    List<Uint8List> graficas) {
+  
+  List<pw.Widget> widgets = [];
+  
+  // Categorías a incluir en los gráficos
+  final List<Map<String, String>> categorias = [
+    {'id': 'direccionX', 'titulo': 'Dirección X'},
+    {'id': 'direccionY', 'titulo': 'Dirección Y'},
+    {'id': 'murosMamposteria', 'titulo': 'Muros de Mampostería'},
+    {'id': 'sistemasPiso', 'titulo': 'Sistemas de Piso'},
+    {'id': 'sistemasTecho', 'titulo': 'Sistemas de Techo'},
+    {'id': 'cimentacion', 'titulo': 'Cimentación'},
+  ];
+  
+  // Para cada categoría, generar un gráfico
+  for (var categoria in categorias) {
+    String id = categoria['id']!;
+    String titulo = categoria['titulo']!;
+    
+    // Verificar si hay datos para esta categoría
+    if (datos['estadisticas']?[id] != null && 
+        datos['estadisticas'][id].isNotEmpty) {
+      
+      // Convertir los datos al formato esperado por el servicio de gráficas
+      Map<String, int> datosGrafico = {};
+      datos['estadisticas'][id].forEach((elemento, stats) {
+        datosGrafico[elemento] = stats['conteo'];
+      });
+      
+      // Añadir encabezado
+      widgets.add(
+        pw.Header(
+          level: 2,
+          text: 'Distribución de Elementos: $titulo',
+          textStyle: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold),
+        ),
+      );
+      
+      // Crear y añadir el gráfico
+      widgets.add(
+        GraficasService.crearGraficoBarrasHorizontalesPDF(
+          datos: datosGrafico,
+          titulo: 'Frecuencia de Elementos en $titulo',
+          ancho: 500,
+          alto: 300,
+        ),
+      );
+      
+      widgets.add(pw.SizedBox(height: 20));
+    }
+  }
+  
+  return widgets;
+}
 // Método para generar gráficos específicos del reporte de resumen general
 List<pw.Widget> _generarGraficosResumenGeneral(
     Map<String, dynamic> datos, 

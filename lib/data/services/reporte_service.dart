@@ -1,16 +1,248 @@
 // lib/data/services/reporte_service.dart (versión actualizada)
 
 import 'dart:typed_data';
-import 'package:flutter/material.dart';
+
 import 'package:intl/intl.dart';
 import '../../logica/formato_evaluacion.dart';
 import '../../data/services/cloud_storage_service.dart';
 import '../../data/services/estadisticos_service.dart';
-import '../../data/services/graficas_service.dart';
+import '../reportes/sistema_estructural_reporte.dart';
+
 import '../../data/services/reporte_documental_service.dart';
 
 class ReporteService {
   final CloudStorageService _cloudService = CloudStorageService();
+
+  /// Genera un reporte de sistema estructural (NUEVO)
+  Future<Map<String, String>> generarReporteSistemaEstructural({
+    required String nombreInmueble,
+    required DateTime fechaInicio,
+    required DateTime fechaFin,
+    required String usuarioCreador,
+    required List<Map<String, dynamic>> ubicaciones,
+  }) async {
+    // Paso 1: Buscar formatos que cumplan con los criterios
+    List<FormatoEvaluacion> formatos = await _buscarFormatos(
+      nombreInmueble: nombreInmueble,
+      fechaInicio: fechaInicio,
+      fechaFin: fechaFin,
+      usuarioCreador: usuarioCreador,
+      ubicaciones: ubicaciones,
+    );
+
+    if (formatos.isEmpty) {
+      throw Exception(
+          'No se encontraron formatos que cumplan con los criterios especificados');
+    }
+
+    // Paso 2: Analizar los datos usando el módulo específico
+    Map<String, dynamic> datosEstadisticos =
+        SistemaEstructuralReport.analizarDatos(formatos);
+
+    // Paso 3: Preparar datos para las tablas del reporte
+    List<Map<String, dynamic>> tablas =
+        SistemaEstructuralReport.prepararTablas(datosEstadisticos);
+
+    // Paso 4: Generar placeholders para gráficas
+    List<Uint8List> graficas =
+        await SistemaEstructuralReport.generarPlaceholdersGraficas(
+            datosEstadisticos);
+
+    // Paso 5: Construir metadatos para el reporte
+    Map<String, dynamic> metadatos = {
+      'titulo': 'Sistema Estructural',
+      'subtitulo': 'Análisis de Elementos Estructurales',
+      'totalFormatos': formatos.length,
+      'nombreInmueble': nombreInmueble.isEmpty ? 'Todos' : nombreInmueble,
+      'fechaInicio': DateFormat('dd/MM/yyyy').format(fechaInicio),
+      'fechaFin': DateFormat('dd/MM/yyyy').format(fechaFin),
+      'usuarioCreador': usuarioCreador.isEmpty ? 'Todos' : usuarioCreador,
+      'ubicaciones': ubicaciones,
+      'conclusiones': SistemaEstructuralReport.generarConclusiones(
+          datosEstadisticos, formatos.length),
+    };
+
+    // Paso 6: Generar documento PDF
+    String rutaPDF = await ReporteDocumentalService.generarReportePDF(
+      titulo: 'Reporte Estadístico',
+      subtitulo: 'Sistema Estructural',
+      datos: datosEstadisticos,
+      tablas: tablas,
+      graficas: graficas,
+      metadatos: metadatos,
+    );
+
+    return {
+      'pdf': rutaPDF,
+    };
+  }
+
+  /// Prepara las tablas para el reporte de sistema estructural
+  List<Map<String, dynamic>> _prepararTablasSistemaEstructural(
+      Map<String, dynamic> datosEstadisticos) {
+    List<Map<String, dynamic>> tablas = [];
+
+    // Categorías a incluir en el reporte
+    final List<Map<String, String>> categorias = [
+      {
+        'id': 'direccionX',
+        'titulo': 'Dirección X',
+        'descripcion': 'Elementos estructurales en dirección X'
+      },
+      {
+        'id': 'direccionY',
+        'titulo': 'Dirección Y',
+        'descripcion': 'Elementos estructurales en dirección Y'
+      },
+      {
+        'id': 'murosMamposteria',
+        'titulo': 'Muros de Mampostería',
+        'descripcion': 'Tipos de muros de mampostería'
+      },
+      {
+        'id': 'sistemasPiso',
+        'titulo': 'Sistemas de Piso',
+        'descripcion': 'Tipos de sistemas de piso'
+      },
+      {
+        'id': 'sistemasTecho',
+        'titulo': 'Sistemas de Techo',
+        'descripcion': 'Tipos de sistemas de techo'
+      },
+      {
+        'id': 'cimentacion',
+        'titulo': 'Cimentación',
+        'descripcion': 'Tipos de cimentación'
+      },
+    ];
+
+    // Total de formatos analizados
+    int totalFormatos = datosEstadisticos['totalFormatos'];
+
+    // Para cada categoría, crear una tabla
+    for (var categoria in categorias) {
+      String id = categoria['id']!;
+
+      // Verificar si hay datos para esta categoría
+      if (datosEstadisticos['estadisticas'].containsKey(id)) {
+        Map<String, dynamic> estadisticasCategoria =
+            datosEstadisticos['estadisticas'][id];
+
+        // Crear filas para la tabla
+        List<List<dynamic>> filas = [];
+
+        // Ordenar opciones por frecuencia (de mayor a menor)
+        var opcionesOrdenadas = estadisticasCategoria.entries.toList()
+          ..sort((a, b) =>
+              (b.value['conteo'] as int).compareTo(a.value['conteo'] as int));
+
+        for (var opcion in opcionesOrdenadas) {
+          String nombreOpcion = opcion.key;
+          int conteo = opcion.value['conteo'];
+          double porcentaje = opcion.value['porcentaje'];
+
+          filas.add([
+            nombreOpcion,
+            conteo,
+            '${porcentaje.toStringAsFixed(2)}%',
+          ]);
+        }
+
+        // Si hay filas, agregar la tabla
+        if (filas.isNotEmpty) {
+          tablas.add({
+            'titulo': categoria['titulo'],
+            'descripcion': categoria['descripcion'],
+            'encabezados': ['Elemento', 'Conteo', 'Porcentaje'],
+            'filas': filas,
+          });
+        }
+      }
+    }
+
+    return tablas;
+  }
+
+  /// Genera gráficas para el reporte de sistema estructural
+  Future<List<Uint8List>> _generarGraficasSistemaEstructural(
+      Map<String, dynamic> datosEstadisticos) async {
+    // En este caso, usamos placeholders para que las gráficas
+    // sean creadas directamente en el PDF
+    List<Uint8List> graficas = [];
+
+    // Categorías principales para las que generaremos gráficos
+    final List<String> categoriasPrincipales = [
+      'direccionX',
+      'direccionY',
+      'murosMamposteria',
+      'sistemasPiso',
+      'sistemasTecho',
+      'cimentacion',
+    ];
+
+    // Añadir un placeholder por cada categoría que tenga datos
+    for (var categoria in categoriasPrincipales) {
+      if (datosEstadisticos['estadisticas'].containsKey(categoria) &&
+          datosEstadisticos['estadisticas'][categoria].isNotEmpty) {
+        graficas.add(Uint8List(0)); // Placeholder vacío
+      }
+    }
+
+    return graficas;
+  }
+
+  /// Genera conclusiones para el reporte de sistema estructural
+  String _generarConclusionesSistemaEstructural(
+      Map<String, dynamic> datosEstadisticos, int totalFormatos) {
+    StringBuffer conclusiones = StringBuffer();
+
+    // Mensaje inicial
+    conclusiones.writeln(
+        'Se analizaron un total de $totalFormatos formatos de evaluación para determinar los patrones estructurales predominantes.');
+
+    // Categorías a incluir en las conclusiones
+    final List<Map<String, String>> categorias = [
+      {'id': 'direccionX', 'nombre': 'Dirección X'},
+      {'id': 'direccionY', 'nombre': 'Dirección Y'},
+      {'id': 'murosMamposteria', 'nombre': 'Muros de Mampostería'},
+      {'id': 'sistemasPiso', 'nombre': 'Sistemas de Piso'},
+      {'id': 'sistemasTecho', 'nombre': 'Sistemas de Techo'},
+      {'id': 'cimentacion', 'nombre': 'Cimentación'},
+    ];
+
+    // Para cada categoría, encontrar el elemento más común
+    for (var categoria in categorias) {
+      String id = categoria['id']!;
+      String nombre = categoria['nombre']!;
+
+      if (datosEstadisticos['estadisticas'].containsKey(id) &&
+          datosEstadisticos['estadisticas'][id].isNotEmpty) {
+        // Encontrar el elemento más común
+        String elementoMasComun = '';
+        int maxConteo = 0;
+        double maxPorcentaje = 0;
+
+        datosEstadisticos['estadisticas'][id].forEach((elemento, stats) {
+          if (stats['conteo'] > maxConteo) {
+            maxConteo = stats['conteo'];
+            maxPorcentaje = stats['porcentaje'];
+            elementoMasComun = elemento;
+          }
+        });
+
+        if (elementoMasComun.isNotEmpty) {
+          conclusiones.writeln(
+              '\nEl elemento más común en $nombre fue "$elementoMasComun" con $maxConteo ocurrencias (${maxPorcentaje.toStringAsFixed(2)}% del total).');
+        }
+      }
+    }
+
+    // Conclusión general
+    conclusiones.writeln(
+        '\nEste reporte proporciona una visión integral de los sistemas estructurales predominantes en los inmuebles evaluados, lo que puede ser útil para identificar patrones de construcción comunes y potenciales vulnerabilidades estructurales en la región.');
+
+    return conclusiones.toString();
+  }
 
   /// Genera un reporte de uso de vivienda y topografía
   Future<Map<String, String>> generarReporteUsoViviendaTopografia({
@@ -126,7 +358,7 @@ class ReporteService {
       'usuarioCreador': usuarioCreador.isEmpty ? 'Todos' : usuarioCreador,
       'ubicaciones': ubicaciones,
       'periodoEvaluacion':
-    '${DateFormat('MM/yyyy').format(fechaInicio)} - ${DateFormat('MM/yyyy').format(fechaFin)}',
+          '${DateFormat('MM/yyyy').format(fechaInicio)} - ${DateFormat('MM/yyyy').format(fechaFin)}',
       'areasGeograficas': _obtenerAreasGeograficas(formatos),
       'conclusiones':
           _generarConclusionesResumenGeneral(datosEstadisticos, formatos),

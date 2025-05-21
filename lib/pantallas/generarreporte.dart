@@ -13,16 +13,17 @@ class _ReporteScreenState extends State<ReporteScreen> {
   // Controladores para los campos de texto
   TextEditingController nombreInmuebleController = TextEditingController();
   TextEditingController fechaInicioController = TextEditingController(
-      text: DateFormat('dd/MM/yyyy').format(DateTime.now().subtract(Duration(days: 30))));
+      text: DateFormat('dd/MM/yyyy')
+          .format(DateTime.now().subtract(Duration(days: 30))));
   TextEditingController fechaFinalController = TextEditingController(
       text: DateFormat('dd/MM/yyyy').format(DateTime.now()));
   TextEditingController usuarioCreadorController = TextEditingController();
-  
+
   // Variables para control de estado
   bool _isLoading = false;
   bool _dataLoaded = false;
   String _errorMessage = '';
-  
+
   // Variables para el tipo de reporte
   final List<String> _tiposReporte = [
     "Resumen General",
@@ -33,14 +34,14 @@ class _ReporteScreenState extends State<ReporteScreen> {
     "Resumen completo"
   ];
   String _tipoReporteSeleccionado = "Resumen General";
-  
+
   // Variables para ubicaciones múltiples
   List<Map<String, dynamic>> _ubicaciones = [];
   int _idxUbicacionActual = 0;
-  
+
   // Servicio para datos de ciudades y colonias
   final CiudadColoniaService _ciudadService = CiudadColoniaService();
-  
+
   // Variables para los dropdowns de ubicación
   List<String> _municipios = [];
   List<String> _ciudades = [];
@@ -61,30 +62,30 @@ class _ReporteScreenState extends State<ReporteScreen> {
       setState(() {
         _isLoading = true;
       });
-      
+
       // Cargar los municipios desde el servicio
       _municipios = await _ciudadService.getMunicipios();
-      
+
       // Inicializar con La Paz
       String municipioDefault = 'La Paz';
-      
+
       // Cargar ciudades del municipio por defecto
       _ciudades = await _ciudadService.getCiudadesByMunicipio(municipioDefault);
-      
+
       // Si hay ciudades, cargar la primera ciudad
       if (_ciudades.isNotEmpty) {
         String ciudadDefault = 'La Paz';
         // Cargar colonias de la primera ciudad
         _colonias = await _ciudadService.getColoniasByCiudad(ciudadDefault);
       }
-      
+
       // Actualizar la ubicación actual con los valores por defecto
       setState(() {
         _ubicaciones[_idxUbicacionActual]['municipio'] = 'La Paz';
         _ubicaciones[_idxUbicacionActual]['ciudad'] = 'La Paz';
         _ubicaciones[_idxUbicacionActual]['estado'] = 'Baja California Sur';
       });
-      
+
       setState(() {
         _isLoading = false;
         _dataLoaded = true;
@@ -102,8 +103,8 @@ class _ReporteScreenState extends State<ReporteScreen> {
   void _agregarNuevaUbicacion() {
     setState(() {
       _ubicaciones.add({
-        'municipio': 'La Paz', 
-        'ciudad': 'La Paz', 
+        'municipio': 'La Paz',
+        'ciudad': 'La Paz',
         'colonia': null,
         'estado': 'Baja California Sur'
       });
@@ -117,7 +118,7 @@ class _ReporteScreenState extends State<ReporteScreen> {
       // Siempre debe haber al menos una ubicación
       return;
     }
-    
+
     setState(() {
       _ubicaciones.removeAt(index);
       // Ajustar el índice actual si es necesario
@@ -146,7 +147,11 @@ class _ReporteScreenState extends State<ReporteScreen> {
         child: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: [Color(0xFF64B7F1), Color(0xFFA4D4F5), Color.fromARGB(255, 255, 255, 255)],
+              colors: [
+                Color(0xFF64B7F1),
+                Color(0xFFA4D4F5),
+                Color.fromARGB(255, 255, 255, 255)
+              ],
               stops: [0.0, 0.52, 1.0],
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
@@ -162,22 +167,24 @@ class _ReporteScreenState extends State<ReporteScreen> {
           ),
         ),
       ),
-      body: _isLoading 
+      body: _isLoading
           ? Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 20.0, vertical: 10.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Center(
                       child: Text(
                         'Generar Reporte',
-                        style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                            fontSize: 24, fontWeight: FontWeight.bold),
                       ),
                     ),
                     SizedBox(height: 15),
-                    
+
                     // Sección: Filtros de búsqueda
                     Card(
                       elevation: 3,
@@ -191,10 +198,11 @@ class _ReporteScreenState extends State<ReporteScreen> {
                           children: [
                             Text(
                               'Filtros de búsqueda',
-                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                              style: TextStyle(
+                                  fontSize: 18, fontWeight: FontWeight.bold),
                             ),
                             SizedBox(height: 10),
-                            
+
                             // Nombre del inmueble
                             TextField(
                               controller: nombreInmuebleController,
@@ -205,9 +213,9 @@ class _ReporteScreenState extends State<ReporteScreen> {
                                 prefixIcon: Icon(Icons.business),
                               ),
                             ),
-                            
+
                             SizedBox(height: 15),
-                            
+
                             // Rango de fechas
                             Row(
                               children: [
@@ -218,14 +226,17 @@ class _ReporteScreenState extends State<ReporteScreen> {
                                     onTap: () async {
                                       DateTime? fecha = await showDatePicker(
                                         context: context,
-                                        initialDate: DateTime.now().subtract(Duration(days: 30)),
+                                        initialDate: DateTime.now()
+                                            .subtract(Duration(days: 30)),
                                         firstDate: DateTime(2020),
                                         lastDate: DateTime.now(),
                                       );
-                                      
+
                                       if (fecha != null) {
                                         setState(() {
-                                          fechaInicioController.text = DateFormat('dd/MM/yyyy').format(fecha);
+                                          fechaInicioController.text =
+                                              DateFormat('dd/MM/yyyy')
+                                                  .format(fecha);
                                         });
                                       }
                                     },
@@ -248,10 +259,12 @@ class _ReporteScreenState extends State<ReporteScreen> {
                                         firstDate: DateTime(2020),
                                         lastDate: DateTime.now(),
                                       );
-                                      
+
                                       if (fecha != null) {
                                         setState(() {
-                                          fechaFinalController.text = DateFormat('dd/MM/yyyy').format(fecha);
+                                          fechaFinalController.text =
+                                              DateFormat('dd/MM/yyyy')
+                                                  .format(fecha);
                                         });
                                       }
                                     },
@@ -264,9 +277,9 @@ class _ReporteScreenState extends State<ReporteScreen> {
                                 ),
                               ],
                             ),
-                            
+
                             SizedBox(height: 15),
-                            
+
                             // Usuario creador
                             TextField(
                               controller: usuarioCreadorController,
@@ -281,9 +294,9 @@ class _ReporteScreenState extends State<ReporteScreen> {
                         ),
                       ),
                     ),
-                    
+
                     SizedBox(height: 20),
-                    
+
                     // Sección: Ubicaciones
                     Card(
                       elevation: 3,
@@ -300,32 +313,38 @@ class _ReporteScreenState extends State<ReporteScreen> {
                               children: [
                                 Text(
                                   'Ubicaciones',
-                                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                  style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold),
                                 ),
                               ],
                             ),
-                            
+
                             SizedBox(height: 10),
-                            
+
                             // Lista de ubicaciones como chips horizontales
                             Container(
                               height: 40,
                               child: ListView.builder(
                                 scrollDirection: Axis.horizontal,
-                                itemCount: _ubicaciones.length + 1, // +1 para el botón de agregar
+                                itemCount: _ubicaciones.length +
+                                    1, // +1 para el botón de agregar
                                 itemBuilder: (context, index) {
                                   if (index == _ubicaciones.length) {
                                     // Botón para agregar nueva ubicación
                                     return InkWell(
                                       onTap: _agregarNuevaUbicacion,
                                       child: Container(
-                                        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                        padding: EdgeInsets.symmetric(
+                                            horizontal: 12, vertical: 8),
                                         margin: EdgeInsets.only(right: 8),
                                         decoration: BoxDecoration(
                                           color: Colors.green,
-                                          borderRadius: BorderRadius.circular(20),
+                                          borderRadius:
+                                              BorderRadius.circular(20),
                                         ),
-                                        child: Icon(Icons.add, color: Colors.white, size: 20),
+                                        child: Icon(Icons.add,
+                                            color: Colors.white, size: 20),
                                       ),
                                     );
                                   } else {
@@ -337,11 +356,15 @@ class _ReporteScreenState extends State<ReporteScreen> {
                                         });
                                       },
                                       child: Container(
-                                        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                        padding: EdgeInsets.symmetric(
+                                            horizontal: 12, vertical: 8),
                                         margin: EdgeInsets.only(right: 8),
                                         decoration: BoxDecoration(
-                                          color: _idxUbicacionActual == index ? Colors.blue : Colors.grey[300],
-                                          borderRadius: BorderRadius.circular(20),
+                                          color: _idxUbicacionActual == index
+                                              ? Colors.blue
+                                              : Colors.grey[300],
+                                          borderRadius:
+                                              BorderRadius.circular(20),
                                         ),
                                         child: Row(
                                           mainAxisSize: MainAxisSize.min,
@@ -349,16 +372,26 @@ class _ReporteScreenState extends State<ReporteScreen> {
                                             Text(
                                               'Ubicación ${index + 1}',
                                               style: TextStyle(
-                                                color: _idxUbicacionActual == index ? Colors.white : Colors.black,
+                                                color:
+                                                    _idxUbicacionActual == index
+                                                        ? Colors.white
+                                                        : Colors.black,
                                               ),
                                             ),
-                                            if (_ubicaciones.length > 1) 
+                                            if (_ubicaciones.length > 1)
                                               InkWell(
-                                                onTap: () => _eliminarUbicacion(index),
+                                                onTap: () =>
+                                                    _eliminarUbicacion(index),
                                                 child: Padding(
-                                                  padding: EdgeInsets.only(left: 4),
-                                                  child: Icon(Icons.close, size: 16, 
-                                                    color: _idxUbicacionActual == index ? Colors.white : Colors.black54),
+                                                  padding:
+                                                      EdgeInsets.only(left: 4),
+                                                  child: Icon(Icons.close,
+                                                      size: 16,
+                                                      color:
+                                                          _idxUbicacionActual ==
+                                                                  index
+                                                              ? Colors.white
+                                                              : Colors.black54),
                                                 ),
                                               ),
                                           ],
@@ -369,9 +402,9 @@ class _ReporteScreenState extends State<ReporteScreen> {
                                 },
                               ),
                             ),
-                            
+
                             SizedBox(height: 15),
-                            
+
                             // Mostrar detalles de la ubicación actual
                             if (_dataLoaded)
                               Column(
@@ -379,7 +412,8 @@ class _ReporteScreenState extends State<ReporteScreen> {
                                 children: [
                                   // Dropdowns para selección de ubicación
                                   DropdownButtonFormField<String>(
-                                    value: _ubicaciones[_idxUbicacionActual]['municipio'],
+                                    value: _ubicaciones[_idxUbicacionActual]
+                                        ['municipio'],
                                     decoration: InputDecoration(
                                       labelText: 'Municipio/Delegación',
                                       border: OutlineInputBorder(),
@@ -393,23 +427,32 @@ class _ReporteScreenState extends State<ReporteScreen> {
                                       );
                                     }).toList(),
                                     onChanged: (String? newValue) async {
-                                      if (newValue != _ubicaciones[_idxUbicacionActual]['municipio']) {
+                                      if (newValue !=
+                                          _ubicaciones[_idxUbicacionActual]
+                                              ['municipio']) {
                                         setState(() {
-                                          _ubicaciones[_idxUbicacionActual]['municipio'] = newValue;
-                                          _ubicaciones[_idxUbicacionActual]['ciudad'] = null;
-                                          _ubicaciones[_idxUbicacionActual]['colonia'] = null;
+                                          _ubicaciones[_idxUbicacionActual]
+                                              ['municipio'] = newValue;
+                                          _ubicaciones[_idxUbicacionActual]
+                                              ['ciudad'] = null;
+                                          _ubicaciones[_idxUbicacionActual]
+                                              ['colonia'] = null;
                                         });
-                                        
+
                                         // Cargar ciudades del nuevo municipio
                                         if (newValue != null) {
-                                          _ciudades = await _ciudadService.getCiudadesByMunicipio(newValue);
+                                          _ciudades = await _ciudadService
+                                              .getCiudadesByMunicipio(newValue);
                                           if (_ciudades.isNotEmpty) {
                                             setState(() {
-                                              _ubicaciones[_idxUbicacionActual]['ciudad'] = _ciudades.first;
+                                              _ubicaciones[_idxUbicacionActual]
+                                                  ['ciudad'] = _ciudades.first;
                                             });
-                                            
+
                                             // Cargar colonias de la primera ciudad
-                                            _colonias = await _ciudadService.getColoniasByCiudad(_ciudades.first);
+                                            _colonias = await _ciudadService
+                                                .getColoniasByCiudad(
+                                                    _ciudades.first);
                                           } else {
                                             setState(() {
                                               _colonias = [];
@@ -419,11 +462,12 @@ class _ReporteScreenState extends State<ReporteScreen> {
                                       }
                                     },
                                   ),
-                                  
+
                                   SizedBox(height: 15),
-                                  
+
                                   DropdownButtonFormField<String>(
-                                    value: _ubicaciones[_idxUbicacionActual]['ciudad'],
+                                    value: _ubicaciones[_idxUbicacionActual]
+                                        ['ciudad'],
                                     decoration: InputDecoration(
                                       labelText: 'Ciudad/Pueblo',
                                       border: OutlineInputBorder(),
@@ -437,15 +481,20 @@ class _ReporteScreenState extends State<ReporteScreen> {
                                       );
                                     }).toList(),
                                     onChanged: (String? newValue) async {
-                                      if (newValue != _ubicaciones[_idxUbicacionActual]['ciudad']) {
+                                      if (newValue !=
+                                          _ubicaciones[_idxUbicacionActual]
+                                              ['ciudad']) {
                                         setState(() {
-                                          _ubicaciones[_idxUbicacionActual]['ciudad'] = newValue;
-                                          _ubicaciones[_idxUbicacionActual]['colonia'] = null;
+                                          _ubicaciones[_idxUbicacionActual]
+                                              ['ciudad'] = newValue;
+                                          _ubicaciones[_idxUbicacionActual]
+                                              ['colonia'] = null;
                                         });
-                                        
+
                                         // Cargar colonias de la nueva ciudad
                                         if (newValue != null) {
-                                          _colonias = await _ciudadService.getColoniasByCiudad(newValue);
+                                          _colonias = await _ciudadService
+                                              .getColoniasByCiudad(newValue);
                                         } else {
                                           setState(() {
                                             _colonias = [];
@@ -454,11 +503,12 @@ class _ReporteScreenState extends State<ReporteScreen> {
                                       }
                                     },
                                   ),
-                                  
+
                                   SizedBox(height: 15),
-                                  
+
                                   DropdownButtonFormField<String>(
-                                    value: _ubicaciones[_idxUbicacionActual]['colonia'],
+                                    value: _ubicaciones[_idxUbicacionActual]
+                                        ['colonia'],
                                     decoration: InputDecoration(
                                       labelText: 'Colonia (opcional)',
                                       border: OutlineInputBorder(),
@@ -479,13 +529,14 @@ class _ReporteScreenState extends State<ReporteScreen> {
                                     ],
                                     onChanged: (String? newValue) {
                                       setState(() {
-                                        _ubicaciones[_idxUbicacionActual]['colonia'] = newValue;
+                                        _ubicaciones[_idxUbicacionActual]
+                                            ['colonia'] = newValue;
                                       });
                                     },
                                   ),
-                                  
+
                                   SizedBox(height: 15),
-                                  
+
                                   // Campo de texto no editable para el estado (siempre BCS)
                                   TextField(
                                     readOnly: true,
@@ -504,9 +555,9 @@ class _ReporteScreenState extends State<ReporteScreen> {
                         ),
                       ),
                     ),
-                    
+
                     SizedBox(height: 20),
-                    
+
                     // Sección: Tipo de reporte
                     Card(
                       elevation: 3,
@@ -520,10 +571,10 @@ class _ReporteScreenState extends State<ReporteScreen> {
                           children: [
                             Text(
                               'Tipo de reporte',
-                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                              style: TextStyle(
+                                  fontSize: 18, fontWeight: FontWeight.bold),
                             ),
                             SizedBox(height: 10),
-                            
                             DropdownButtonFormField<String>(
                               value: _tipoReporteSeleccionado,
                               decoration: InputDecoration(
@@ -547,9 +598,9 @@ class _ReporteScreenState extends State<ReporteScreen> {
                         ),
                       ),
                     ),
-                    
+
                     SizedBox(height: 30),
-                    
+
                     // Botones de acción
                     Row(
                       children: [
@@ -561,7 +612,8 @@ class _ReporteScreenState extends State<ReporteScreen> {
                               // Implementación pendiente
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
-                                  content: Text('Funcionalidad pendiente de implementación'),
+                                  content: Text(
+                                      'Funcionalidad pendiente de implementación'),
                                   backgroundColor: Colors.blue,
                                 ),
                               );
@@ -600,238 +652,242 @@ class _ReporteScreenState extends State<ReporteScreen> {
             ),
     );
   }
+
   /// Genera el reporte basado en los criterios seleccionados
-Future<void> _generarReporte() async {
-  try {
-    // Validar que haya al menos un filtro
-    if (nombreInmuebleController.text.isEmpty && 
-        usuarioCreadorController.text.isEmpty && 
-        _ubicaciones.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Por favor, especifica al menos un criterio de búsqueda'),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      return;
-    }
-    
-    // Mostrar indicador de carga
-    setState(() {
-      _isLoading = true;
-    });
-    
-    // Convertir fechas de string a DateTime
-    DateTime fechaInicio;
-    DateTime fechaFin;
-    
+  Future<void> _generarReporte() async {
     try {
-      // Formato dd/MM/yyyy
-      List<String> partesFechaInicio = fechaInicioController.text.split('/');
-      fechaInicio = DateTime(
-        int.parse(partesFechaInicio[2]), // año
-        int.parse(partesFechaInicio[1]), // mes
-        int.parse(partesFechaInicio[0]), // día
-      );
-      
-      List<String> partesFechaFin = fechaFinalController.text.split('/');
-      fechaFin = DateTime(
-        int.parse(partesFechaFin[2]), // año
-        int.parse(partesFechaFin[1]), // mes
-        int.parse(partesFechaFin[0]), // día
-        23, 59, 59, // final del día
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Formato de fecha inválido: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      // Validar que haya al menos un filtro
+      if (nombreInmuebleController.text.isEmpty &&
+          usuarioCreadorController.text.isEmpty &&
+          _ubicaciones.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content:
+                Text('Por favor, especifica al menos un criterio de búsqueda'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        return;
+      }
+
+      // Mostrar indicador de carga
       setState(() {
-        _isLoading = false;
+        _isLoading = true;
       });
-      return;
-    }
-    
-    // Crear instancia del servicio de reportes
-    final reporteService = ReporteService();
-    
-    // Limpiar ubicaciones vacías (que no tienen selección de ciudad)
-    List<Map<String, dynamic>> ubicacionesValidas = _ubicaciones
-        .where((ubi) => ubi['ciudad'] != null && ubi['ciudad'].isNotEmpty)
-        .toList();
-    
-    // Determinar qué tipo de reporte generar basado en la selección
-    Map<String, String> rutasReporte;
-    
-    try {
-      if (_tipoReporteSeleccionado == "Resumen General") {
-        // Generar reporte de Resumen General (nuevo tipo)
-        rutasReporte = await reporteService.generarReporteResumenGeneral(
-          nombreInmueble: nombreInmuebleController.text,
-          fechaInicio: fechaInicio,
-          fechaFin: fechaFin,
-          usuarioCreador: usuarioCreadorController.text,
-          ubicaciones: ubicacionesValidas,
+
+      // Convertir fechas de string a DateTime
+      DateTime fechaInicio;
+      DateTime fechaFin;
+
+      try {
+        // Formato dd/MM/yyyy
+        List<String> partesFechaInicio = fechaInicioController.text.split('/');
+        fechaInicio = DateTime(
+          int.parse(partesFechaInicio[2]), // año
+          int.parse(partesFechaInicio[1]), // mes
+          int.parse(partesFechaInicio[0]), // día
         );
-      } else if (_tipoReporteSeleccionado == "Uso de vivienda y topografía") {
-        // Reporte existente de uso de vivienda y topografía
-        rutasReporte = await reporteService.generarReporteUsoViviendaTopografia(
-          nombreInmueble: nombreInmuebleController.text,
-          fechaInicio: fechaInicio,
-          fechaFin: fechaFin,
-          usuarioCreador: usuarioCreadorController.text,
-          ubicaciones: ubicacionesValidas,
+
+        List<String> partesFechaFin = fechaFinalController.text.split('/');
+        fechaFin = DateTime(
+          int.parse(partesFechaFin[2]), // año
+          int.parse(partesFechaFin[1]), // mes
+          int.parse(partesFechaFin[0]), // día
+          23, 59, 59, // final del día
         );
-      } else {
-        // Para otros tipos de reporte (pendientes de implementar)
-        // Por ahora, mostramos un mensaje informativo
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Formato de fecha inválido: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
         setState(() {
           _isLoading = false;
         });
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('El tipo de reporte "$_tipoReporteSeleccionado" está pendiente de implementación'),
-            backgroundColor: Colors.blue,
-            duration: Duration(seconds: 3),
-          ),
-        );
-        
         return;
       }
-      
-      setState(() {
-        _isLoading = false;
-      });
-      
-      // Mostrar diálogo de éxito con opciones para abrir los archivos
-      _mostrarDialogoReporteGenerado(rutasReporte);
-      
+
+      // Crear instancia del servicio de reportes
+      final reporteService = ReporteService();
+
+      // Limpiar ubicaciones vacías (que no tienen selección de ciudad)
+      List<Map<String, dynamic>> ubicacionesValidas = _ubicaciones
+          .where((ubi) => ubi['ciudad'] != null && ubi['ciudad'].isNotEmpty)
+          .toList();
+
+      // Determinar qué tipo de reporte generar basado en la selección
+      Map<String, String> rutasReporte;
+
+      try {
+        if (_tipoReporteSeleccionado == "Resumen General") {
+          // Generar reporte de Resumen General (nuevo tipo)
+          rutasReporte = await reporteService.generarReporteResumenGeneral(
+            nombreInmueble: nombreInmuebleController.text,
+            fechaInicio: fechaInicio,
+            fechaFin: fechaFin,
+            usuarioCreador: usuarioCreadorController.text,
+            ubicaciones: ubicacionesValidas,
+          );
+        } else if (_tipoReporteSeleccionado == "Uso de vivienda y topografía") {
+          // Reporte existente de uso de vivienda y topografía
+          rutasReporte =
+              await reporteService.generarReporteUsoViviendaTopografia(
+            nombreInmueble: nombreInmuebleController.text,
+            fechaInicio: fechaInicio,
+            fechaFin: fechaFin,
+            usuarioCreador: usuarioCreadorController.text,
+            ubicaciones: ubicacionesValidas,
+          );
+        } else if (_tipoReporteSeleccionado == "Sistema estructural") {
+          // Nuevo reporte de sistema estructural
+          rutasReporte = await reporteService.generarReporteSistemaEstructural(
+            nombreInmueble: nombreInmuebleController.text,
+            fechaInicio: fechaInicio,
+            fechaFin: fechaFin,
+            usuarioCreador: usuarioCreadorController.text,
+            ubicaciones: ubicacionesValidas,
+          );
+        } else {
+          // Para otros tipos de reporte (pendientes de implementar)
+          // Por ahora, mostramos un mensaje informativo
+          setState(() {
+            _isLoading = false;
+          });
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                  'El tipo de reporte "$_tipoReporteSeleccionado" está pendiente de implementación'),
+              backgroundColor: Colors.blue,
+              duration: Duration(seconds: 3),
+            ),
+          );
+
+          return;
+        }
+
+        setState(() {
+          _isLoading = false;
+        });
+
+        // Mostrar diálogo de éxito con opciones para abrir los archivos
+        _mostrarDialogoReporteGenerado(rutasReporte);
+      } catch (e) {
+        setState(() {
+          _isLoading = false;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al generar reporte: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     } catch (e) {
       setState(() {
         _isLoading = false;
       });
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error al generar reporte: $e'),
+          content: Text('Error inesperado: $e'),
           backgroundColor: Colors.red,
         ),
       );
     }
-  } catch (e) {
-    setState(() {
-      _isLoading = false;
-    });
-    
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Error inesperado: $e'),
-        backgroundColor: Colors.red,
-      ),
-    );
   }
-}
 
-/// Muestra un diálogo con las opciones para abrir los archivos generados
-void _mostrarDialogoReporteGenerado(Map<String, String> rutasReporte) {
-  showDialog(
-    context: context,
-    builder: (BuildContext context) {
-      return AlertDialog(
-        title: Text('Reporte Generado'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('El reporte ha sido generado exitosamente.'),
-            SizedBox(height: 20),
-            Text('Archivos generados:'),
-            SizedBox(height: 10),
-            
-            // Opción de PDF
-            if (rutasReporte.containsKey('pdf'))
-              _buildFileOption(
-                'PDF', 
-                rutasReporte['pdf']!, 
-                Icons.picture_as_pdf, 
-                Colors.red
-              ),
-              
-            SizedBox(height: 10),
-            
-            // Opción de DOCX/TXT
-            if (rutasReporte.containsKey('docx'))
-              _buildFileOption(
-                'Documento de texto', 
-                rutasReporte['docx']!, 
-                Icons.description, 
-                Colors.blue
-              ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('Cerrar'),
-          ),
-        ],
-      );
-    },
-  );
-}
-
-/// Construye una opción para abrir un archivo
-Widget _buildFileOption(String tipo, String ruta, IconData icono, Color color) {
-  return InkWell(
-    onTap: () {
-      _abrirArchivo(ruta);
-    },
-    child: Row(
-      children: [
-        Icon(icono, color: color),
-        SizedBox(width: 10),
-        Expanded(
-          child: Column(
+  /// Muestra un diálogo con las opciones para abrir los archivos generados
+  void _mostrarDialogoReporteGenerado(Map<String, String> rutasReporte) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Reporte Generado'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(tipo, style: TextStyle(fontWeight: FontWeight.bold)),
-              Text(
-                ruta, 
-                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                overflow: TextOverflow.ellipsis,
-              ),
+              Text('El reporte ha sido generado exitosamente.'),
+              SizedBox(height: 20),
+              Text('Archivos generados:'),
+              SizedBox(height: 10),
+
+              // Opción de PDF
+              if (rutasReporte.containsKey('pdf'))
+                _buildFileOption('PDF', rutasReporte['pdf']!,
+                    Icons.picture_as_pdf, Colors.red),
+
+              SizedBox(height: 10),
+
+              // Opción de DOCX/TXT
+              if (rutasReporte.containsKey('docx'))
+                _buildFileOption('Documento de texto', rutasReporte['docx']!,
+                    Icons.description, Colors.blue),
             ],
           ),
-        ),
-      ],
-    ),
-  );
-}
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text('Cerrar'),
+            ),
+          ],
+        );
+      },
+    );
+  }
 
-/// Abre un archivo usando el sistema operativo
-Future<void> _abrirArchivo(String ruta) async {
-  try {
-       
-    final result = await OpenFile.open(ruta);
-    
-    if (result.type != ResultType.done) {
+  /// Construye una opción para abrir un archivo
+  Widget _buildFileOption(
+      String tipo, String ruta, IconData icono, Color color) {
+    return InkWell(
+      onTap: () {
+        _abrirArchivo(ruta);
+      },
+      child: Row(
+        children: [
+          Icon(icono, color: color),
+          SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(tipo, style: TextStyle(fontWeight: FontWeight.bold)),
+                Text(
+                  ruta,
+                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Abre un archivo usando el sistema operativo
+  Future<void> _abrirArchivo(String ruta) async {
+    try {
+      final result = await OpenFile.open(ruta);
+
+      if (result.type != ResultType.done) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al abrir el archivo: ${result.message}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error al abrir el archivo: ${result.message}'),
+          content: Text('Error al abrir el archivo: $e'),
           backgroundColor: Colors.red,
         ),
       );
     }
-  } catch (e) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Error al abrir el archivo: $e'),
-        backgroundColor: Colors.red,
-      ),
-    );
   }
-}
 }

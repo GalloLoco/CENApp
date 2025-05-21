@@ -47,6 +47,7 @@ class ReporteService {
 
     // Paso 5: Construir metadatos para el reporte
     Map<String, dynamic> metadatos = {
+      'titulo': 'Uso de Vivienda',
       'totalFormatos': formatos.length,
       'nombreInmueble': nombreInmueble.isEmpty ? 'Todos' : nombreInmueble,
       'fechaInicio': DateFormat('dd/MM/yyyy').format(fechaInicio),
@@ -117,6 +118,7 @@ class ReporteService {
 
     // Paso 5: Construir metadatos para el reporte
     Map<String, dynamic> metadatos = {
+      'titulo': 'Resumen General',
       'totalFormatos': formatos.length,
       'nombreInmueble': nombreInmueble.isEmpty ? 'Todos' : nombreInmueble,
       'fechaInicio': DateFormat('dd/MM/yyyy').format(fechaInicio),
@@ -601,10 +603,10 @@ class ReporteService {
       graficas.add(Uint8List(0));
     }
 
-    // Placeholder para gráfica de distribución temporal
+    /*// Placeholder para gráfica de distribución temporal
     if (datosEstadisticos['distribucionTemporal']['meses'].isNotEmpty) {
       graficas.add(Uint8List(0));
-    }
+    }*/
 
     return graficas;
   }

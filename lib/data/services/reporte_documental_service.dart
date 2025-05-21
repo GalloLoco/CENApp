@@ -286,7 +286,7 @@ class ReporteDocumentalService {
               widgets.addAll(graficosEspecificos);
   
 
-              widgets.add(pw.SizedBox(height: 20));
+              //widgets.add(pw.SizedBox(height: 5));
             }
           
 
@@ -585,7 +585,7 @@ List<pw.Widget> _generarGraficosResumenGeneral(
   }
   
   // Gráfico 3: Tendencia temporal (líneas)
-  if (datos.containsKey('distribucionTemporal') && 
+  /*if (datos.containsKey('distribucionTemporal') && 
       datos['distribucionTemporal'].containsKey('meses') &&
       datos['distribucionTemporal']['meses'].isNotEmpty) {
     
@@ -600,7 +600,7 @@ List<pw.Widget> _generarGraficosResumenGeneral(
     
     
     widgets.add(pw.SizedBox(height: 20));
-  }
+  }*/
   
   return widgets;
 }

@@ -2,6 +2,7 @@
 import 'dart:ui' as ui;
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'dart:math' as math;
 import 'dart:math';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:pdf/pdf.dart';
@@ -209,7 +210,7 @@ class GraficasService {
   }
   
   /// Crea un gráfico circular directamente en un documento PDF
-  static pw.Widget crearGraficoCircularPDF({
+ static pw.Widget crearGraficoCircularPDF({
     required Map<String, int> datos,
     required String titulo,
     double ancho = 500,
@@ -217,7 +218,7 @@ class GraficasService {
   }) {
     // Calcular total
     int total = datos.values.fold(0, (sum, value) => sum + value);
-    
+
     // Si no hay datos, mostrar mensaje
     if (total == 0) {
       return pw.Container(
@@ -227,7 +228,7 @@ class GraficasService {
         child: pw.Text('No hay datos disponibles para generar el gráfico'),
       );
     }
-    
+
     // Colores para los sectores
     List<PdfColor> colores = [
       PdfColors.blue,
@@ -238,7 +239,12 @@ class GraficasService {
       PdfColors.teal,
       PdfColors.brown,
     ];
-    
+
+    // Convertir datos a lista ordenada para facilitar el procesamiento
+    List<MapEntry<String, int>> datosOrdenados = datos.entries.toList();
+    datosOrdenados
+        .sort((a, b) => b.value.compareTo(a.value)); // Ordenar de mayor a menor
+
     // Crear el gráfico usando widgets de PDF
     return pw.Container(
       width: ancho,
@@ -254,37 +260,81 @@ class GraficasService {
             ),
           ),
           pw.SizedBox(height: 20),
-          
+
           // Gráfico + Leyenda
           pw.Expanded(
             child: pw.Row(
               children: [
-                // Gráfico circular (se usará un rectángulo por simplicidad)
+                // Gráfico circular real
                 pw.Expanded(
                   flex: 3,
-                  child: pw.Container(
-                    alignment: pw.Alignment.center,
-                    child: pw.Text(
-                      'Gráfico Circular\n(Simplificado en versión PDF)',
-                      textAlign: pw.TextAlign.center,
-                    ),
+                  child: pw.CustomPaint(
+                    painter: (PdfGraphics canvas, PdfPoint size) {
+                      // Definir centro y radio
+                      final center = PdfPoint(size.x / 2, size.y / 2 + 20);
+                      final radius = math.min(size.x, size.y) / 2 - 80;
+
+                      // Variables para dibujar los sectores
+                      double startAngle = 0;
+                      double currentAngle = 0;
+
+                      // Dibujar cada sector
+                      for (int i = 0; i < datosOrdenados.length; i++) {
+                        final entry = datosOrdenados[i];
+                        final porcentaje = entry.value / total;
+                        final sweepAngle = porcentaje * 2 * pi;
+
+                        // Seleccionar color
+                        final color = colores[i % colores.length];
+
+                        // Dibujar sector
+                        canvas
+                          ..setFillColor(color)
+                          ..moveTo(center.x, center.y)
+                          
+                          ..drawEllipse(
+                            center.x - radius,
+                            center.y - radius,
+                            radius * 2,
+                            radius * 2,
+                          )
+                          ..clipPath()
+                          ..moveTo(center.x, center.y)
+                          ..lineTo(
+                            center.x + radius * math.cos(startAngle),
+                            center.y + radius * math.sin(startAngle),
+                          )
+                          ..lineTo(
+                            center.x + radius * math.cos(startAngle + sweepAngle),
+                            center.y + radius * math.sin(startAngle + sweepAngle),
+                          )
+                          ..closePath()
+                          ..fillPath();
+
+                        // Actualizar ángulo para el siguiente sector
+                        startAngle += sweepAngle;
+                      }
+                    },
                   ),
                 ),
-                
-                // Leyenda
+
+                // Leyenda (igual que en la versión original)
                 pw.Expanded(
                   flex: 2,
                   child: pw.Column(
                     crossAxisAlignment: pw.CrossAxisAlignment.start,
                     children: [
-                      pw.Text('Leyenda', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
+                      pw.Text('Leyenda',
+                          style: pw.TextStyle(
+                              fontSize: 10, fontWeight: pw.FontWeight.bold)),
                       pw.SizedBox(height: 10),
-                      
+
                       // Crear elementos de la leyenda
-                      ...datos.entries.take(10).map((entry) {
-                        int index = datos.keys.toList().indexOf(entry.key);
-                        double porcentaje = total > 0 ? (entry.value / total) * 100 : 0;
-                        
+                      ...datosOrdenados.take(10).map((entry) {
+                        int index = datosOrdenados.indexOf(entry);
+                        double porcentaje =
+                            total > 0 ? (entry.value / total) * 100 : 0;
+
                         return pw.Padding(
                           padding: const pw.EdgeInsets.only(bottom: 5),
                           child: pw.Row(

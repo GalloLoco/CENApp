@@ -46,6 +46,9 @@ Future<void> precacheAssets() async {
     print('Error al precargar recursos: $e');
     // La aplicación puede continuar, esto es solo una optimización
   }
+
+
+  
 }
 
 class CENApp extends StatelessWidget {

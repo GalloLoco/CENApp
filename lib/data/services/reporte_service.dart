@@ -66,18 +66,18 @@ class ReporteService {
       metadatos: metadatos,
     );
 
-    String rutaDOCX = await ReporteDocumentalService.generarReporteDOCX(
+    /*String rutaDOCX = await ReporteDocumentalService.generarReporteDOCX(
       titulo: 'Reporte Estadístico',
       subtitulo: 'Uso de Vivienda y Topografía',
       datos: datosEstadisticos,
       tablas: tablas,
       graficas: graficas,
       metadatos: metadatos,
-    );
+    );*/
 
     return {
       'pdf': rutaPDF,
-      'docx': rutaDOCX,
+      //'docx': rutaDOCX,
     };
   }
 

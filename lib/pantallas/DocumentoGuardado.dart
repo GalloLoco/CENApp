@@ -17,8 +17,7 @@ class DocumentoGuardadoScreen extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  _DocumentoGuardadoScreenState createState() =>
-      _DocumentoGuardadoScreenState();
+  _DocumentoGuardadoScreenState createState() => _DocumentoGuardadoScreenState();
 }
 
 class _DocumentoGuardadoScreenState extends State<DocumentoGuardadoScreen> {
@@ -43,8 +42,7 @@ class _DocumentoGuardadoScreenState extends State<DocumentoGuardadoScreen> {
     });
 
     try {
-      final filePath =
-          await _documentoService.guardarFormatoJSON(widget.formato);
+      final filePath = await _documentoService.guardarFormatoJSON(widget.formato);
       setState(() {
         _jsonFilePath = filePath;
         _isLoading = false;
@@ -67,178 +65,92 @@ class _DocumentoGuardadoScreenState extends State<DocumentoGuardadoScreen> {
     }
   }
 
-  // Luego, añade este método a la clase _DocumentoGuardadoScreenState
+  /// Guarda en el servidor
   Future<void> _guardarEnServidor() async {
-  setState(() {
-    _isLoading = true;
-    _errorMessage = null;
-  });
-
-  try {
-    // Mostrar diálogo de progreso
-    _mostrarIndicadorGuardando(context);
-    
-    // Crear una instancia del servicio CloudStorage
-    final CloudStorageService cloudService = CloudStorageService();
-    
-    // Verificar si el formato ya existe (para tener información previa)
-    bool existiaPreviamente = await cloudService.verificarExistenciaFormato(widget.formato.id);
-    
-    // Subir el formato al servidor
-    String documentId = await cloudService.subirFormato(widget.formato);
-    
-    // Cerrar el diálogo de progreso
-    Navigator.of(context, rootNavigator: true).pop();
-
     setState(() {
-      _isLoading = false;
+      _isLoading = true;
+      _errorMessage = null;
     });
 
-    // Mostrar mensaje con el ID del documento y si fue actualización o creación
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(existiaPreviamente ? 'Formato Actualizado' : 'Formato Guardado'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(existiaPreviamente 
-              ? 'El formato con ID "${widget.formato.id}" ha sido actualizado exitosamente en el servidor.'
-              : 'El formato ha sido guardado exitosamente en el servidor.'),
-            SizedBox(height: 15),
-            Text('ID de documento en Firestore:', 
-                 style: TextStyle(fontWeight: FontWeight.bold)),
-            SizedBox(height: 5),
-            Container(
-              padding: EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.grey[200],
-                borderRadius: BorderRadius.circular(4),
+    try {
+      // Mostrar diálogo de progreso
+      _mostrarIndicadorGuardando(context);
+      
+      // Crear una instancia del servicio CloudStorage
+      final CloudStorageService cloudService = CloudStorageService();
+      
+      // Verificar si el formato ya existe
+      bool existiaPreviamente = await cloudService.verificarExistenciaFormato(widget.formato.id);
+      
+      // Subir el formato al servidor
+      String documentId = await cloudService.subirFormato(widget.formato);
+      
+      // Cerrar el diálogo de progreso
+      Navigator.of(context, rootNavigator: true).pop();
+
+      setState(() {
+        _isLoading = false;
+      });
+
+      // Mostrar mensaje con el ID del documento
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text(existiaPreviamente ? 'Formato Actualizado' : 'Formato Guardado'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(existiaPreviamente 
+                ? 'El formato con ID "${widget.formato.id}" ha sido actualizado exitosamente en el servidor.'
+                : 'El formato ha sido guardado exitosamente en el servidor.'),
+              SizedBox(height: 15),
+              Text('ID de documento en Firestore:', 
+                   style: TextStyle(fontWeight: FontWeight.bold)),
+              SizedBox(height: 5),
+              Container(
+                padding: EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.grey[200],
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                width: double.infinity,
+                child: Text(
+                  documentId,
+                  style: TextStyle(fontFamily: 'monospace', fontSize: 12),
+                ),
               ),
-              width: double.infinity,
-              child: Text(
-                documentId,
-                style: TextStyle(fontFamily: 'monospace', fontSize: 12),
-              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text('Aceptar'),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('Aceptar'),
-          ),
-        ],
-      ),
-    );
-  } catch (e) {
-    // Cerrar el diálogo de progreso si está abierto
-    Navigator.of(context, rootNavigator: true).pop();
-    
-    setState(() {
-      _errorMessage = 'Error al guardar en servidor: $e';
-      _isLoading = false;
-    });
-    
-    // Mostrar error
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Error al guardar en servidor: $e'),
-        backgroundColor: Colors.red,
-        duration: Duration(seconds: 3),
-      ),
-    );
+      );
+    } catch (e) {
+      // Cerrar el diálogo de progreso si está abierto
+      Navigator.of(context, rootNavigator: true).pop();
+      
+      setState(() {
+        _errorMessage = 'Error al guardar en servidor: $e';
+        _isLoading = false;
+      });
+      
+      // Mostrar error
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error al guardar en servidor: $e'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 3),
+        ),
+      );
+    }
   }
-}
 
-// Añade este método para mostrar un diálogo después de una subida exitosa
-  void _mostrarDialogoSubidaExitosa(BuildContext context, String documentId) {
-  // Obtener información del formato actual
-  String formatoId = widget.formato.id;
-  
-  // Consultar si ya existía este formato (por ID)
-  CloudStorageService cloudService = CloudStorageService();
-  cloudService.verificarExistenciaFormato(formatoId).then((bool existiaPreviamente) {
-    // Mostrar el diálogo con información específica
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(existiaPreviamente ? 'Formato Actualizado' : 'Formato Guardado'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(existiaPreviamente 
-              ? 'El formato con ID "$formatoId" ha sido actualizado exitosamente en el servidor.'
-              : 'El formato ha sido guardado exitosamente en el servidor.'),
-            SizedBox(height: 15),
-            Text('ID de documento en Firestore:', 
-                 style: TextStyle(fontWeight: FontWeight.bold)),
-            SizedBox(height: 5),
-            Container(
-              padding: EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.grey[200],
-                borderRadius: BorderRadius.circular(4),
-              ),
-              width: double.infinity,
-              child: Text(
-                documentId,
-                style: TextStyle(fontFamily: 'monospace', fontSize: 12),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('Aceptar'),
-          ),
-        ],
-      ),
-    );
-  }).catchError((error) {
-    // En caso de error, mostrar el diálogo simple
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Formato Guardado'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('El formato ha sido guardado exitosamente en el servidor.'),
-            SizedBox(height: 15),
-            Text('ID de documento en Firestore:', 
-                 style: TextStyle(fontWeight: FontWeight.bold)),
-            SizedBox(height: 5),
-            Container(
-              padding: EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.grey[200],
-                borderRadius: BorderRadius.circular(4),
-              ),
-              width: double.infinity,
-              child: Text(
-                documentId,
-                style: TextStyle(fontFamily: 'monospace', fontSize: 12),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('Aceptar'),
-          ),
-        ],
-      ),
-    );
-  });
-}
-
-  /// Exporta el documento a PDF y lo guarda en Descargas
+  /// Exporta el documento a PDF
   Future<void> _exportarPDF() async {
     setState(() {
       _isLoading = true;
@@ -249,7 +161,7 @@ class _DocumentoGuardadoScreenState extends State<DocumentoGuardadoScreen> {
       // Mostrar diálogo de progreso
       _mostrarIndicadorGuardando(context);
 
-      // Generar el PDF y guardarlo directamente en Descargas
+      // Generar el PDF
       final filePath = await _documentoService.exportarPDF(widget.formato);
 
       // Cerrar el diálogo de progreso
@@ -280,7 +192,7 @@ class _DocumentoGuardadoScreenState extends State<DocumentoGuardadoScreen> {
     }
   }
 
-// Método para mostrar dónde se guardó el PDF
+  // Método para mostrar dónde se guardó el PDF
   void _mostrarArchivoPDFGuardado(BuildContext context, String rutaArchivo) {
     showDialog(
       context: context,
@@ -337,7 +249,7 @@ class _DocumentoGuardadoScreenState extends State<DocumentoGuardadoScreen> {
       // Mostrar diálogo de progreso
       _mostrarIndicadorGuardando(context);
 
-      // Generar el Excel y guardarlo directamente en Descargas
+      // Generar Excel
       final filePath = await _documentoService.exportarExcel(widget.formato);
 
       // Cerrar el diálogo de progreso
@@ -455,7 +367,7 @@ class _DocumentoGuardadoScreenState extends State<DocumentoGuardadoScreen> {
     });
 
     try {
-      // Verificar primero si el JSON ya tiene imágenes base64
+      // Verificar si el JSON ya tiene imágenes base64
       final File jsonFile = File(_jsonFilePath!);
       final String jsonContent = await jsonFile.readAsString();
       final formato = FormatoEvaluacion.fromJsonString(jsonContent);
@@ -530,7 +442,7 @@ class _DocumentoGuardadoScreenState extends State<DocumentoGuardadoScreen> {
     }
   }
 
-  /// Función para guardar en descargas sin finalizar
+  /// Función para guardar en descargas
   Future<void> _guardarEnDescargas() async {
     setState(() {
       _isLoading = true;
@@ -561,7 +473,7 @@ class _DocumentoGuardadoScreenState extends State<DocumentoGuardadoScreen> {
         _isLoading = false;
       });
 
-      // Mostrar mensaje con la ruta, pero sin navegación posterior
+      // Mostrar mensaje con la ruta
       _mostrarRutaGuardado(context, rutaArchivo);
     } catch (e) {
       // Cerrar el diálogo de progreso si está abierto
@@ -583,7 +495,7 @@ class _DocumentoGuardadoScreenState extends State<DocumentoGuardadoScreen> {
     }
   }
 
-// Mostrar un indicador de progreso mientras se guarda en descargas
+  // Mostrar un indicador de progreso mientras se guarda en descargas
   void _mostrarIndicadorGuardando(BuildContext context) {
     showDialog(
       context: context,
@@ -609,7 +521,7 @@ class _DocumentoGuardadoScreenState extends State<DocumentoGuardadoScreen> {
     );
   }
 
-// Método mejorado para mostrar la ruta de guardado
+  // Método para mostrar la ruta de guardado
   void _mostrarRutaGuardado(BuildContext context, String rutaArchivo) {
     showDialog(
       context: context,
@@ -641,8 +553,7 @@ class _DocumentoGuardadoScreenState extends State<DocumentoGuardadoScreen> {
         actions: [
           TextButton(
             onPressed: () {
-              Navigator.pop(
-                  context); // Solo cierra el diálogo, no navega a pantallas anteriores
+              Navigator.pop(context);
             },
             child: Text('Aceptar'),
           ),
@@ -711,6 +622,11 @@ class _DocumentoGuardadoScreenState extends State<DocumentoGuardadoScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Calculamos las dimensiones de pantalla para adaptar mejor los elementos
+    final screenSize = MediaQuery.of(context).size;
+    final buttonHeight = screenSize.height * 0.07;
+    final screenPadding = screenSize.width * 0.05;
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -736,11 +652,15 @@ class _DocumentoGuardadoScreenState extends State<DocumentoGuardadoScreen> {
           ),
         ],
       ),
-      body: _isLoading
-          ? _buildLoadingScreen()
-          : _errorMessage != null
-              ? _buildErrorScreen()
-              : _buildSuccessScreen(),
+      // Implementamos SafeArea para asegurar que el contenido esté dentro de los límites seguros
+      body: SafeArea(
+        // Usamos SingleChildScrollView para asegurar que todo el contenido sea accesible
+        child: _isLoading
+            ? _buildLoadingScreen()
+            : _errorMessage != null
+                ? _buildErrorScreen()
+                : _buildSuccessScreen(screenSize, buttonHeight, screenPadding),
+      ),
     );
   }
 
@@ -795,85 +715,97 @@ class _DocumentoGuardadoScreenState extends State<DocumentoGuardadoScreen> {
     );
   }
 
-  /// Construye la pantalla de éxito
-  Widget _buildSuccessScreen() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
+  /// Construye la pantalla de éxito con mejor adaptabilidad
+  Widget _buildSuccessScreen(Size screenSize, double buttonHeight, double screenPadding) {
+    return SingleChildScrollView(
+      padding: EdgeInsets.symmetric(horizontal: screenPadding, vertical: screenPadding * 0.5),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          SizedBox(height: 40),
+          SizedBox(height: screenSize.height * 0.05),
           Icon(
             Icons.assignment_turned_in,
-            size: 100,
+            size: screenSize.width * 0.2, // Tamaño proporcional al ancho
             color: Colors.green,
           ),
-          SizedBox(height: 30),
+          SizedBox(height: screenSize.height * 0.03),
           Text(
             'Archivo "${_getNombreArchivo()}" creado con éxito.',
             style: TextStyle(
-              fontSize: 22,
+              fontSize: screenSize.width * 0.055, // Tamaño proporcional al ancho
               fontWeight: FontWeight.w900,
             ),
             textAlign: TextAlign.center,
           ),
-          SizedBox(height: 10),
+          SizedBox(height: screenSize.height * 0.01),
           Text(
             'Puede exportar o compartir el archivo en varios formatos.',
             style: TextStyle(
-              fontSize: 16,
+              fontSize: screenSize.width * 0.04, // Tamaño proporcional al ancho
               color: Colors.grey[700],
             ),
             textAlign: TextAlign.center,
           ),
-          SizedBox(height: 40),
+          SizedBox(height: screenSize.height * 0.04),
+          
+          // Botones de acción - Con tamaños proporcionales a la pantalla
           _buildExportButton(
             Icons.picture_as_pdf,
             'Exportar a PDF',
             _exportarPDF,
             Colors.red,
+            buttonHeight,
           ),
-          SizedBox(height: 20),
+          SizedBox(height: screenSize.height * 0.02),
           _buildExportButton(
             Icons.table_chart,
             'Exportar a Excel',
             _exportarExcel,
             Colors.green,
+            buttonHeight,
           ),
-          SizedBox(height: 20),
+          SizedBox(height: screenSize.height * 0.02),
           _buildExportButton(
             Icons.share,
             'Compartir JSON',
             _compartirJSON,
             Colors.blue,
+            buttonHeight,
           ),
-          SizedBox(height: 20),
+          SizedBox(height: screenSize.height * 0.02),
           _buildExportButton(
             Icons.save_alt,
             'Guardar JSON',
             _guardarEnDescargas,
             Colors.teal,
+            buttonHeight,
           ),
-          SizedBox(height: 20),
+          SizedBox(height: screenSize.height * 0.02),
           _buildExportButton(
             Icons.cloud_upload,
             'Guardar en Servidor',
             _guardarEnServidor,
             Colors.deepPurple,
+            buttonHeight,
           ),
+          // Espacio adicional en la parte inferior para mejorar la accesibilidad
+          SizedBox(height: screenSize.height * 0.08),
         ],
       ),
     );
   }
 
+  // Método optimizado para construir botones de exportación
   Widget _buildExportButton(
     IconData icon,
     String text,
     VoidCallback onPressed,
     Color color,
+    double height,
   ) {
     return SizedBox(
       width: double.infinity,
+      height: height,
       child: ElevatedButton.icon(
         onPressed: onPressed,
         style: ElevatedButton.styleFrom(
@@ -881,13 +813,12 @@ class _DocumentoGuardadoScreenState extends State<DocumentoGuardadoScreen> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10),
           ),
-          padding: EdgeInsets.symmetric(vertical: 15),
         ),
         icon: Icon(icon, color: Colors.white),
         label: Text(
           text,
           style: TextStyle(
-            fontSize: 18,
+            fontSize: 16,
             color: Colors.white,
             fontWeight: FontWeight.bold,
           ),

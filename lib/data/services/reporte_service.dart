@@ -7,11 +7,75 @@ import '../../logica/formato_evaluacion.dart';
 import '../../data/services/cloud_storage_service.dart';
 import '../../data/services/estadisticos_service.dart';
 import '../reportes/sistema_estructural_reporte.dart';
+import '../reportes/material_dominante_reporte.dart';
 
 import '../../data/services/reporte_documental_service.dart';
 
 class ReporteService {
   final CloudStorageService _cloudService = CloudStorageService();
+
+  /// Genera un reporte de material dominante de construcción
+Future<Map<String, String>> generarReporteMaterialDominante({
+  required String nombreInmueble,
+  required DateTime fechaInicio,
+  required DateTime fechaFin,
+  required String usuarioCreador,
+  required List<Map<String, dynamic>> ubicaciones,
+}) async {
+  // Paso 1: Buscar formatos que cumplan con los criterios
+  List<FormatoEvaluacion> formatos = await _buscarFormatos(
+    nombreInmueble: nombreInmueble,
+    fechaInicio: fechaInicio,
+    fechaFin: fechaFin,
+    usuarioCreador: usuarioCreador,
+    ubicaciones: ubicaciones,
+  );
+
+  if (formatos.isEmpty) {
+    throw Exception(
+        'No se encontraron formatos que cumplan con los criterios especificados');
+  }
+
+  // Paso 2: Analizar los datos usando el módulo específico
+  Map<String, dynamic> datosEstadisticos =
+      MaterialDominanteReport.analizarDatos(formatos);
+
+  // Paso 3: Preparar datos para las tablas del reporte
+  List<Map<String, dynamic>> tablas =
+      MaterialDominanteReport.prepararTablas(datosEstadisticos);
+
+  // Paso 4: Generar placeholders para gráficas
+  List<Uint8List> graficas =
+      await MaterialDominanteReport.generarPlaceholdersGraficas(datosEstadisticos);
+
+  // Paso 5: Construir metadatos para el reporte
+  Map<String, dynamic> metadatos = {
+    'titulo': 'Material Dominante de Construcción',
+    'subtitulo': 'Análisis de Materiales Predominantes',
+    'totalFormatos': formatos.length,
+    'nombreInmueble': nombreInmueble.isEmpty ? 'Todos' : nombreInmueble,
+    'fechaInicio': DateFormat('dd/MM/yyyy').format(fechaInicio),
+    'fechaFin': DateFormat('dd/MM/yyyy').format(fechaFin),
+    'usuarioCreador': usuarioCreador.isEmpty ? 'Todos' : usuarioCreador,
+    'ubicaciones': ubicaciones,
+    'conclusiones': MaterialDominanteReport.generarConclusiones(
+        datosEstadisticos, formatos.length),
+  };
+
+  // Paso 6: Generar documento PDF
+  String rutaPDF = await ReporteDocumentalService.generarReportePDF(
+    titulo: 'Reporte Estadístico',
+    subtitulo: 'Material Dominante de Construcción',
+    datos: datosEstadisticos,
+    tablas: tablas,
+    graficas: graficas,
+    metadatos: metadatos,
+  );
+
+  return {
+    'pdf': rutaPDF,
+  };
+}
 
   /// Genera un reporte de sistema estructural (NUEVO)
   Future<Map<String, String>> generarReporteSistemaEstructural({

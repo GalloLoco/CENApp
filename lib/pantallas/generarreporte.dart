@@ -748,6 +748,16 @@ class _ReporteScreenState extends State<ReporteScreen> {
             usuarioCreador: usuarioCreadorController.text,
             ubicaciones: ubicacionesValidas,
           );
+        } else if (_tipoReporteSeleccionado ==
+            "Material dominante de construcción") {
+          // Nuevo reporte de material dominante
+          rutasReporte = await reporteService.generarReporteMaterialDominante(
+            nombreInmueble: nombreInmuebleController.text,
+            fechaInicio: fechaInicio,
+            fechaFin: fechaFin,
+            usuarioCreador: usuarioCreadorController.text,
+            ubicaciones: ubicacionesValidas,
+          );
         } else {
           // Para otros tipos de reporte (pendientes de implementar)
           // Por ahora, mostramos un mensaje informativo

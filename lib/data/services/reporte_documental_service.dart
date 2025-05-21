@@ -526,7 +526,10 @@ List<pw.Widget> _generarGraficosParaReporte(
     // Es un reporte de sistema estructural
   widgets.addAll(_generarGraficosSistemaEstructural(datos, graficas));
 
-  } 
+  } else if (titulo?.contains('Material Dominante') == true) {
+  // Es un reporte de material dominante
+  widgets.addAll(_generarGraficosMaterialDominante(datos, graficas));
+}
   else {
     // Reporte genérico, usar gráficos genéricos
     widgets.addAll(_generarGraficosGenericos(datos, graficas));
@@ -535,7 +538,68 @@ List<pw.Widget> _generarGraficosParaReporte(
   return widgets;
 }
 
-
+// Método para generar gráficos específicos del reporte de material dominante
+List<pw.Widget> _generarGraficosMaterialDominante(
+    Map<String, dynamic> datos, 
+    List<Uint8List> graficas) {
+  
+  List<pw.Widget> widgets = [];
+  
+  // Gráfico circular de distribución de materiales
+  if (datos.containsKey('conteoMateriales') && 
+      datos['conteoMateriales'].isNotEmpty) {
+    
+    widgets.add(
+      pw.Header(
+        level: 2,
+        text: 'Distribución de Materiales Dominantes',
+        textStyle: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold),
+      ),
+    );
+    
+    Map<String, int> datosMateriales = {};
+    datos['conteoMateriales'].forEach((material, conteo) {
+      if (conteo > 0) {
+        datosMateriales[material] = conteo;
+      }
+    });
+    
+    if (datosMateriales.isNotEmpty) {
+      widgets.add(
+        GraficasService.crearGraficoCircularPDF(
+          datos: datosMateriales,
+          titulo: 'Distribución por Material Predominante',
+          ancho: 500,
+          alto: 300,
+        ),
+      );
+      
+      // Añadir también un gráfico de barras para mejor visualización
+      widgets.add(pw.SizedBox(height: 20));
+      
+      widgets.add(
+        pw.Header(
+          level: 2,
+          text: 'Comparativa de Materiales por Frecuencia',
+          textStyle: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold),
+        ),
+      );
+      
+      widgets.add(
+        GraficasService.crearGraficoBarrasHorizontalesPDF(
+          datos: datosMateriales,
+          titulo: 'Cantidad de Inmuebles por Material Predominante',
+          ancho: 500,
+          alto: 300,
+        ),
+      );
+    }
+    
+    widgets.add(pw.SizedBox(height: 20));
+  }
+  
+  return widgets;
+}
 // Graficos sistema estructural
 List<pw.Widget> _generarGraficosSistemaEstructural(
     Map<String, dynamic> datos, 

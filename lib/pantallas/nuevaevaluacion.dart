@@ -710,7 +710,7 @@ class _EvaluacionDanosScreenState extends State<EvaluacionDanosScreen> {
       mediciones[estructura] = {};
       controladores.forEach((tipo, controller) {
         mediciones[estructura]![tipo] =
-            double.tryParse(controller!.text) ?? 0.0;
+            double.tryParse(controller.text) ?? 0.0;
       });
     });
 

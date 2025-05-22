@@ -1,5 +1,5 @@
 import 'package:geolocator/geolocator.dart';
-import 'package:intl/intl.dart';
+
 
 /// Servicio para gestionar la ubicación y fecha actual
 class LocationService {

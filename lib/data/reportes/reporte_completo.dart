@@ -2,17 +2,17 @@
 
 import 'dart:typed_data';
 import 'package:intl/intl.dart';
-import 'package:pdf/widgets.dart' as pw;
+
 
 import '../../logica/formato_evaluacion.dart';
 import '../services/estadisticos_service.dart';
-import '../services/graficas_service.dart';
+
 
 // Importar todos los reportes individuales existentes
 import 'sistema_estructural_reporte.dart';
 import 'material_dominante_reporte.dart';
 import 'evaluacion_danos_reporte.dart';
-import '../services/reporte_service.dart';
+
 
 /// Servicio especializado para generar reportes completos unificados
 /// Reutiliza la lógica de todos los reportes individuales existentes

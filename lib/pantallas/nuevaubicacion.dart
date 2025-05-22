@@ -552,7 +552,10 @@ class _UbicacionGeorreferencialScreenState
         final compressedFile = File(photo.path);
         if (await compressedFile.exists() && photo.path != rutaGuardada) {
           await compressedFile.delete().catchError(
-              (e) => print('Error eliminando archivo temporal: $e'));
+              (e) {
+                print('Error eliminando archivo temporal: $e');
+                return compressedFile;
+              });
         }
 
         setState(() {

@@ -1,7 +1,5 @@
 // Versión alternativa y simplificada del servicio de gráficas
-import 'dart:ui' as ui;
-import 'dart:typed_data';
-import 'package:flutter/material.dart';
+
 import 'dart:math' as math;
 import 'dart:math';
 import 'package:pdf/widgets.dart' as pw;
@@ -672,7 +670,7 @@ static pw.Widget crearGraficoMapaAreasPDF({
 
                       // Variables para dibujar los sectores
                       double startAngle = 0;
-                      double currentAngle = 0;
+                      
 
                       // Dibujar cada sector
                       for (int i = 0; i < datosOrdenados.length; i++) {

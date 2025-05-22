@@ -1,11 +1,10 @@
 // lib/data/reportes/material_dominante_reporte.dart
 
 import 'dart:typed_data';
-import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
+
 import 'package:pdf/widgets.dart' as pw;
 import '../../logica/formato_evaluacion.dart';
-import '../services/estadisticos_service.dart';
+
 import '../services/graficas_service.dart';
 
 /// Clase para manejar la generación de reportes de material dominante de construcción

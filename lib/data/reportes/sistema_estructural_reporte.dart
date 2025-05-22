@@ -1,7 +1,6 @@
 // lib/data/reports/sistema_estructural_report.dart
 import 'dart:typed_data';
-import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
+
 import 'package:pdf/widgets.dart' as pw;
 import '../../logica/formato_evaluacion.dart';
 import '../services/estadisticos_service.dart';
@@ -29,8 +28,7 @@ class SistemaEstructuralReport {
       {'id': 'cimentacion', 'titulo': 'Cimentación', 'descripcion': 'Tipos de cimentación'},
     ];
     
-    // Total de formatos analizados
-    int totalFormatos = datosEstadisticos['totalFormatos'];
+
     
     // Para cada categoría, crear una tabla
     for (var categoria in categorias) {

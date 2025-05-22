@@ -104,7 +104,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       ),
       body: LayoutBuilder(
         builder: (context, constraints) {
-          double fieldWidth = constraints.maxWidth * 0.8;
+          
           double buttonWidth = constraints.maxWidth * 0.7;
           double buttonHeight = constraints.maxHeight * 0.08;
           

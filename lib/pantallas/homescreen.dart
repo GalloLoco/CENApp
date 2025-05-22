@@ -152,15 +152,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
-  Widget _buildInfoTextNombre(String text) {
-    return Align(
-      alignment: Alignment.topLeft,
-      child: Text(
-        text,
-        style: TextStyle(fontWeight: FontWeight.bold),
-      ),
-    );
-  }
+ 
 
   Widget _buildButton(BuildContext context, String text, IconData icon,
       double width, double height, dynamic screen) {
@@ -336,26 +328,5 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // Función para mostrar un indicador de carga
-  void _mostrarCargando(BuildContext context, String mensaje) {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return Dialog(
-          child: Padding(
-            padding: const EdgeInsets.all(20.0),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                CircularProgressIndicator(),
-                SizedBox(width: 20),
-                Text(mensaje),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
+  
 }

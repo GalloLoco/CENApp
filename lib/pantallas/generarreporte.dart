@@ -846,44 +846,63 @@ class _ReporteScreenState extends State<ReporteScreen> {
   }
 
   /// Muestra un diálogo con las opciones para abrir los archivos generados
-  void _mostrarDialogoReporteGenerado(Map<String, String> rutasReporte) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text('Reporte Generado'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('El reporte ha sido generado exitosamente.'),
-              SizedBox(height: 20),
-              Text('Archivos generados:'),
-              SizedBox(height: 10),
+ void _mostrarDialogoReporteGenerado(Map<String, String> rutasReporte) {
+  showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        title: Text('Reporte Generado'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('El reporte ha sido generado exitosamente.'),
+            SizedBox(height: 20),
+            Text('Archivos generados:'),
+            SizedBox(height: 10),
 
-              // Opción de PDF
-              if (rutasReporte.containsKey('pdf'))
-                _buildFileOption('PDF', rutasReporte['pdf']!,
-                    Icons.picture_as_pdf, Colors.red),
+            // 🆕 Opción de Excel (NUEVO)
+            if (rutasReporte.containsKey('excel'))
+              _buildFileOption(
+                'Excel con Gráficos', 
+                rutasReporte['excel']!,
+                Icons.table_chart, 
+                Colors.green
+              ),
 
-              SizedBox(height: 10),
+            SizedBox(height: 10),
 
-              // Opción de DOCX/TXT
-              if (rutasReporte.containsKey('docx'))
-                _buildFileOption('Documento de texto', rutasReporte['docx']!,
-                    Icons.description, Colors.blue),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text('Cerrar'),
-            ),
+            // Opción de PDF
+            if (rutasReporte.containsKey('pdf'))
+              _buildFileOption(
+                'PDF', 
+                rutasReporte['pdf']!,
+                Icons.picture_as_pdf, 
+                Colors.red
+              ),
+
+            SizedBox(height: 10),
+
+            // Opción de DOCX/TXT
+            if (rutasReporte.containsKey('docx'))
+              _buildFileOption(
+                'Documento de texto', 
+                rutasReporte['docx']!,
+                Icons.description, 
+                Colors.blue
+              ),
           ],
-        );
-      },
-    );
-  }
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cerrar'),
+          ),
+        ],
+      );
+    },
+  );
+}
 
   /// Construye una opción para abrir un archivo
   Widget _buildFileOption(

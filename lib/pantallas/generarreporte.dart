@@ -758,6 +758,25 @@ class _ReporteScreenState extends State<ReporteScreen> {
             usuarioCreador: usuarioCreadorController.text,
             ubicaciones: ubicacionesValidas,
           );
+        } else if (_tipoReporteSeleccionado == "Evaluación de daños") {
+          
+          try {
+            print(
+                '🔍 Iniciando generación de reporte de evaluación de daños...');
+
+            rutasReporte = await reporteService.generarReporteEvaluacionDanos(
+              nombreInmueble: nombreInmuebleController.text,
+              fechaInicio: fechaInicio,
+              fechaFin: fechaFin,
+              usuarioCreador: usuarioCreadorController.text,
+              ubicaciones: ubicacionesValidas,
+            );
+
+            print('✅ Reporte de evaluación de daños generado exitosamente');
+          } catch (e) {
+            print('❌ Error específico en reporte de evaluación de daños: $e');
+            rethrow;
+          }
         } else {
           // Para otros tipos de reporte (pendientes de implementar)
           // Por ahora, mostramos un mensaje informativo

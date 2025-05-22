@@ -529,13 +529,378 @@ List<pw.Widget> _generarGraficosParaReporte(
   } else if (titulo?.contains('Material Dominante') == true) {
   // Es un reporte de material dominante
   widgets.addAll(_generarGraficosMaterialDominante(datos, graficas));
-}
+}else if (titulo?.contains('Evaluación de Daños') == true) {
+    //  Es un reporte de evaluación de daños
+    widgets.addAll(_generarGraficosEvaluacionDanos(datos, graficas));
+  }
   else {
     // Reporte genérico, usar gráficos genéricos
     widgets.addAll(_generarGraficosGenericos(datos, graficas));
   }
   
   return widgets;
+}
+List<pw.Widget> _generarGraficosEvaluacionDanos(
+    Map<String, dynamic> datos, 
+    List<Uint8List> graficas) {
+  
+  List<pw.Widget> widgets = [];
+  
+  // Configuración de rubros con sus tipos de gráfico preferidos
+  final List<Map<String, dynamic>> configuracionRubros = [
+    {
+      'id': 'geotecnicos',
+      'titulo': 'Daños Geotécnicos',
+      'tipo': 'barras',
+      'descripcion': 'Problemas relacionados con el suelo y cimientos',
+    },
+    {
+      'id': 'losas',
+      'titulo': 'Daños en Losas',
+      'tipo': 'barras',
+      'descripcion': 'Daños estructurales en elementos horizontales',
+    },
+    {
+      'id': 'sistemaEstructuralDeficiente',
+      'titulo': 'Calidad del Sistema Estructural',
+      'tipo': 'circular',
+      'descripcion': 'Evaluación de la resistencia del sistema estructural',
+    },
+    {
+      'id': 'techoPesado',
+      'titulo': 'Tipo de Techo por Peso',
+      'tipo': 'circular',
+      'descripcion': 'Clasificación según el peso del sistema de techo',
+    },
+    {
+      'id': 'murosDelgados',
+      'titulo': 'Refuerzo en Muros',
+      'tipo': 'circular',
+      'descripcion': 'Análisis del refuerzo en muros de mampostería',
+    },
+    {
+      'id': 'irregularidadPlanta',
+      'titulo': 'Geometría en Planta',
+      'tipo': 'circular',
+      'descripcion': 'Evaluación de la regularidad geométrica',
+    },
+    {
+      'id': 'nivelDano',
+      'titulo': 'Nivel de Daño Estructural',
+      'tipo': 'barras',
+      'descripcion': 'Clasificación general del estado de daños',
+    },
+  ];
+  
+  // Para cada rubro, generar su gráfico correspondiente
+  for (var config in configuracionRubros) {
+    String id = config['id'];
+    String titulo = config['titulo'];
+    String tipo = config['tipo'];
+    String descripcion = config['descripcion'];
+    
+    // Verificar si hay datos para este rubro
+    if (datos['estadisticas']?.containsKey(id) == true && 
+        datos['estadisticas'][id].isNotEmpty) {
+      
+      // Convertir los datos al formato esperado por el servicio de gráficas
+      Map<String, int> datosGrafico = {};
+      datos['estadisticas'][id].forEach((condicion, stats) {
+        int conteo = stats['conteo'] ?? 0;
+        if (conteo > 0) { // Solo incluir elementos con datos
+          datosGrafico[condicion] = conteo;
+        }
+      });
+      
+      // Solo generar gráfico si hay datos significativos
+      if (datosGrafico.isNotEmpty) {
+        // Añadir encabezado
+        widgets.add(
+          pw.Header(
+            level: 2,
+            text: titulo,
+            textStyle: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold),
+          ),
+        );
+        
+        // Añadir descripción
+        widgets.add(
+          pw.Paragraph(
+            text: descripcion,
+            style: pw.TextStyle(
+              fontSize: 10,
+              fontStyle: pw.FontStyle.italic,
+              color: PdfColors.grey700,
+            ),
+          ),
+        );
+        
+        widgets.add(pw.SizedBox(height: 10));
+        
+        // Crear el gráfico según el tipo especificado
+        if (tipo == 'circular') {
+          widgets.add(
+            GraficasService.crearGraficoCircularPDF(
+              datos: datosGrafico,
+              titulo: 'Distribución de $titulo',
+              ancho: 500,
+              alto: 300,
+            ),
+          );
+        } else {
+          widgets.add(
+            GraficasService.crearGraficoBarrasHorizontalesPDF(
+              datos: datosGrafico,
+              titulo: 'Frecuencia de $titulo',
+              ancho: 500,
+              alto: 300,
+            ),
+          );
+        }
+        
+        // Añadir estadísticas clave
+        widgets.add(pw.SizedBox(height: 10));
+        widgets.add(
+          _construirEstadisticasClaveDanos(datos['estadisticas'][id], datos['totalFormatos']),
+        );
+        
+        widgets.add(pw.SizedBox(height: 25));
+      }
+    }
+  }
+  
+  // Gráfico especial para resumen de riesgos
+  if (datos.containsKey('resumenRiesgos')) {
+    Map<String, dynamic> resumenRiesgos = datos['resumenRiesgos'];
+    
+    Map<String, int> datosRiesgo = {
+      'Riesgo Alto': resumenRiesgos['riesgoAlto'] ?? 0,
+      'Riesgo Medio': resumenRiesgos['riesgoMedio'] ?? 0,
+      'Riesgo Bajo': resumenRiesgos['riesgoBajo'] ?? 0,
+    };
+    
+    // Filtrar valores cero
+    datosRiesgo.removeWhere((key, value) => value == 0);
+    
+    // Solo mostrar si hay datos significativos
+    if (datosRiesgo.isNotEmpty) {
+      widgets.add(
+        pw.Header(
+          level: 1,
+          text: 'Resumen General de Riesgos',
+          textStyle: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
+        ),
+      );
+      
+      widgets.add(
+        pw.Paragraph(
+          text: 'Clasificación general de inmuebles según su nivel de riesgo estructural combinado.',
+          style: pw.TextStyle(
+            fontSize: 10,
+            fontStyle: pw.FontStyle.italic,
+            color: PdfColors.grey700,
+          ),
+        ),
+      );
+      
+      widgets.add(pw.SizedBox(height: 10));
+      
+      widgets.add(
+        GraficasService.crearGraficoCircularPDF(
+          datos: datosRiesgo,
+          titulo: 'Distribución General de Niveles de Riesgo',
+          ancho: 500,
+          alto: 300,
+        ),
+      );
+      
+      // Añadir interpretación de riesgos
+      widgets.add(pw.SizedBox(height: 10));
+      widgets.add(
+        _construirInterpretacionRiesgos(resumenRiesgos, datos['totalFormatos']),
+      );
+      
+      widgets.add(pw.SizedBox(height: 25));
+    }
+  }
+  
+  return widgets;
+}
+
+/// Construye un widget con estadísticas claves para una categoría de daños
+pw.Widget _construirEstadisticasClaveDanos(Map<String, dynamic> estadisticas, int totalFormatos) {
+  // Encontrar la condición más común
+  String condicionMasComun = '';
+  int maxConteo = 0;
+  
+  estadisticas.forEach((condicion, stats) {
+    if (stats['conteo'] > maxConteo) {
+      maxConteo = stats['conteo'];
+      condicionMasComun = condicion;
+    }
+  });
+  
+  // Calcular el porcentaje de la condición más común
+  double porcentajeMasComun = totalFormatos > 0 ? (maxConteo / totalFormatos) * 100 : 0;
+  
+  // Contar total de casos con problemas vs sin problemas
+  int casosConProblemas = 0;
+  int casosSinProblemas = 0;
+  
+  estadisticas.forEach((condicion, stats) {
+    int conteo = stats['conteo'] ?? 0;
+    
+    // Determinar si es una condición problemática
+    if (condicion.toLowerCase().contains('sin') || 
+        condicion.toLowerCase().contains('regular') ||
+        condicion.toLowerCase().contains('adecuado') ||
+        condicion.toLowerCase().contains('ligero') ||
+        condicion.toLowerCase().contains('reforzado')) {
+      casosSinProblemas += conteo;
+    } else {
+      casosConProblemas += conteo;
+    }
+  });
+  
+  return pw.Container(
+    margin: pw.EdgeInsets.symmetric(vertical: 5),
+    padding: pw.EdgeInsets.all(8),
+    decoration: pw.BoxDecoration(
+      color: PdfColors.grey50,
+      borderRadius: pw.BorderRadius.circular(5),
+      border: pw.Border.all(color: PdfColors.grey300),
+    ),
+    child: pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        pw.Text(
+          'Estadísticas clave:',
+          style: pw.TextStyle(
+            fontWeight: pw.FontWeight.bold,
+            fontSize: 9,
+            color: PdfColors.blueGrey800,
+          ),
+        ),
+        pw.SizedBox(height: 3),
+        pw.Text(
+          '• Condición más frecuente: $condicionMasComun (${porcentajeMasComun.toStringAsFixed(1)}%)',
+          style: pw.TextStyle(fontSize: 8),
+        ),
+        if (casosConProblemas > 0 || casosSinProblemas > 0) ...[
+          pw.Text(
+            '• Casos con problemas: $casosConProblemas (${((casosConProblemas / totalFormatos) * 100).toStringAsFixed(1)}%)',
+            style: pw.TextStyle(fontSize: 8, color: PdfColors.red700),
+          ),
+          pw.Text(
+            '• Casos sin problemas: $casosSinProblemas (${((casosSinProblemas / totalFormatos) * 100).toStringAsFixed(1)}%)',
+            style: pw.TextStyle(fontSize: 8, color: PdfColors.green700),
+          ),
+        ],
+      ],
+    ),
+  );
+}
+
+/// Construye interpretación de los niveles de riesgo
+pw.Widget _construirInterpretacionRiesgos(Map<String, dynamic> resumenRiesgos, int totalFormatos) {
+  int riesgoAlto = resumenRiesgos['riesgoAlto'] ?? 0;
+  int riesgoMedio = resumenRiesgos['riesgoMedio'] ?? 0;
+  int riesgoBajo = resumenRiesgos['riesgoBajo'] ?? 0;
+  
+  return pw.Container(
+    margin: pw.EdgeInsets.symmetric(vertical: 10),
+    padding: pw.EdgeInsets.all(12),
+    decoration: pw.BoxDecoration(
+      color: PdfColors.amber50,
+      borderRadius: pw.BorderRadius.circular(8),
+      border: pw.Border.all(color: PdfColors.amber300),
+    ),
+    child: pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        pw.Text(
+          'Interpretación de Riesgos:',
+          style: pw.TextStyle(
+            fontWeight: pw.FontWeight.bold,
+            fontSize: 10,
+            color: PdfColors.amber900,
+          ),
+        ),
+        pw.SizedBox(height: 8),
+        
+        // Riesgo Alto
+        if (riesgoAlto > 0) ...[
+          pw.Row(
+            children: [
+              pw.Container(
+                width: 8,
+                height: 8,
+                decoration: pw.BoxDecoration(
+                  color: PdfColors.red,
+                  shape: pw.BoxShape.circle,
+                ),
+              ),
+              pw.SizedBox(width: 5),
+              pw.Expanded(
+                child: pw.Text(
+                  'Riesgo Alto ($riesgoAlto inmuebles): Requieren intervención inmediata. Incluye colapsos totales, daños severos y elementos estructurales críticos.',
+                  style: pw.TextStyle(fontSize: 8),
+                ),
+              ),
+            ],
+          ),
+          pw.SizedBox(height: 4),
+        ],
+        
+        // Riesgo Medio
+        if (riesgoMedio > 0) ...[
+          pw.Row(
+            children: [
+              pw.Container(
+                width: 8,
+                height: 8,
+                decoration: pw.BoxDecoration(
+                  color: PdfColors.orange,
+                  shape: pw.BoxShape.circle,
+                ),
+              ),
+              pw.SizedBox(width: 5),
+              pw.Expanded(
+                child: pw.Text(
+                  'Riesgo Medio ($riesgoMedio inmuebles): Requieren refuerzo o reparación. Incluye daños medios y sistemas estructurales deficientes.',
+                  style: pw.TextStyle(fontSize: 8),
+                ),
+              ),
+            ],
+          ),
+          pw.SizedBox(height: 4),
+        ],
+        
+        // Riesgo Bajo
+        if (riesgoBajo > 0) ...[
+          pw.Row(
+            children: [
+              pw.Container(
+                width: 8,
+                height: 8,
+                decoration: pw.BoxDecoration(
+                  color: PdfColors.green,
+                  shape: pw.BoxShape.circle,
+                ),
+              ),
+              pw.SizedBox(width: 5),
+              pw.Expanded(
+                child: pw.Text(
+                  'Riesgo Bajo ($riesgoBajo inmuebles): Requieren monitoreo preventivo. Incluye daños ligeros y vulnerabilidades menores.',
+                  style: pw.TextStyle(fontSize: 8),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ],
+    ),
+  );
 }
 
 // Método para generar gráficos específicos del reporte de material dominante

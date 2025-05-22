@@ -721,14 +721,25 @@ class _ReporteScreenState extends State<ReporteScreen> {
 
       try {
         if (_tipoReporteSeleccionado == "Resumen General") {
-          // Generar reporte de Resumen General (nuevo tipo)
-          rutasReporte = await reporteService.generarReporteResumenGeneral(
-            nombreInmueble: nombreInmuebleController.text,
-            fechaInicio: fechaInicio,
-            fechaFin: fechaFin,
-            usuarioCreador: usuarioCreadorController.text,
-            ubicaciones: ubicacionesValidas,
-          );
+          // **ACTUALIZADO**: Generar reporte de Resumen General con Excel
+          try {
+            print(
+                '🔍 Iniciando generación de reporte Resumen General con Excel...');
+
+            rutasReporte = await reporteService.generarReporteResumenGeneral(
+              nombreInmueble: nombreInmuebleController.text,
+              fechaInicio: fechaInicio,
+              fechaFin: fechaFin,
+              usuarioCreador: usuarioCreadorController.text,
+              ubicaciones: ubicacionesValidas,
+            );
+
+            print(
+                '✅ Reporte Resumen General generado exitosamente (PDF + Excel)');
+          } catch (e) {
+            print('❌ Error específico en reporte Resumen General: $e');
+            rethrow;
+          }
         } else if (_tipoReporteSeleccionado == "Uso de vivienda y topografía") {
           // Reporte existente de uso de vivienda y topografía
           rutasReporte =
@@ -846,54 +857,93 @@ class _ReporteScreenState extends State<ReporteScreen> {
   }
 
   /// Muestra un diálogo con las opciones para abrir los archivos generados
- void _mostrarDialogoReporteGenerado(Map<String, String> rutasReporte) {
+  void _mostrarDialogoReporteGenerado(Map<String, String> rutasReporte) {
   showDialog(
     context: context,
     builder: (BuildContext context) {
       return AlertDialog(
-        title: Text('Reporte Generado'),
+        title: Row(
+          children: [
+            Icon(Icons.check_circle, color: Colors.green),
+            SizedBox(width: 8),
+            Text('Reporte Generado'),
+          ],
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('El reporte ha sido generado exitosamente.'),
-            SizedBox(height: 20),
-            Text('Archivos generados:'),
-            SizedBox(height: 10),
-
-            // 🆕 Opción de Excel (NUEVO)
-            if (rutasReporte.containsKey('excel'))
-              _buildFileOption(
-                'Excel con Gráficos', 
-                rutasReporte['excel']!,
-                Icons.table_chart, 
-                Colors.green
+            SizedBox(height: 15),
+            
+            // **NUEVO**: Mostrar información sobre formatos disponibles
+            Container(
+              padding: EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.blue.shade200),
               ),
-
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.info, size: 16, color: Colors.blue),
+                      SizedBox(width: 8),
+                      Text(
+                        'Formatos disponibles:',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blue.shade800,
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    '• PDF: Ideal para visualización y presentaciones\n'
+                    '• Excel: Perfecto para análisis y procesamiento de datos',
+                    style: TextStyle(fontSize: 12, color: Colors.blue.shade700),
+                  ),
+                ],
+              ),
+            ),
+            
+            SizedBox(height: 20),
+            Text('Archivos generados:', style: TextStyle(fontWeight: FontWeight.bold)),
             SizedBox(height: 10),
 
             // Opción de PDF
             if (rutasReporte.containsKey('pdf'))
-              _buildFileOption(
-                'PDF', 
-                rutasReporte['pdf']!,
-                Icons.picture_as_pdf, 
-                Colors.red
-              ),
+              _buildFileOption('PDF', rutasReporte['pdf']!,
+                  Icons.picture_as_pdf, Colors.red),
 
             SizedBox(height: 10),
 
-            // Opción de DOCX/TXT
+            // **NUEVO**: Opción de Excel
+            if (rutasReporte.containsKey('excel'))
+              _buildFileOption('Excel', rutasReporte['excel']!,
+                  Icons.table_chart, Colors.green),
+
+            SizedBox(height: 10),
+
+            // Opción de DOCX/TXT (si existe)
             if (rutasReporte.containsKey('docx'))
-              _buildFileOption(
-                'Documento de texto', 
-                rutasReporte['docx']!,
-                Icons.description, 
-                Colors.blue
-              ),
+              _buildFileOption('Documento de texto', rutasReporte['docx']!,
+                  Icons.description, Colors.blue),
           ],
         ),
         actions: [
+          // **NUEVO**: Botón para abrir carpeta de destino
+          if (rutasReporte.isNotEmpty)
+            TextButton.icon(
+              icon: Icon(Icons.folder_open),
+              label: Text('Abrir Carpeta'),
+              onPressed: () {
+                _abrirCarpetaDestino(rutasReporte);
+              },
+            ),
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: Text('Cerrar'),
@@ -905,33 +955,103 @@ class _ReporteScreenState extends State<ReporteScreen> {
 }
 
   /// Construye una opción para abrir un archivo
-  Widget _buildFileOption(
-      String tipo, String ruta, IconData icono, Color color) {
-    return InkWell(
-      onTap: () {
-        _abrirArchivo(ruta);
-      },
+  Widget _buildFileOption(String tipo, String ruta, IconData icono, Color color) {
+  return InkWell(
+    onTap: () {
+      _abrirArchivo(ruta);
+    },
+    borderRadius: BorderRadius.circular(8),
+    child: Container(
+      padding: EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        border: Border.all(color: color.withOpacity(0.3)),
+        borderRadius: BorderRadius.circular(8),
+        color: color.withOpacity(0.05),
+      ),
       child: Row(
         children: [
-          Icon(icono, color: color),
-          SizedBox(width: 10),
+          Container(
+            padding: EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Icon(icono, color: color, size: 20),
+          ),
+          SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(tipo, style: TextStyle(fontWeight: FontWeight.bold)),
                 Text(
-                  ruta,
-                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  tipo,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.lightBlueAccent,
+                  ),
+                ),
+                SizedBox(height: 2),
+                Text(
+                  _obtenerNombreArchivo(ruta),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[600],
+                  ),
                   overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
           ),
+          Icon(Icons.launch, color: color, size: 18),
         ],
+      ),
+    ),
+  );
+}
+String _obtenerNombreArchivo(String rutaCompleta) {
+  return rutaCompleta.split('/').last;
+}
+
+/// **NUEVO**: Abre la carpeta donde se guardaron los archivos
+Future<void> _abrirCarpetaDestino(Map<String, String> rutasReporte) async {
+  try {
+    // Obtener la ruta de cualquier archivo para determinar la carpeta
+    String rutaArchivo = rutasReporte.values.first;
+    String carpeta = rutaArchivo.substring(0, rutaArchivo.lastIndexOf('/'));
+    
+    // En Android, mostrar mensaje con la ruta
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Archivos guardados en:'),
+            SizedBox(height: 4),
+            Text(
+              carpeta,
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+        duration: Duration(seconds: 5),
+        action: SnackBarAction(
+          label: 'Copiar',
+          onPressed: () {
+            // Aquí podrías implementar copiar al portapapeles
+          },
+        ),
+      ),
+    );
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('No se pudo abrir la carpeta destino'),
+        backgroundColor: Colors.orange,
       ),
     );
   }
+}
 
   /// Abre un archivo usando el sistema operativo
   Future<void> _abrirArchivo(String ruta) async {

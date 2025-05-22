@@ -532,7 +532,10 @@ List<pw.Widget> _generarGraficosParaReporte(
 }else if (titulo?.contains('Evaluación de Daños') == true) {
     //  Es un reporte de evaluación de daños
     widgets.addAll(_generarGraficosEvaluacionDanos(datos, graficas));
-  }
+  }else if (titulo?.contains('Reporte Completo') == true || titulo?.contains('Análisis Integral') == true) {
+  // Es un reporte completo, generar todos los gráficos de todas las secciones
+  widgets.addAll(_generarGraficosReporteCompleto(datos, graficas));
+}
   else {
     // Reporte genérico, usar gráficos genéricos
     widgets.addAll(_generarGraficosGenericos(datos, graficas));
@@ -540,6 +543,344 @@ List<pw.Widget> _generarGraficosParaReporte(
   
   return widgets;
 }
+
+List<pw.Widget> _generarGraficosReporteCompleto(
+    Map<String, dynamic> datos, 
+    List<Uint8List> graficas) {
+  
+  List<pw.Widget> widgets = [];
+  
+  // === SECCIÓN 1: RESUMEN GENERAL ===
+  widgets.add(_crearSeparadorSeccion('DISTRIBUCIÓN GEOGRÁFICA Y TEMPORAL'));
+  
+  if (datos['resumenGeneral']?['distribucionGeografica']?['ciudades']?.isNotEmpty == true) {
+    widgets.add(
+      pw.Header(
+        level: 2,
+        text: 'Distribución de Evaluaciones por Ciudad',
+        textStyle: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold),
+      ),
+    );
+    
+    widgets.add(
+      GraficasService.crearGraficoBarrasHorizontalesPDF(
+        datos: Map<String, int>.from(datos['resumenGeneral']['distribucionGeografica']['ciudades']),
+        titulo: 'Cantidad de Inmuebles Evaluados por Ciudad',
+        ancho: 500,
+        alto: 300,
+      ),
+    );
+    
+    widgets.add(pw.SizedBox(height: 20));
+    
+    // Mapa de áreas geográficas
+    widgets.add(
+      pw.Header(
+        level: 2,
+        text: 'Distribución Geográfica de Evaluaciones',
+        textStyle: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold),
+      ),
+    );
+    
+    widgets.add(
+      GraficasService.crearGraficoMapaAreasPDF(
+        datos: Map<String, Map<String, int>>.from(datos['resumenGeneral']['distribucionGeografica']),
+        titulo: 'Distribución por Áreas Geográficas',
+        ancho: 500,
+        alto: 350,
+      ),
+    );
+    
+    widgets.add(pw.SizedBox(height: 30));
+  }
+  
+  // === SECCIÓN 2: USO DE VIVIENDA Y TOPOGRAFÍA ===
+  widgets.add(_crearSeparadorSeccion('USO DE VIVIENDA Y TOPOGRAFÍA'));
+  
+  // Gráfico de uso de vivienda
+  if (datos['usoTopografia']?['usosVivienda']?['estadisticas']?.isNotEmpty == true) {
+    widgets.add(
+      pw.Header(
+        level: 2,
+        text: 'Distribución de Uso de Vivienda',
+        textStyle: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold),
+      ),
+    );
+    
+    Map<String, int> datosUsos = {};
+    datos['usoTopografia']['usosVivienda']['estadisticas'].forEach((uso, stats) {
+      if (stats['conteo'] > 0) {
+        datosUsos[uso] = stats['conteo'];
+      }
+    });
+    
+    if (datosUsos.isNotEmpty) {
+      widgets.add(
+        GraficasService.crearGraficoCircularPDF(
+          datos: datosUsos,
+          titulo: 'Distribución de Uso de Vivienda',
+          ancho: 500,
+          alto: 300,
+        ),
+      );
+    }
+    
+    widgets.add(pw.SizedBox(height: 20));
+  }
+  
+  // Gráfico de topografía
+  if (datos['usoTopografia']?['topografia']?['estadisticas']?.isNotEmpty == true) {
+    widgets.add(
+      pw.Header(
+        level: 2,
+        text: 'Distribución de Tipos de Topografía',
+        textStyle: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold),
+      ),
+    );
+    
+    Map<String, int> datosTopografia = {};
+    datos['usoTopografia']['topografia']['estadisticas'].forEach((tipo, stats) {
+      if (stats['conteo'] > 0) {
+        datosTopografia[tipo] = stats['conteo'];
+      }
+    });
+    
+    if (datosTopografia.isNotEmpty) {
+      widgets.add(
+        GraficasService.crearGraficoBarrasPDF(
+          datos: datosTopografia,
+          titulo: 'Distribución de Tipos de Topografía',
+          ancho: 500,
+          alto: 300,
+        ),
+      );
+    }
+    
+    widgets.add(pw.SizedBox(height: 30));
+  }
+  
+  // === SECCIÓN 3: MATERIAL DOMINANTE ===
+  widgets.add(_crearSeparadorSeccion('MATERIAL DOMINANTE DE CONSTRUCCIÓN'));
+  
+  if (datos['materialDominante']?['conteoMateriales']?.isNotEmpty == true) {
+    Map<String, int> datosMateriales = {};
+    datos['materialDominante']['conteoMateriales'].forEach((material, conteo) {
+      if (conteo > 0) {
+        datosMateriales[material] = conteo;
+      }
+    });
+    
+    if (datosMateriales.isNotEmpty) {
+      widgets.add(
+        pw.Header(
+          level: 2,
+          text: 'Distribución de Materiales Dominantes',
+          textStyle: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold),
+        ),
+      );
+      
+      widgets.add(
+        GraficasService.crearGraficoCircularPDF(
+          datos: datosMateriales,
+          titulo: 'Distribución por Material Predominante',
+          ancho: 500,
+          alto: 300,
+        ),
+      );
+      
+      widgets.add(pw.SizedBox(height: 20));
+      
+      widgets.add(
+        pw.Header(
+          level: 2,
+          text: 'Comparativa de Materiales por Frecuencia',
+          textStyle: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold),
+        ),
+      );
+      
+      widgets.add(
+        GraficasService.crearGraficoBarrasHorizontalesPDF(
+          datos: datosMateriales,
+          titulo: 'Cantidad de Inmuebles por Material Predominante',
+          ancho: 500,
+          alto: 300,
+        ),
+      );
+      
+      widgets.add(pw.SizedBox(height: 30));
+    }
+  }
+  
+  // === SECCIÓN 4: SISTEMA ESTRUCTURAL ===
+  widgets.add(_crearSeparadorSeccion('SISTEMA ESTRUCTURAL'));
+  
+  final List<Map<String, String>> categoriasSistema = [
+    {'id': 'direccionX', 'titulo': 'Dirección X'},
+    {'id': 'direccionY', 'titulo': 'Dirección Y'},
+    {'id': 'murosMamposteria', 'titulo': 'Muros de Mampostería'},
+    {'id': 'sistemasPiso', 'titulo': 'Sistemas de Piso'},
+    {'id': 'sistemasTecho', 'titulo': 'Sistemas de Techo'},
+    {'id': 'cimentacion', 'titulo': 'Cimentación'},
+  ];
+  
+  for (var categoria in categoriasSistema) {
+    String id = categoria['id']!;
+    String titulo = categoria['titulo']!;
+    
+    if (datos['sistemaEstructural']?['estadisticas']?[id]?.isNotEmpty == true) {
+      Map<String, int> datosCategoria = {};
+      datos['sistemaEstructural']['estadisticas'][id].forEach((elemento, stats) {
+        datosCategoria[elemento] = stats['conteo'];
+      });
+      
+      widgets.add(
+        pw.Header(
+          level: 2,
+          text: 'Distribución de Elementos: $titulo',
+          textStyle: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold),
+        ),
+      );
+      
+      widgets.add(
+        GraficasService.crearGraficoBarrasHorizontalesPDF(
+          datos: datosCategoria,
+          titulo: 'Frecuencia de Elementos en $titulo',
+          ancho: 500,
+          alto: 300,
+        ),
+      );
+      
+      widgets.add(pw.SizedBox(height: 20));
+    }
+  }
+  
+  widgets.add(pw.SizedBox(height: 10));
+  
+  // === SECCIÓN 5: EVALUACIÓN DE DAÑOS ===
+  widgets.add(_crearSeparadorSeccion('EVALUACIÓN DE DAÑOS Y RIESGOS'));
+  
+  final List<Map<String, dynamic>> configuracionRubros = [
+    {'id': 'geotecnicos', 'titulo': 'Daños Geotécnicos', 'tipo': 'barras'},
+    {'id': 'losas', 'titulo': 'Daños en Losas', 'tipo': 'barras'},
+    {'id': 'sistemaEstructuralDeficiente', 'titulo': 'Calidad del Sistema Estructural', 'tipo': 'circular'},
+    {'id': 'techoPesado', 'titulo': 'Tipo de Techo por Peso', 'tipo': 'circular'},
+    {'id': 'murosDelgados', 'titulo': 'Refuerzo en Muros', 'tipo': 'circular'},
+    {'id': 'irregularidadPlanta', 'titulo': 'Geometría en Planta', 'tipo': 'circular'},
+    {'id': 'nivelDano', 'titulo': 'Nivel de Daño Estructural', 'tipo': 'barras'},
+  ];
+  
+  for (var config in configuracionRubros) {
+    String id = config['id'];
+    String titulo = config['titulo'];
+    String tipo = config['tipo'];
+    
+    if (datos['evaluacionDanos']?['estadisticas']?[id]?.isNotEmpty == true) {
+      Map<String, int> datosRubro = {};
+      datos['evaluacionDanos']['estadisticas'][id].forEach((condicion, stats) {
+        int conteo = stats['conteo'] ?? 0;
+        if (conteo > 0) {
+          datosRubro[condicion] = conteo;
+        }
+      });
+      
+      if (datosRubro.isNotEmpty) {
+        widgets.add(
+          pw.Header(
+            level: 2,
+            text: titulo,
+            textStyle: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold),
+          ),
+        );
+        
+        if (tipo == 'circular') {
+          widgets.add(
+            GraficasService.crearGraficoCircularPDF(
+              datos: datosRubro,
+              titulo: 'Distribución de $titulo',
+              ancho: 500,
+              alto: 300,
+            ),
+          );
+        } else {
+          widgets.add(
+            GraficasService.crearGraficoBarrasHorizontalesPDF(
+              datos: datosRubro,
+              titulo: 'Frecuencia de $titulo',
+              ancho: 500,
+              alto: 300,
+            ),
+          );
+        }
+        
+        widgets.add(pw.SizedBox(height: 20));
+      }
+    }
+  }
+  
+  // Gráfico de resumen de riesgos
+  if (datos['evaluacionDanos']?['resumenRiesgos'] != null) {
+    Map<String, dynamic> resumenRiesgos = datos['evaluacionDanos']['resumenRiesgos'];
+    
+    Map<String, int> datosRiesgo = {
+      'Riesgo Alto': resumenRiesgos['riesgoAlto'] ?? 0,
+      'Riesgo Medio': resumenRiesgos['riesgoMedio'] ?? 0,
+      'Riesgo Bajo': resumenRiesgos['riesgoBajo'] ?? 0,
+    };
+    
+    // Filtrar valores cero
+    datosRiesgo.removeWhere((key, value) => value == 0);
+    
+    if (datosRiesgo.isNotEmpty) {
+      widgets.add(
+        pw.Header(
+          level: 1,
+          text: 'Resumen General de Riesgos',
+          textStyle: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
+        ),
+      );
+      
+      widgets.add(
+        GraficasService.crearGraficoCircularPDF(
+          datos: datosRiesgo,
+          titulo: 'Distribución General de Niveles de Riesgo',
+          ancho: 500,
+          alto: 300,
+        ),
+      );
+      
+      widgets.add(pw.SizedBox(height: 20));
+    }
+  }
+  
+  return widgets;
+  
+}
+/// Crea un separador visual entre secciones del reporte completo
+pw.Widget _crearSeparadorSeccion(String tituloSeccion) {
+  return pw.Container(
+    margin: pw.EdgeInsets.symmetric(vertical: 20),
+    padding: pw.EdgeInsets.all(12),
+    decoration: pw.BoxDecoration(
+      color: PdfColors.blueAccent,
+      borderRadius: pw.BorderRadius.circular(8),
+    ),
+    child: pw.Center(
+      child: pw.Text(
+        tituloSeccion,
+        style: pw.TextStyle(
+          fontSize: 16,
+          fontWeight: pw.FontWeight.bold,
+          color: PdfColors.white,
+        ),
+      ),
+    ),
+  );
+}
+
+
+
+
+
 List<pw.Widget> _generarGraficosEvaluacionDanos(
     Map<String, dynamic> datos, 
     List<Uint8List> graficas) {

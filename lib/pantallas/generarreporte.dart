@@ -759,7 +759,6 @@ class _ReporteScreenState extends State<ReporteScreen> {
             ubicaciones: ubicacionesValidas,
           );
         } else if (_tipoReporteSeleccionado == "Evaluación de daños") {
-          
           try {
             print(
                 '🔍 Iniciando generación de reporte de evaluación de daños...');
@@ -775,6 +774,24 @@ class _ReporteScreenState extends State<ReporteScreen> {
             print('✅ Reporte de evaluación de daños generado exitosamente');
           } catch (e) {
             print('❌ Error específico en reporte de evaluación de daños: $e');
+            rethrow;
+          }
+        } else if (_tipoReporteSeleccionado == "Resumen completo") {
+          // Nuevo reporte completo unificado
+          try {
+            print('🔍 Iniciando generación de reporte completo unificado...');
+
+            rutasReporte = await reporteService.generarReporteCompleto(
+              nombreInmueble: nombreInmuebleController.text,
+              fechaInicio: fechaInicio,
+              fechaFin: fechaFin,
+              usuarioCreador: usuarioCreadorController.text,
+              ubicaciones: ubicacionesValidas,
+            );
+
+            print('✅ Reporte completo unificado generado exitosamente');
+          } catch (e) {
+            print('❌ Error específico en reporte completo: $e');
             rethrow;
           }
         } else {

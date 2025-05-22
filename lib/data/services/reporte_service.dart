@@ -10,9 +10,98 @@ import '../reportes/sistema_estructural_reporte.dart';
 import '../reportes/material_dominante_reporte.dart';
 import '../reportes/evaluacion_danos_reporte.dart';
 import '../../data/services/reporte_documental_service.dart';
+import '../reportes/reporte_completo.dart';
 
 class ReporteService {
   final CloudStorageService _cloudService = CloudStorageService();
+
+
+  /// Genera un reporte completo unificado que incluye todas las secciones de análisis
+/// Este reporte consolida: Resumen General, Uso y Topografía, Material Dominante,
+/// Sistema Estructural y Evaluación de Daños en un solo documento integral
+Future<Map<String, String>> generarReporteCompleto({
+  required String nombreInmueble,
+  required DateTime fechaInicio,
+  required DateTime fechaFin,
+  required String usuarioCreador,
+  required List<Map<String, dynamic>> ubicaciones,
+}) async {
+  try {
+    print('📊 [REPORTE COMPLETO] Iniciando generación de reporte integral...');
+    
+    // Paso 1: Buscar formatos que cumplan con los criterios (reutiliza lógica existente)
+    List<FormatoEvaluacion> formatos = await _buscarFormatos(
+      nombreInmueble: nombreInmueble,
+      fechaInicio: fechaInicio,
+      fechaFin: fechaFin,
+      usuarioCreador: usuarioCreador,
+      ubicaciones: ubicaciones,
+    );
+
+    if (formatos.isEmpty) {
+      throw Exception(
+          'No se encontraron formatos que cumplan con los criterios especificados');
+    }
+
+    print('✅ [REPORTE COMPLETO] Encontrados ${formatos.length} formatos para análisis');
+
+    // Paso 2: Construir metadatos base para el reporte
+    Map<String, dynamic> metadatos = {
+      'titulo': 'Reporte Completo de Evaluación Estructural',
+      'subtitulo': 'Análisis Integral Multidimensional',
+      'totalFormatos': formatos.length,
+      'nombreInmueble': nombreInmueble.isEmpty ? 'Todos' : nombreInmueble,
+      'fechaInicio': DateFormat('dd/MM/yyyy').format(fechaInicio),
+      'fechaFin': DateFormat('dd/MM/yyyy').format(fechaFin),
+      'usuarioCreador': usuarioCreador.isEmpty ? 'Todos' : usuarioCreador,
+      'ubicaciones': ubicaciones,
+      'autor': 'Sistema CENApp - Análisis Integral',
+      'periodoEvaluacion': '${DateFormat('MM/yyyy').format(fechaInicio)} - ${DateFormat('MM/yyyy').format(fechaFin)}',
+    };
+
+    // Paso 3: Generar análisis completo utilizando el servicio especializado
+    print('🔍 [REPORTE COMPLETO] Ejecutando análisis multidimensional...');
+    Map<String, dynamic> datosCompletos = await ReporteCompletoService.generarReporteCompleto(
+      formatos: formatos,
+      metadatos: metadatos,
+    );
+
+    // Paso 4: Preparar tablas unificadas (reutiliza lógica de cada reporte individual)
+    print('📋 [REPORTE COMPLETO] Consolidando tablas estadísticas...');
+    List<Map<String, dynamic>> tablasCompletas = ReporteCompletoService.prepararTablasCompletas(datosCompletos);
+
+    // Paso 5: Generar gráficas consolidadas (reutiliza generadores existentes)
+    print('📊 [REPORTE COMPLETO] Preparando gráficas consolidadas...');
+    List<Uint8List> graficasCompletas = await ReporteCompletoService.generarGraficasCompletas(datosCompletos);
+
+    // Paso 6: Generar conclusiones integrales
+    print('📝 [REPORTE COMPLETO] Generando conclusiones integrales...');
+    String conclusionesCompletas = ReporteCompletoService.generarConclusionesCompletas(datosCompletos);
+    
+    // Agregar conclusiones al metadatos
+    metadatos['conclusiones'] = conclusionesCompletas;
+
+    // Paso 7: Generar documento PDF utilizando el servicio documental existente
+    print('📄 [REPORTE COMPLETO] Generando documento PDF consolidado...');
+    String rutaPDF = await ReporteDocumentalService.generarReportePDF(
+      titulo: 'Reporte Completo de Evaluación Estructural',
+      subtitulo: 'Análisis Integral Multidimensional - Período: ${metadatos['periodoEvaluacion']}',
+      datos: datosCompletos,
+      tablas: tablasCompletas,
+      graficas: graficasCompletas,
+      metadatos: metadatos,
+    );
+
+    print('✅ [REPORTE COMPLETO] Reporte integral generado exitosamente: $rutaPDF');
+
+    return {
+      'pdf': rutaPDF,
+    };
+  } catch (e) {
+    print('❌ [REPORTE COMPLETO] Error al generar reporte integral: $e');
+    throw Exception('Error al generar reporte completo: $e');
+  }
+}
 
 
   Future<Map<String, String>> generarReporteEvaluacionDanos({

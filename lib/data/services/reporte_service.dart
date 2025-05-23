@@ -516,8 +516,8 @@ Future<Map<String, String>> generarReporteEvaluacionDanos({
       // **PASO 7: GENERAR EXCEL** (NUEVA FUNCIONALIDAD)
       print('📊 [RESUMEN GENERAL] Generando Excel...');
       String rutaExcel = await _excelService.generarReporteResumenGeneralExcel(
-        titulo: metadatos['titulo']!,
-        subtitulo: metadatos['subtitulo']!,
+        titulo: 'Resumen General de Evaluaciones',
+        subtitulo: 'Período: ${metadatos['periodoEvaluacion']}',
         datos: datosEstadisticos,
         tablas: tablas,
         metadatos: metadatos,

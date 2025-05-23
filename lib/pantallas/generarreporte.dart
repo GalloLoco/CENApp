@@ -602,49 +602,103 @@ class _ReporteScreenState extends State<ReporteScreen> {
                     SizedBox(height: 30),
 
                     // Botones de acción
-                    Row(
-                      children: [
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            icon: Icon(Icons.search),
-                            label: Text('Buscar Formatos'),
-                            onPressed: () {
-                              // Implementación pendiente
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                      'Funcionalidad pendiente de implementación'),
-                                  backgroundColor: Colors.blue,
-                                ),
-                              );
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.blue,
-                              padding: EdgeInsets.symmetric(vertical: 15),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
+                      // ✅ BOTÓN ÚNICO OPTIMIZADO - Reemplaza toda la sección Row anterior
+                    SizedBox(
+                      width: double.infinity, // Ocupa todo el ancho disponible
+                      child: ElevatedButton.icon(
+                        icon: Icon(
+                          Icons.assignment,
+                          size: 24,
+                          color: Colors.white,
+                        ),
+                        label: Text(
+                          'Generar Reporte',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                        onPressed: _isLoading ? null : () {
+                          _generarReporte();
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green[600], // Color verde más profesional
+                          disabledBackgroundColor: Colors.grey[400], // Color cuando está deshabilitado
+                          elevation: 3, // Sombra sutil
+                          padding: EdgeInsets.symmetric(vertical: 18), // Más altura para mejor UX
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12), // Bordes más suaves
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    // ✅ INDICADOR DE CARGA OPTIMIZADO (agregar después del botón)
+                    if (_isLoading) ...[
+                      SizedBox(height: 20),
+                      Container(
+                        padding: EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.blue[50],
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.blue[200]!),
+                        ),
+                        child: Column(
+                          children: [
+                            CircularProgressIndicator(
+                              valueColor: AlwaysStoppedAnimation<Color>(Colors.blue[600]!),
+                            ),
+                            SizedBox(height: 12),
+                            Text(
+                              'Generando reporte...',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.blue[800],
+                              ),
+                            ),
+                            SizedBox(height: 4),
+                            Text(
+                              'Esto puede tomar unos momentos',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.blue[600],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+
+                    // ✅ INFORMACIÓN ADICIONAL (opcional - mejora UX)
+                    SizedBox(height: 20),
+                    Container(
+                      padding: EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[50],
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.grey[300]!),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.info_outline,
+                            color: Colors.blue[600],
+                            size: 20,
+                          ),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Se generarán archivos PDF y Excel según el tipo de reporte seleccionado',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey[700],
                               ),
                             ),
                           ),
-                        ),
-                        SizedBox(width: 15),
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            icon: Icon(Icons.assignment),
-                            label: Text('Generar Reporte'),
-                            onPressed: () {
-                              _generarReporte();
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.green,
-                              padding: EdgeInsets.symmetric(vertical: 15),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ],
                 ),

@@ -17,41 +17,44 @@ class ReporteService {
   final ExcelReporteService _excelService =
       ExcelReporteService(); // Nueva instancia
 
+
+
+
+
   /// Genera un reporte completo unificado que incluye todas las secciones de análisis
   /// Este reporte consolida: Resumen General, Uso y Topografía, Material Dominante,
   /// Sistema Estructural y Evaluación de Daños en un solo documento integral
   ///
   /// **ACTUALIZADO**: Ahora incluye generación de Excel
   Future<Map<String, String>> generarReporteCompleto({
-    required String nombreInmueble,
-    required DateTime fechaInicio,
-    required DateTime fechaFin,
-    required String usuarioCreador,
-    required List<Map<String, dynamic>> ubicaciones,
-  }) async {
-    try {
-      print(
-          '📊 [REPORTE COMPLETO] Iniciando generación de reporte integral...');
+  required String nombreInmueble,
+  required DateTime fechaInicio,
+  required DateTime fechaFin,
+  required String usuarioCreador,
+  required List<Map<String, dynamic>> ubicaciones,
+}) async {
+  try {
+    print('📊 [REPORTE COMPLETO] Iniciando generación integral con Excel...');
 
-      // Paso 1: Buscar formatos que cumplan con los criterios (reutiliza lógica existente)
-      List<FormatoEvaluacion> formatos = await _buscarFormatos(
-        nombreInmueble: nombreInmueble,
-        fechaInicio: fechaInicio,
-        fechaFin: fechaFin,
-        usuarioCreador: usuarioCreador,
-        ubicaciones: ubicaciones,
-      );
+    // Paso 1: Buscar formatos (reutiliza lógica existente)
+    List<FormatoEvaluacion> formatos = await _buscarFormatos(
+      nombreInmueble: nombreInmueble,
+      fechaInicio: fechaInicio,
+      fechaFin: fechaFin,
+      usuarioCreador: usuarioCreador,
+      ubicaciones: ubicaciones,
+    );
 
-      if (formatos.isEmpty) {
-        throw Exception(
-            'No se encontraron formatos que cumplan con los criterios especificados');
-      }
+    if (formatos.isEmpty) {
+      throw Exception('No se encontraron formatos que cumplan con los criterios especificados');
+    }
 
-      print(
-          '✅ [REPORTE COMPLETO] Encontrados ${formatos.length} formatos para análisis');
+    print('✅ [REPORTE COMPLETO] Encontrados ${formatos.length} formatos');
 
-      // Paso 2: Construir metadatos base para el reporte
-      Map<String, dynamic> metadatos = {
+    // Paso 2: Generar análisis completo (reutiliza servicio existente)
+    Map<String, dynamic> datosCompletos = await ReporteCompletoService.generarReporteCompleto(
+      formatos: formatos,
+      metadatos: {
         'titulo': 'Reporte Completo de Evaluación Estructural',
         'subtitulo': 'Análisis Integral Multidimensional',
         'totalFormatos': formatos.length,
@@ -60,133 +63,139 @@ class ReporteService {
         'fechaFin': DateFormat('dd/MM/yyyy').format(fechaFin),
         'usuarioCreador': usuarioCreador.isEmpty ? 'Todos' : usuarioCreador,
         'ubicaciones': ubicaciones,
-        'autor': 'Sistema CENApp - Análisis Integral',
-        'periodoEvaluacion':
-            '${DateFormat('MM/yyyy').format(fechaInicio)} - ${DateFormat('MM/yyyy').format(fechaFin)}',
-      };
+        'periodoEvaluacion': '${DateFormat('MM/yyyy').format(fechaInicio)} - ${DateFormat('MM/yyyy').format(fechaFin)}',
+      },
+    );
 
-      // Paso 3: Generar análisis completo utilizando el servicio especializado
-      print('🔍 [REPORTE COMPLETO] Ejecutando análisis multidimensional...');
-      Map<String, dynamic> datosCompletos =
-          await ReporteCompletoService.generarReporteCompleto(
-        formatos: formatos,
-        metadatos: metadatos,
-      );
+    // Paso 3: Preparar tablas consolidadas (reutiliza lógica existente)
+    List<Map<String, dynamic>> tablasCompletas = ReporteCompletoService.prepararTablasCompletas(datosCompletos);
 
-      // Paso 4: Preparar tablas unificadas (reutiliza lógica de cada reporte individual)
-      print('📋 [REPORTE COMPLETO] Consolidando tablas estadísticas...');
-      List<Map<String, dynamic>> tablasCompletas =
-          ReporteCompletoService.prepararTablasCompletas(datosCompletos);
+    // 🆕 Paso 4: Generar Excel usando nuestro nuevo servicio
+    String rutaExcel = await _excelService.generarReporteCompletoExcel(
+      titulo: 'Reporte Completo de Evaluación Estructural',
+      subtitulo: 'Análisis Integral Multidimensional - ${datosCompletos['metadatos']['periodoEvaluacion']}',
+      datos: datosCompletos,
+      tablas: tablasCompletas,
+      metadatos: datosCompletos['metadatos'],
+    );
 
-      // Paso 5: Generar gráficas consolidadas (reutiliza generadores existentes)
-      print('📊 [REPORTE COMPLETO] Preparando gráficas consolidadas...');
-      List<Uint8List> graficasCompletas =
-          await ReporteCompletoService.generarGraficasCompletas(datosCompletos);
+    print('✅ [EXCEL-COMPLETO] Reporte Excel integral generado: $rutaExcel');
 
-      // Paso 6: Generar conclusiones integrales
-      print('📝 [REPORTE COMPLETO] Generando conclusiones integrales...');
-      String conclusionesCompletas =
-          ReporteCompletoService.generarConclusionesCompletas(datosCompletos);
+    // Paso 5: Generar también PDF (mantener funcionalidad existente)
+    List<Uint8List> graficasCompletas = await ReporteCompletoService.generarGraficasCompletas(datosCompletos);
+    String conclusionesCompletas = ReporteCompletoService.generarConclusionesCompletas(datosCompletos);
+    
+    // Agregar conclusiones a metadatos
+    datosCompletos['metadatos']['conclusiones'] = conclusionesCompletas;
 
-      // Agregar conclusiones al metadatos
-      metadatos['conclusiones'] = conclusionesCompletas;
+    String rutaPDF = await ReporteDocumentalService.generarReportePDF(
+      titulo: 'Reporte Completo de Evaluación Estructural',
+      subtitulo: 'Análisis Integral Multidimensional - Período: ${datosCompletos['metadatos']['periodoEvaluacion']}',
+      datos: datosCompletos,
+      tablas: tablasCompletas,
+      graficas: graficasCompletas,
+      metadatos: datosCompletos['metadatos'],
+    );
 
-      // Paso 7: Generar documento PDF utilizando el servicio documental existente
-      print('📄 [REPORTE COMPLETO] Generando documento PDF consolidado...');
-      String rutaPDF = await ReporteDocumentalService.generarReportePDF(
-        titulo: 'Reporte Completo de Evaluación Estructural',
-        subtitulo:
-            'Análisis Integral Multidimensional - Período: ${metadatos['periodoEvaluacion']}',
-        datos: datosCompletos,
-        tablas: tablasCompletas,
-        graficas: graficasCompletas,
-        metadatos: metadatos,
-      );
+    print('✅ [REPORTE COMPLETO] Ambos formatos generados exitosamente');
+    print('   PDF: $rutaPDF');
+    print('   Excel: $rutaExcel');
 
-      print(
-          '✅ [REPORTE COMPLETO] Reporte integral generado exitosamente: $rutaPDF');
+    return {
+      'excel': rutaExcel, // 🆕 NUEVO: Excel con análisis integral
+      'pdf': rutaPDF,     // Mantener PDF existente
+    };
 
-      return {
-        'pdf': rutaPDF,
-      };
-    } catch (e) {
-      print('❌ [REPORTE COMPLETO] Error al generar reporte integral: $e');
-      throw Exception('Error al generar reporte completo: $e');
-    }
+  } catch (e) {
+    print('❌ [REPORTE COMPLETO] Error al generar reporte integral: $e');
+    throw Exception('Error al generar reporte completo: $e');
   }
+}
 
   /// Genera un reporte de evaluación de daños
-  /// **ACTUALIZADO**: Incluye generación de Excel
-  Future<Map<String, String>> generarReporteEvaluacionDanos({
-    required String nombreInmueble,
-    required DateTime fechaInicio,
-    required DateTime fechaFin,
-    required String usuarioCreador,
-    required List<Map<String, dynamic>> ubicaciones,
-  }) async {
-    try {
-      // Paso 1: Buscar formatos que cumplan con los criterios
-      List<FormatoEvaluacion> formatos = await _buscarFormatos(
-        nombreInmueble: nombreInmueble,
-        fechaInicio: fechaInicio,
-        fechaFin: fechaFin,
-        usuarioCreador: usuarioCreador,
-        ubicaciones: ubicaciones,
-      );
+  /// Genera un reporte de evaluación de daños
+/// **ACTUALIZADO**: Incluye generación de Excel
+Future<Map<String, String>> generarReporteEvaluacionDanos({
+  required String nombreInmueble,
+  required DateTime fechaInicio,
+  required DateTime fechaFin,
+  required String usuarioCreador,
+  required List<Map<String, dynamic>> ubicaciones,
+}) async {
+  try {
+    // Paso 1: Buscar formatos que cumplan con los criterios
+    List<FormatoEvaluacion> formatos = await _buscarFormatos(
+      nombreInmueble: nombreInmueble,
+      fechaInicio: fechaInicio,
+      fechaFin: fechaFin,
+      usuarioCreador: usuarioCreador,
+      ubicaciones: ubicaciones,
+    );
 
-      if (formatos.isEmpty) {
-        throw Exception(
-            'No se encontraron formatos que cumplan con los criterios especificados');
-      }
-
-      // Paso 2: Analizar los datos usando el módulo específico de evaluación de daños
-      Map<String, dynamic> datosEstadisticos =
-          EvaluacionDanosReport.analizarDatos(formatos);
-
-      // Paso 3: Preparar datos para las tablas del reporte
-      List<Map<String, dynamic>> tablas =
-          EvaluacionDanosReport.prepararTablas(datosEstadisticos);
-
-      // Paso 4: Generar placeholders para gráficas
-      List<Uint8List> graficas =
-          await EvaluacionDanosReport.generarPlaceholdersGraficas(
-              datosEstadisticos);
-
-      // Paso 5: Construir metadatos para el reporte
-      Map<String, dynamic> metadatos = {
-        'titulo': 'Evaluación de Daños',
-        'subtitulo': 'Análisis de Daños y Riesgos Estructurales',
-        'totalFormatos': formatos.length,
-        'nombreInmueble': nombreInmueble.isEmpty ? 'Todos' : nombreInmueble,
-        'fechaInicio': DateFormat('dd/MM/yyyy').format(fechaInicio),
-        'fechaFin': DateFormat('dd/MM/yyyy').format(fechaFin),
-        'usuarioCreador': usuarioCreador.isEmpty ? 'Todos' : usuarioCreador,
-        'ubicaciones': ubicaciones,
-        'autor': 'Sistema CENApp - Módulo de Evaluación de Daños',
-        'conclusiones': EvaluacionDanosReport.generarConclusiones(
-            datosEstadisticos, formatos.length),
-      };
-
-      // Paso 6: Generar documento PDF
-      String rutaPDF = await ReporteDocumentalService.generarReportePDF(
-        titulo: 'Reporte de Evaluación de Daños',
-        subtitulo: 'Análisis de Daños y Riesgos Estructurales',
-        datos: datosEstadisticos,
-        tablas: tablas,
-        graficas: graficas,
-        metadatos: metadatos,
-      );
-
-      print('✅ Reporte de Evaluación de Daños generado exitosamente: $rutaPDF');
-
-      return {
-        'pdf': rutaPDF,
-      };
-    } catch (e) {
-      print('❌ Error al generar reporte de evaluación de daños: $e');
-      throw Exception('Error al generar reporte de evaluación de daños: $e');
+    if (formatos.isEmpty) {
+      throw Exception(
+          'No se encontraron formatos que cumplan con los criterios especificados');
     }
+
+    // Paso 2: Analizar los datos usando el módulo específico de evaluación de daños
+    Map<String, dynamic> datosEstadisticos =
+        EvaluacionDanosReport.analizarDatos(formatos);
+
+    // Paso 3: Preparar datos para las tablas del reporte
+    List<Map<String, dynamic>> tablas =
+        EvaluacionDanosReport.prepararTablas(datosEstadisticos);
+
+    // Paso 4: Construir metadatos para el reporte
+    Map<String, dynamic> metadatos = {
+      'titulo': 'Evaluación de Daños',
+      'subtitulo': 'Análisis de Daños y Riesgos Estructurales',
+      'totalFormatos': formatos.length,
+      'nombreInmueble': nombreInmueble.isEmpty ? 'Todos' : nombreInmueble,
+      'fechaInicio': DateFormat('dd/MM/yyyy').format(fechaInicio),
+      'fechaFin': DateFormat('dd/MM/yyyy').format(fechaFin),
+      'usuarioCreador': usuarioCreador.isEmpty ? 'Todos' : usuarioCreador,
+      'ubicaciones': ubicaciones,
+      'autor': 'Sistema CENApp - Módulo de Evaluación de Daños',
+      'conclusiones': EvaluacionDanosReport.generarConclusiones(
+          datosEstadisticos, formatos.length),
+    };
+
+    // 🆕 Paso 5: Generar Excel usando nuestro servicio especializado
+    String rutaExcel = await _excelService.generarReporteEvaluacionDanosExcel(
+      titulo: metadatos['titulo']!,
+      subtitulo: metadatos['subtitulo']!,
+      datos: datosEstadisticos,
+      tablas: tablas,
+      metadatos: metadatos,
+    );
+
+    print('✅ [EXCEL] Reporte Evaluación de Daños Excel generado: $rutaExcel');
+
+    // Paso 6: Generar también PDF (mantener funcionalidad existente)
+    List<Uint8List> graficas =
+        await EvaluacionDanosReport.generarPlaceholdersGraficas(
+            datosEstadisticos);
+
+    String rutaPDF = await ReporteDocumentalService.generarReportePDF(
+      titulo: 'Reporte de Evaluación de Daños',
+      subtitulo: 'Análisis de Daños y Riesgos Estructurales',
+      datos: datosEstadisticos,
+      tablas: tablas,
+      graficas: graficas,
+      metadatos: metadatos,
+    );
+
+    print('✅ [PDF] Reporte PDF generado: $rutaPDF');
+
+    return {
+      'excel': rutaExcel, // 🆕 NUEVO: Excel con análisis detallado
+      'pdf': rutaPDF, // Mantener PDF existente
+    };
+  } catch (e) {
+    print('❌ Error al generar reporte de evaluación de daños: $e');
+    throw Exception('Error al generar reporte de evaluación de daños: $e');
   }
+}
 
   /// Genera un reporte de material dominante de construcción
   /// **ACTUALIZADO**: Incluye generación de Excel
@@ -612,71 +621,185 @@ class ReporteService {
     return false;
   }
 
-  /// Prepara los datos de las tablas para el reporte de uso y topografía
   List<Map<String, dynamic>> _prepararTablasParaReporte(
-      Map<String, dynamic> datosEstadisticos) {
-    List<Map<String, dynamic>> tablas = [];
+    Map<String, dynamic> datosEstadisticos) {
+  
+  List<Map<String, dynamic>> tablas = [];
 
-    // Tabla de uso de vivienda
+  // 🏠 TABLA 1: Uso de Vivienda (CORREGIDA)
+  if (datosEstadisticos.containsKey('usosVivienda') && 
+      datosEstadisticos['usosVivienda']['estadisticas'] != null) {
+    
     Map<String, Map<String, dynamic>> estadisticasUsos =
         datosEstadisticos['usosVivienda']['estadisticas'];
 
     if (estadisticasUsos.isNotEmpty) {
       List<List<dynamic>> filasUsos = [];
 
+      // ✅ CALCULAR TOTAL CORRECTO: Suma de todos los conteos de uso
+      int totalUsosRegistrados = estadisticasUsos.values
+          .fold(0, (sum, stats) => sum + (stats['conteo'] as int? ?? 0));
+
+      // 📊 Procesar cada uso con cálculos corregidos
       estadisticasUsos.forEach((uso, estadisticas) {
-        if (estadisticas['conteo'] > 0) {
+        int conteo = estadisticas['conteo'] as int? ?? 0;
+        
+        if (conteo > 0) {
+          // ✅ PORCENTAJE CORRECTO: conteo / total de usos registrados
+          double porcentajeRelativo = totalUsosRegistrados > 0 
+              ? (conteo / totalUsosRegistrados) * 100 
+              : 0.0;
+
+          // 📈 También calculamos porcentaje absoluto si está disponible
+          double porcentajeAbsoluto = estadisticas.containsKey('porcentajeAbsoluto')
+              ? (estadisticas['porcentajeAbsoluto'] as double? ?? 0.0)
+              : porcentajeRelativo;
+
           filasUsos.add([
             uso,
-            estadisticas['conteo'],
-            '${((estadisticas['conteo'] / estadisticasUsos.length) * 100).toStringAsFixed(2)}%',
+            conteo,
+            '${porcentajeRelativo.toStringAsFixed(2)}%',
           ]);
         }
       });
 
-      // Ordenar por frecuencia (descendente)
+      // 📊 Ordenar por frecuencia (descendente) para mejor visualización
       filasUsos.sort((a, b) => (b[1] as int).compareTo(a[1] as int));
 
-      tablas.add({
-        'titulo': 'Uso de Vivienda',
-        'descripcion':
-            'Distribución de los usos de vivienda en los formatos analizados.',
-        'encabezados': ['Uso', 'Conteo', 'Porcentaje'],
-        'filas': filasUsos,
-      });
+      // 🔍 Agregar información de contexto si es útil
+      if (filasUsos.isNotEmpty) {
+        tablas.add({
+          'titulo': 'Uso de Vivienda',
+          'descripcion': 'Distribución de los usos de vivienda en los formatos analizados. Total de usos registrados: $totalUsosRegistrados.',
+          'encabezados': ['Uso', 'Conteo', 'Porcentaje'],
+          'filas': filasUsos,
+          'metadatos': {
+            'totalRegistros': totalUsosRegistrados,
+            'tiposDistintos': estadisticasUsos.length,
+          },
+        });
+      }
     }
+  }
 
-    // Tabla de topografía
+  // 🏔️ TABLA 2: Topografía (CORREGIDA)
+  if (datosEstadisticos.containsKey('topografia') && 
+      datosEstadisticos['topografia']['estadisticas'] != null) {
+    
     Map<String, Map<String, dynamic>> estadisticasTopografia =
         datosEstadisticos['topografia']['estadisticas'];
 
     if (estadisticasTopografia.isNotEmpty) {
       List<List<dynamic>> filasTopografia = [];
 
+      // ✅ CALCULAR TOTAL CORRECTO: Suma de todos los conteos de topografía
+      int totalTopografiaRegistrada = estadisticasTopografia.values
+          .fold(0, (sum, stats) => sum + (stats['conteo'] as int? ?? 0));
+
+      // 🗻 Procesar cada tipo de topografía con cálculos corregidos
       estadisticasTopografia.forEach((tipo, estadisticas) {
-        if (estadisticas['conteo'] > 0) {
+        int conteo = estadisticas['conteo'] as int? ?? 0;
+        
+        if (conteo > 0) {
+          // ✅ PORCENTAJE CORRECTO: conteo / total de topografías registradas
+          double porcentajeRelativo = totalTopografiaRegistrada > 0 
+              ? (conteo / totalTopografiaRegistrada) * 100 
+              : 0.0;
+
+          // 📈 También calculamos porcentaje absoluto si está disponible
+          double porcentajeAbsoluto = estadisticas.containsKey('porcentajeAbsoluto')
+              ? (estadisticas['porcentajeAbsoluto'] as double? ?? 0.0)
+              : porcentajeRelativo;
+
           filasTopografia.add([
             tipo,
-            estadisticas['conteo'],
-            '${((estadisticas['conteo'] / estadisticasTopografia.length) * 100).toStringAsFixed(2)}%',
+            conteo,
+            '${porcentajeRelativo.toStringAsFixed(2)}%',
           ]);
         }
       });
 
-      // Ordenar por frecuencia (descendente)
+      // 📊 Ordenar por frecuencia (descendente)
       filasTopografia.sort((a, b) => (b[1] as int).compareTo(a[1] as int));
 
-      tablas.add({
-        'titulo': 'Topografía',
-        'descripcion':
-            'Distribución de los tipos de topografía en los formatos analizados.',
-        'encabezados': ['Tipo de Topografía', 'Conteo', 'Porcentaje'],
-        'filas': filasTopografia,
-      });
+      // 🏔️ Agregar tabla con información contextual
+      if (filasTopografia.isNotEmpty) {
+        tablas.add({
+          'titulo': 'Topografía',
+          'descripcion': 'Distribución de los tipos de topografía en los formatos analizados. Total de registros topográficos: $totalTopografiaRegistrada.',
+          'encabezados': ['Tipo de Topografía', 'Conteo', 'Porcentaje'],
+          'filas': filasTopografia,
+          'metadatos': {
+            'totalRegistros': totalTopografiaRegistrada,
+            'tiposDistintos': estadisticasTopografia.length,
+          },
+        });
+      }
+    }
+  }
+
+  // 📊 TABLA 3: Resumen comparativo (NUEVA - valor agregado)
+  if (tablas.length >= 2) {
+    // Extraer datos de las tablas anteriores para crear un resumen
+    var tablaUsos = tablas.firstWhere((t) => t['titulo'] == 'Uso de Vivienda', 
+        orElse: () => {});
+    var tablaTopografia = tablas.firstWhere((t) => t['titulo'] == 'Topografía', 
+        orElse: () => {});
+
+    List<List<dynamic>> filasResumen = [];
+
+    // Añadir métricas comparativas
+    if (tablaUsos.isNotEmpty && tablaUsos['metadatos'] != null) {
+      filasResumen.add([
+        'Tipos de uso identificados',
+        tablaUsos['metadatos']['tiposDistintos'],
+        'Diversidad de uso',
+      ]);
+      filasResumen.add([
+        'Total registros de uso',
+        tablaUsos['metadatos']['totalRegistros'],
+        'Algunos inmuebles pueden tener múltiples usos',
+      ]);
     }
 
-    return tablas;
+    if (tablaTopografia.isNotEmpty && tablaTopografia['metadatos'] != null) {
+      filasResumen.add([
+        'Tipos de topografía identificados',
+        tablaTopografia['metadatos']['tiposDistintos'],
+        'Variedad geográfica',
+      ]);
+      filasResumen.add([
+        'Total registros topográficos',
+        tablaTopografia['metadatos']['totalRegistros'],
+        'Características del terreno',
+      ]);
+    }
+
+    // Calcular índice de diversidad si tenemos datos
+    if (tablaUsos.isNotEmpty && tablaTopografia.isNotEmpty) {
+      int totalUsos = tablaUsos['metadatos']?['tiposDistintos'] ?? 0;
+      int totalTopografia = tablaTopografia['metadatos']?['tiposDistintos'] ?? 0;
+      double indiceDiversidad = (totalUsos + totalTopografia) / 2.0;
+      
+      filasResumen.add([
+        'Índice de diversidad promedio',
+        indiceDiversidad.toStringAsFixed(1),
+        indiceDiversidad > 5 ? 'Alta diversidad' : 'Diversidad moderada',
+      ]);
+    }
+
+    if (filasResumen.isNotEmpty) {
+      tablas.add({
+        'titulo': 'Resumen Comparativo',
+        'descripcion': 'Métricas comparativas entre uso de vivienda y topografía.',
+        'encabezados': ['Métrica', 'Valor', 'Interpretación'],
+        'filas': filasResumen,
+      });
+    }
   }
+
+  return tablas;
+}
 
   /// Genera gráficas para el reporte de uso y topografía
   Future<List<Uint8List>> _generarGraficasReporte(
@@ -821,82 +944,159 @@ class ReporteService {
   }
 
   /// Preparar tablas para el resumen general
-  List<Map<String, dynamic>> _prepararTablasResumenGeneral(
-      Map<String, dynamic> datosEstadisticos,
-      List<FormatoEvaluacion> formatos) {
-    List<Map<String, dynamic>> tablas = [];
+  static List<Map<String, dynamic>> _prepararTablasResumenGeneral(
+    Map<String, dynamic> datosEstadisticos,
+    List<FormatoEvaluacion> formatos) {
+  
+  List<Map<String, dynamic>> tablas = [];
 
-    // Tabla 1: Resumen total
-    tablas.add({
-      'titulo': 'Resumen Total de Evaluaciones',
-      'descripcion':
-          'Cantidad total de inmuebles evaluados en el período seleccionado.',
-      'encabezados': ['Descripción', 'Cantidad'],
-      'filas': [
-        ['Total de inmuebles evaluados', formatos.length],
-      ],
+  // Tabla 1: Resumen total
+  tablas.add({
+    'titulo': 'Resumen Total de Evaluaciones',
+    'descripcion': 'Cantidad total de inmuebles evaluados en el período seleccionado.',
+    'encabezados': ['Descripción', 'Cantidad'],
+    'filas': [
+      ['Total de inmuebles evaluados', formatos.length],
+    ],
+  });
+
+  // Tabla 2: Distribución por ciudades (CORREGIDA)
+  Map<String, int> conteoCiudades =
+      datosEstadisticos['distribucionGeografica']['ciudades'];
+
+  if (conteoCiudades.isNotEmpty) {
+    List<List<dynamic>> filasCiudades = [];
+    
+    // ✅ TOTAL CORRECTO: Suma de todos los conteos (total de formatos)
+    int totalFormatos = formatos.length;
+
+    conteoCiudades.forEach((ciudad, conteo) {
+      // ✅ PORCENTAJE CORRECTO: conteo / total de formatos
+      double porcentaje = totalFormatos > 0 
+          ? (conteo / totalFormatos) * 100 
+          : 0.0;
+      
+      filasCiudades.add([
+        ciudad,
+        conteo,
+        '${porcentaje.toStringAsFixed(2)}%',
+      ]);
     });
 
-    // Tabla 2: Distribución por ciudades
-    Map<String, int> conteoCiudades =
-        datosEstadisticos['distribucionGeografica']['ciudades'];
+    // 📈 Ordenar por frecuencia (descendente) para mejor visualización
+    filasCiudades.sort((a, b) => (b[1] as int).compareTo(a[1] as int));
 
-    if (conteoCiudades.isNotEmpty) {
-      List<List<dynamic>> filasCiudades = [];
-
-      conteoCiudades.forEach((ciudad, conteo) {
-        filasCiudades.add([
-          ciudad,
-          conteo,
-          '${((conteo / formatos.length) * 100).toStringAsFixed(2)}%',
-        ]);
-      });
-
-      // Ordenar por frecuencia (descendente)
-      filasCiudades.sort((a, b) => (b[1] as int).compareTo(a[1] as int));
-
-      tablas.add({
-        'titulo': 'Distribución por Ciudades',
-        'descripcion': 'Cantidad de inmuebles evaluados por ciudad.',
-        'encabezados': ['Ciudad', 'Cantidad', 'Porcentaje'],
-        'filas': filasCiudades,
-      });
-    }
-
-    // Tabla 3: Distribución por colonias (limitada a las 10 más frecuentes)
-    Map<String, int> conteoColonias =
-        datosEstadisticos['distribucionGeografica']['colonias'];
-
-    if (conteoColonias.isNotEmpty) {
-      List<List<dynamic>> filasColonias = [];
-
-      conteoColonias.forEach((colonia, conteo) {
-        filasColonias.add([
-          colonia,
-          conteo,
-          '${((conteo / formatos.length) * 100).toStringAsFixed(2)}%',
-        ]);
-      });
-
-      // Ordenar por frecuencia (descendente)
-      filasColonias.sort((a, b) => (b[1] as int).compareTo(a[1] as int));
-
-      // Limitar a las 10 más frecuentes
-      if (filasColonias.length > 10) {
-        filasColonias = filasColonias.sublist(0, 10);
-      }
-
-      tablas.add({
-        'titulo': 'Distribución por Colonias (Top 10)',
-        'descripcion':
-            'Las 10 colonias con mayor cantidad de inmuebles evaluados.',
-        'encabezados': ['Colonia', 'Cantidad', 'Porcentaje'],
-        'filas': filasColonias,
-      });
-    }
-
-    return tablas;
+    tablas.add({
+      'titulo': 'Distribución por Ciudades',
+      'descripcion': 'Cantidad de inmuebles evaluados por ciudad.',
+      'encabezados': ['Ciudad', 'Cantidad', 'Porcentaje'],
+      'filas': filasCiudades,
+    });
   }
+
+  // 🏘️ Tabla 3: Distribución por colonias (CORREGIDA Y OPTIMIZADA)
+  Map<String, int> conteoColonias =
+      datosEstadisticos['distribucionGeografica']['colonias'];
+
+  if (conteoColonias.isNotEmpty) {
+    List<List<dynamic>> filasColonias = [];
+    
+    // ✅ TOTAL CORRECTO: Total de formatos analizados
+    int totalFormatos = formatos.length;
+
+    conteoColonias.forEach((colonia, conteo) {
+      // ✅ PORCENTAJE CORRECTO: conteo / total de formatos
+      double porcentaje = totalFormatos > 0 
+          ? (conteo / totalFormatos) * 100 
+          : 0.0;
+      
+      filasColonias.add([
+        colonia,
+        conteo,
+        '${porcentaje.toStringAsFixed(2)}%',
+      ]);
+    });
+
+    // 📊 Ordenar por frecuencia (descendente)
+    filasColonias.sort((a, b) => (b[1] as int).compareTo(a[1] as int));
+
+    // 🔝 Limitar a las 10 más frecuentes para optimizar visualización
+    if (filasColonias.length > 10) {
+      // Calcular el total de las colonias restantes
+      int conteoRestantes = 0;
+      for (int i = 10; i < filasColonias.length; i++) {
+        conteoRestantes += filasColonias[i][1] as int;
+      }
+      
+      // Truncar la lista a 10 elementos
+      filasColonias = filasColonias.sublist(0, 10);
+      
+      // Agregar fila de "Otras colonias" si hay más de 10
+      if (conteoRestantes > 0) {
+        double porcentajeRestantes = totalFormatos > 0 
+            ? (conteoRestantes / totalFormatos) * 100 
+            : 0.0;
+        
+        filasColonias.add([
+          'Otras ${conteoColonias.length - 10} colonias',
+          conteoRestantes,
+          '${porcentajeRestantes.toStringAsFixed(2)}%',
+        ]);
+      }
+    }
+
+    tablas.add({
+      'titulo': 'Distribución por Colonias (Top 10)',
+      'descripcion': 'Las 10 colonias con mayor cantidad de inmuebles evaluados.',
+      'encabezados': ['Colonia', 'Cantidad', 'Porcentaje'],
+      'filas': filasColonias,
+    });
+  }
+
+  // 📅 Tabla 4: Distribución temporal (BONUS - también corregida)
+  if (datosEstadisticos.containsKey('distribucionTemporal')) {
+    Map<String, int> conteoPorMes = 
+        datosEstadisticos['distribucionTemporal']['meses'];
+    
+    if (conteoPorMes.isNotEmpty) {
+      List<List<dynamic>> filasMeses = [];
+      int totalFormatos = formatos.length;
+
+      conteoPorMes.forEach((mes, conteo) {
+        // ✅ PORCENTAJE CORRECTO para distribución temporal
+        double porcentaje = totalFormatos > 0 
+            ? (conteo / totalFormatos) * 100 
+            : 0.0;
+        
+        filasMeses.add([
+          mes,
+          conteo,
+          '${porcentaje.toStringAsFixed(2)}%',
+        ]);
+      });
+
+      // Ordenar cronológicamente
+      filasMeses.sort((a, b) {
+        try {
+          final fechaA = DateFormat('MM/yyyy').parse(a[0]);
+          final fechaB = DateFormat('MM/yyyy').parse(b[0]);
+          return fechaA.compareTo(fechaB);
+        } catch (e) {
+          return (a[0] as String).compareTo(b[0] as String);
+        }
+      });
+
+      tablas.add({
+        'titulo': 'Distribución Temporal',
+        'descripcion': 'Cantidad de inmuebles evaluados por mes.',
+        'encabezados': ['Período', 'Cantidad', 'Porcentaje'],
+        'filas': filasMeses,
+      });
+    }
+  }
+
+  return tablas;
+}
 
   /// Generar gráficas para el resumen general
   Future<List<Uint8List>> _generarGraficasResumenGeneral(

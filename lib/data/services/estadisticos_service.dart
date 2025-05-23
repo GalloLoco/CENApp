@@ -68,17 +68,34 @@ class EstadisticosService {
     Map<String, Map<String, dynamic>> estadisticas = {};
 
     for (String categoria in categorias) {
-      // Para cada opción dentro de la categoría, calcular estadísticas
       estadisticas[categoria] = {};
+      
+      // 📊 Calcular el TOTAL de selecciones para esta categoría
+      int totalSeleccionesCategoria = resultados[categoria]!.values
+          .fold(0, (sum, conteo) => sum + conteo);
+      
+      // Si no hay selecciones en esta categoría, usar el total de formatos como base
+      int baseCalculo = totalSeleccionesCategoria > 0 
+          ? totalSeleccionesCategoria 
+          : formatos.length;
 
+      // Para cada opción dentro de la categoría, calcular estadísticas corregidas
       resultados[categoria]!.forEach((opcion, conteo) {
-        // Calcular estadísticas básicas (porcentaje)
-        double porcentaje =
-            formatos.isNotEmpty ? (conteo / formatos.length) * 100 : 0;
+        // ✅ PORCENTAJE CORRECTO: conteo / total de selecciones de la categoría
+        double porcentajeRelativo = baseCalculo > 0 
+            ? (conteo / baseCalculo) * 100 
+            : 0.0;
+        
+        // 📈 PORCENTAJE ABSOLUTO: conteo / total de formatos analizados
+        double porcentajeAbsoluto = formatos.isNotEmpty 
+            ? (conteo / formatos.length) * 100 
+            : 0.0;
 
         estadisticas[categoria]![opcion] = {
           'conteo': conteo,
-          'porcentaje': porcentaje,
+          'porcentaje': porcentajeRelativo,           // Relativo a la categoría
+          'porcentajeAbsoluto': porcentajeAbsoluto,   // Relativo al total de formatos
+          'totalCategoria': totalSeleccionesCategoria,
         };
       });
     }

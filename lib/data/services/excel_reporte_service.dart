@@ -10,7 +10,1204 @@ import './file_storage_service.dart';
 /// Optimizado para crear hojas de cálculo con datos estadísticos,
 /// tablas formateadas y representaciones visuales de gráficos
 class ExcelReporteService {
-  final FileStorageService _fileService = FileStorageService();
+  
+
+  /// Genera un reporte completo unificado en Excel que incluye todas las secciones
+/// Integra: Resumen General, Uso y Topografía, Material Dominante, 
+/// Sistema Estructural y Evaluación de Daños en una sola hoja optimizada
+Future<String> generarReporteCompletoExcel({
+  required String titulo,
+  required String subtitulo,
+  required Map<String, dynamic> datos,
+  required List<Map<String, dynamic>> tablas,
+  required Map<String, dynamic> metadatos,
+  Directory? directorio,
+}) async {
+  try {
+    print('📊 [EXCEL-COMPLETO] Iniciando generación de reporte integral: $titulo');
+
+    // Crear nuevo libro de Excel
+    var excel = Excel.createExcel();
+    excel.delete('Sheet1');
+    
+    // Crear hoja única con todo el contenido integral
+    String nombreHoja = 'Reporte Integral Completo';
+    excel.copy('Sheet1', nombreHoja);
+    excel.delete('Sheet1');
+    
+    Sheet sheet = excel[nombreHoja];
+    
+    // Crear contenido integral completo en una sola hoja
+    await _crearContenidoReporteCompletoIntegral(
+      sheet, titulo, subtitulo, datos, tablas, metadatos
+    );
+
+    // Guardar archivo con nombre específico
+    final String rutaArchivo = await _guardarArchivoExcelEstandar(
+      excel, 
+      'reporte_completo_integral', 
+      directorio
+    );
+    
+    print('✅ [EXCEL-COMPLETO] Reporte integral Excel generado: $rutaArchivo');
+    return rutaArchivo;
+
+  } catch (e) {
+    print('❌ [EXCEL-COMPLETO] Error al generar reporte integral: $e');
+    throw Exception('Error al generar reporte Excel completo: $e');
+  }
+}
+
+/// Crea todo el contenido del reporte completo integral en una sola hoja
+/// Organiza las 5 secciones principales de forma clara y estructurada
+Future<void> _crearContenidoReporteCompletoIntegral(
+  Sheet sheet,
+  String titulo,
+  String subtitulo,
+  Map<String, dynamic> datos,
+  List<Map<String, dynamic>> tablas,
+  Map<String, dynamic> metadatos,
+) async {
+  int filaActual = 0;
+
+  // === ENCABEZADO PRINCIPAL ===
+  filaActual = _crearEncabezadoReporteCompleto(
+    sheet, titulo, subtitulo, metadatos, filaActual
+  );
+  filaActual += 2;
+
+  // === RESUMEN EJECUTIVO CONSOLIDADO ===
+  filaActual = _crearResumenEjecutivoConsolidado(
+    sheet, datos, metadatos, filaActual
+  );
+  filaActual += 3;
+
+  // === SECCIÓN 1: RESUMEN GENERAL Y DISTRIBUCIÓN ===
+  filaActual = _crearSeccionResumenGeneralCompleto(
+    sheet, datos, filaActual
+  );
+  filaActual += 3;
+
+  // === SECCIÓN 2: USO DE VIVIENDA Y TOPOGRAFÍA ===
+  filaActual = _crearSeccionUsoTopografiaCompleto(
+    sheet, datos, filaActual
+  );
+  filaActual += 3;
+
+  // === SECCIÓN 3: MATERIAL DOMINANTE ===
+  filaActual = _crearSeccionMaterialDominanteCompleto(
+    sheet, datos, filaActual
+  );
+  filaActual += 3;
+
+  // === SECCIÓN 4: SISTEMA ESTRUCTURAL ===
+  filaActual = _crearSeccionSistemaEstructuralCompleto(
+    sheet, datos, filaActual
+  );
+  filaActual += 3;
+
+  // === SECCIÓN 5: EVALUACIÓN DE DAÑOS Y RIESGOS ===
+  filaActual = _crearSeccionEvaluacionDanosCompleto(
+    sheet, datos, filaActual
+  );
+  filaActual += 3;
+
+  // === CONCLUSIONES Y RECOMENDACIONES INTEGRALES ===
+  _crearConclusionesIntegralesCompletas(
+    sheet, datos, metadatos, filaActual
+  );
+}
+
+/// Crea encabezado específico para reporte completo
+int _crearEncabezadoReporteCompleto(
+  Sheet sheet,
+  String titulo,
+  String subtitulo,
+  Map<String, dynamic> metadatos,
+  int filaInicial,
+) {
+  int fila = filaInicial;
+
+  // Título principal destacado
+  _setCellValue(sheet, fila, 0, 'REPORTE INTEGRAL DE EVALUACIÓN ESTRUCTURAL');
+  _aplicarEstiloEncabezado(sheet, fila, 0, bold: true, fontSize: 18, backgroundColor: '#1F4E79');
+  fila++;
+
+  // Subtítulo descriptivo
+  _setCellValue(sheet, fila, 0, 'Análisis Multidimensional Completo - 5 Módulos Integrados');
+  _aplicarEstiloEncabezado(sheet, fila, 0, bold: true, fontSize: 14, backgroundColor: '#2F5F8F');
+  fila++;
+
+  // Información de contexto
+  String fechaGeneracion = DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now());
+  _setCellValue(sheet, fila, 0, 'Generado: $fechaGeneracion | Formatos: ${metadatos['totalFormatos']} | Período: ${metadatos['periodoEvaluacion'] ?? 'No especificado'}');
+  _aplicarEstiloEncabezado(sheet, fila, 0, fontSize: 10, backgroundColor: '#E7E6E6');
+  fila++;
+
+  return fila;
+}
+
+/// Crea resumen ejecutivo consolidado con indicadores clave
+int _crearResumenEjecutivoConsolidado(
+  Sheet sheet,
+  Map<String, dynamic> datos,
+  Map<String, dynamic> metadatos,
+  int filaInicial,
+) {
+  int fila = filaInicial;
+
+  // Título de sección
+  _setCellValue(sheet, fila, 0, 'RESUMEN EJECUTIVO CONSOLIDADO');
+  _aplicarEstiloSeccion(sheet, fila, 0);
+  fila++;
+
+  final int totalFormatos = metadatos['totalFormatos'] ?? 0;
+
+  // Calcular indicadores clave de todas las secciones
+  
+  // Del resumen general
+  int ciudadesCubiertas = 0;
+  if (datos['resumenGeneral']?['distribucionGeografica']?['ciudades'] != null) {
+    ciudadesCubiertas = datos['resumenGeneral']['distribucionGeografica']['ciudades'].length;
+  }
+
+  // Del material dominante
+  String materialPredominante = 'No determinado';
+  if (datos['materialDominante']?['conteoMateriales'] != null) {
+    final materiales = Map<String, int>.from(datos['materialDominante']['conteoMateriales']);
+    if (materiales.isNotEmpty) {
+      final entry = materiales.entries.where((e) => e.value > 0).fold<MapEntry<String, int>?>(
+        null, (prev, curr) => prev == null || curr.value > prev.value ? curr : prev);
+      if (entry != null) materialPredominante = entry.key;
+    }
+  }
+
+  // De evaluación de daños
+  int inmueblesSinDano = 0;
+  int inmueblesRiesgoAlto = 0;
+  if (datos['evaluacionDanos']?['resumenRiesgos'] != null) {
+    final riesgos = datos['evaluacionDanos']['resumenRiesgos'];
+    inmueblesRiesgoAlto = riesgos['riesgoAlto'] ?? 0;
+    inmueblesSinDano = (totalFormatos - (riesgos['riesgoAlto'] ?? 0) - (riesgos['riesgoMedio'] ?? 0) - (riesgos['riesgoBajo'] ?? 0)).toInt();
+  }
+
+  // Encabezados
+  _setCellValue(sheet, fila, 0, 'Indicador Clave');
+  _setCellValue(sheet, fila, 1, 'Valor');
+  _setCellValue(sheet, fila, 2, 'Interpretación');
+  _setCellValue(sheet, fila, 3, 'Estado');
+  _aplicarEstiloTablaHeader(sheet, fila, 0, 4, '#FFB366');
+  fila++;
+
+  // Indicadores consolidados
+  final List<List<String>> indicadores = [
+    ['Inmuebles evaluados', '$totalFormatos', 'Muestra total analizada', 'Completo'],
+    ['Cobertura geográfica', '$ciudadesCubiertas ciudades', 'Distribución territorial', ciudadesCubiertas > 3 ? 'Amplia' : 'Limitada'],
+    ['Material predominante', materialPredominante, 'Patrón constructivo principal', materialPredominante == 'Concreto' ? 'Resistente' : 'Revisar'],
+    ['Inmuebles riesgo alto', '$inmueblesRiesgoAlto', 'Requieren intervención inmediata', inmueblesRiesgoAlto > 0 ? 'Crítico' : 'Estable'],
+    ['Tasa de seguridad', '${((inmueblesSinDano / totalFormatos) * 100).toStringAsFixed(1)}%', 'Inmuebles sin daños aparentes', inmueblesSinDano > (totalFormatos * 0.7) ? 'Buena' : 'Preocupante'],
+  ];
+
+  for (int i = 0; i < indicadores.length; i++) {
+    var indicador = indicadores[i];
+    _setCellValue(sheet, fila, 0, indicador[0]);
+    _setCellValue(sheet, fila, 1, indicador[1]);
+    _setCellValue(sheet, fila, 2, indicador[2]);
+    _setCellValue(sheet, fila, 3, indicador[3]);
+    
+    // Color por estado
+    String bgColor = '#FFFFFF';
+    if (indicador[3] == 'Crítico' || indicador[3] == 'Preocupante') {
+      bgColor = '#FFE8E8';
+    } else if (indicador[3] == 'Buena' || indicador[3] == 'Amplia') {
+      bgColor = '#E8F5E8';
+    } else if (indicador[3] == 'Revisar') {
+      bgColor = '#FFF2CC';
+    } else {
+      bgColor = fila % 2 == 0 ? '#F2F2F2' : '#FFFFFF';
+    }
+    
+    _aplicarEstiloFila(sheet, fila, 0, 4, bgColor);
+    fila++;
+  }
+
+  return fila;
+}
+
+/// Crea sección consolidada de resumen general
+int _crearSeccionResumenGeneralCompleto(
+  Sheet sheet,
+  Map<String, dynamic> datos,
+  int filaInicial,
+) {
+  int fila = filaInicial;
+
+  // Título de sección con número
+  _setCellValue(sheet, fila, 0, '1. RESUMEN GENERAL Y DISTRIBUCIÓN TERRITORIAL');
+  _aplicarEstiloSeccion(sheet, fila, 0);
+  fila++;
+
+  // Verificar datos
+  if (!datos.containsKey('resumenGeneral')) {
+    _setCellValue(sheet, fila, 0, 'Datos de resumen general no disponibles');
+    return fila + 1;
+  }
+
+  // Distribución por ciudades (top 5)
+  final distribucionGeo = datos['resumenGeneral']['distribucionGeografica'];
+  if (distribucionGeo['ciudades'] != null && distribucionGeo['ciudades'].isNotEmpty) {
+    Map<String, int> ciudades = Map<String, int>.from(distribucionGeo['ciudades']);
+    
+    _setCellValue(sheet, fila, 0, 'TOP 5 CIUDADES CON MÁS EVALUACIONES');
+    _aplicarEstilo(sheet, fila, 0, bold: true, backgroundColor: '#E2EFDA');
+    fila++;
+
+    // Encabezados
+    _setCellValue(sheet, fila, 0, 'Ciudad');
+    _setCellValue(sheet, fila, 1, 'Evaluaciones');
+    _setCellValue(sheet, fila, 2, 'Porcentaje');
+    _aplicarEstiloTablaHeader(sheet, fila, 0, 3, '#9BC2E6');
+    fila++;
+
+    var ciudadesTop = ciudades.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    ciudadesTop = ciudadesTop.take(5).toList();
+
+    int totalCiudades = ciudades.values.fold(0, (sum, val) => sum + val);
+
+    for (var entry in ciudadesTop) {
+      double porcentaje = totalCiudades > 0 ? (entry.value / totalCiudades) * 100 : 0;
+      _setCellValue(sheet, fila, 0, entry.key);
+      _setCellValue(sheet, fila, 1, entry.value.toString());
+      _setCellValue(sheet, fila, 2, '${porcentaje.toStringAsFixed(1)}%');
+      _aplicarEstiloFila(sheet, fila, 0, 3, fila % 2 == 0 ? '#F2F2F2' : '#FFFFFF');
+      fila++;
+    }
+  }
+
+  return fila;
+}
+
+/// Crea sección consolidada de uso y topografía
+int _crearSeccionUsoTopografiaCompleto(
+  Sheet sheet,
+  Map<String, dynamic> datos,
+  int filaInicial,
+) {
+  int fila = filaInicial;
+
+  // Título de sección
+  _setCellValue(sheet, fila, 0, '2. USO DE VIVIENDA Y CARACTERÍSTICAS TOPOGRÁFICAS');
+  _aplicarEstiloSeccion(sheet, fila, 0);
+  fila++;
+
+  if (!datos.containsKey('usoTopografia')) {
+    _setCellValue(sheet, fila, 0, 'Datos de uso y topografía no disponibles');
+    return fila + 1;
+  }
+
+  // Top 3 usos más comunes
+  if (datos['usoTopografia']['usosVivienda']?['estadisticas'] != null) {
+    _setCellValue(sheet, fila, 0, 'TOP 3 USOS MÁS FRECUENTES');
+    _aplicarEstilo(sheet, fila, 0, bold: true, backgroundColor: '#E2EFDA');
+    fila++;
+
+    final usos = Map<String, dynamic>.from(datos['usoTopografia']['usosVivienda']['estadisticas']);
+    var usosOrdenados = usos.entries
+        .where((e) => e.value['conteo'] > 0)
+        .toList()
+      ..sort((a, b) => b.value['conteo'].compareTo(a.value['conteo']));
+
+    for (int i = 0; i < 3 && i < usosOrdenados.length; i++) {
+      var entry = usosOrdenados[i];
+      _setCellValue(sheet, fila, 0, '${i + 1}. ${entry.key}');
+      _setCellValue(sheet, fila, 1, '${entry.value['conteo']} inmuebles');
+      _aplicarEstiloFila(sheet, fila, 0, 2, '#F9F9F9');
+      fila++;
+    }
+  }
+
+  fila++; // Espaciado
+
+  // Top 3 topografías más comunes
+  if (datos['usoTopografia']['topografia']?['estadisticas'] != null) {
+    _setCellValue(sheet, fila, 0, 'TOP 3 TOPOGRAFÍAS MÁS FRECUENTES');
+    _aplicarEstilo(sheet, fila, 0, bold: true, backgroundColor: '#E2EFDA');
+    fila++;
+
+    final topografia = Map<String, dynamic>.from(datos['usoTopografia']['topografia']['estadisticas']);
+    var topoOrdenada = topografia.entries
+        .where((e) => e.value['conteo'] > 0)
+        .toList()
+      ..sort((a, b) => b.value['conteo'].compareTo(a.value['conteo']));
+
+    for (int i = 0; i < 3 && i < topoOrdenada.length; i++) {
+      var entry = topoOrdenada[i];
+      _setCellValue(sheet, fila, 0, '${i + 1}. ${entry.key}');
+      _setCellValue(sheet, fila, 1, '${entry.value['conteo']} inmuebles');
+      _aplicarEstiloFila(sheet, fila, 0, 2, '#F9F9F9');
+      fila++;
+    }
+  }
+
+  return fila;
+}
+
+/// Crea sección consolidada de material dominante
+int _crearSeccionMaterialDominanteCompleto(
+  Sheet sheet,
+  Map<String, dynamic> datos,
+  int filaInicial,
+) {
+  int fila = filaInicial;
+
+  // Título de sección
+  _setCellValue(sheet, fila, 0, '3. MATERIALES DOMINANTES DE CONSTRUCCIÓN');
+  _aplicarEstiloSeccion(sheet, fila, 0);
+  fila++;
+
+  if (!datos.containsKey('materialDominante')) {
+    _setCellValue(sheet, fila, 0, 'Datos de material dominante no disponibles');
+    return fila + 1;
+  }
+
+  // Distribución de materiales
+  final materiales = Map<String, int>.from(datos['materialDominante']['conteoMateriales'] ?? {});
+  if (materiales.isNotEmpty) {
+    _setCellValue(sheet, fila, 0, 'DISTRIBUCIÓN DE MATERIALES CONSTRUCTIVOS');
+    _aplicarEstilo(sheet, fila, 0, bold: true, backgroundColor: '#E2EFDA');
+    fila++;
+
+    // Encabezados
+    _setCellValue(sheet, fila, 0, 'Material');
+    _setCellValue(sheet, fila, 1, 'Cantidad');
+    _setCellValue(sheet, fila, 2, 'Resistencia');
+    _aplicarEstiloTablaHeader(sheet, fila, 0, 3, '#C6E0B4');
+    fila++;
+
+    // Clasificación de resistencia
+    Map<String, String> resistenciaMateriales = {
+      'Concreto': 'Alta',
+      'Ladrillo': 'Media-Alta',
+      'Adobe': 'Baja',
+      'Madera/Lámina/Otros': 'Variable',
+      'No determinado': 'Desconocida',
+    };
+
+    var materialesOrdenados = materiales.entries
+        .where((e) => e.value > 0)
+        .toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+
+    for (var entry in materialesOrdenados) {
+      String resistencia = resistenciaMateriales[entry.key] ?? 'No especificada';
+      _setCellValue(sheet, fila, 0, entry.key);
+      _setCellValue(sheet, fila, 1, entry.value.toString());
+      _setCellValue(sheet, fila, 2, resistencia);
+      
+      String bgColor = '#FFFFFF';
+      if (resistencia == 'Alta') bgColor = '#E8F5E8';
+      else if (resistencia == 'Baja') bgColor = '#FFE8E8';
+      else if (resistencia == 'Desconocida') bgColor = '#FFF2CC';
+      
+      _aplicarEstiloFila(sheet, fila, 0, 3, bgColor);
+      fila++;
+    }
+  }
+
+  return fila;
+}
+
+/// Crea sección consolidada de sistema estructural
+int _crearSeccionSistemaEstructuralCompleto(
+  Sheet sheet,
+  Map<String, dynamic> datos,
+  int filaInicial,
+) {
+  int fila = filaInicial;
+
+  // Título de sección
+  _setCellValue(sheet, fila, 0, '4. SISTEMAS ESTRUCTURALES PREDOMINANTES');
+  _aplicarEstiloSeccion(sheet, fila, 0);
+  fila++;
+
+  if (!datos.containsKey('sistemaEstructural')) {
+    _setCellValue(sheet, fila, 0, 'Datos de sistema estructural no disponibles');
+    return fila + 1;
+  }
+
+  // Elementos más comunes por categoría (top 2 de cada una)
+  final categorias = ['direccionX', 'direccionY', 'murosMamposteria', 'cimentacion'];
+  final nombresCategoria = ['Dirección X', 'Dirección Y', 'Muros Mampostería', 'Cimentación'];
+
+  for (int catIndex = 0; catIndex < categorias.length; catIndex++) {
+    String categoria = categorias[catIndex];
+    String nombreCategoria = nombresCategoria[catIndex];
+
+    if (datos['sistemaEstructural']['estadisticas']?[categoria] != null) {
+      _setCellValue(sheet, fila, 0, 'TOP 2 EN $nombreCategoria');
+      _aplicarEstilo(sheet, fila, 0, bold: true, backgroundColor: '#F4B183');
+      fila++;
+
+      final elementos = Map<String, dynamic>.from(datos['sistemaEstructural']['estadisticas'][categoria]);
+      var elementosOrdenados = elementos.entries
+          .where((e) => e.value['conteo'] > 0)
+          .toList()
+        ..sort((a, b) => b.value['conteo'].compareTo(a.value['conteo']));
+
+      for (int i = 0; i < 2 && i < elementosOrdenados.length; i++) {
+        var entry = elementosOrdenados[i];
+        _setCellValue(sheet, fila, 0, '${i + 1}. ${entry.key}');
+        _setCellValue(sheet, fila, 1, '${entry.value['conteo']} casos');
+        _aplicarEstiloFila(sheet, fila, 0, 2, '#FFF2E6');
+        fila++;
+      }
+
+      fila++; // Espaciado entre categorías
+    }
+  }
+
+  return fila;
+}
+
+/// Crea sección consolidada de evaluación de daños
+int _crearSeccionEvaluacionDanosCompleto(
+  Sheet sheet,
+  Map<String, dynamic> datos,
+  int filaInicial,
+) {
+  int fila = filaInicial;
+
+  // Título de sección
+  _setCellValue(sheet, fila, 0, '5. EVALUACIÓN DE DAÑOS Y ANÁLISIS DE RIESGOS');
+  _aplicarEstiloSeccion(sheet, fila, 0);
+  fila++;
+
+  if (!datos.containsKey('evaluacionDanos')) {
+    _setCellValue(sheet, fila, 0, 'Datos de evaluación de daños no disponibles');
+    return fila + 1;
+  }
+
+  // Resumen de riesgos
+  if (datos['evaluacionDanos']['resumenRiesgos'] != null) {
+    _setCellValue(sheet, fila, 0, 'DISTRIBUCIÓN DE NIVELES DE RIESGO');
+    _aplicarEstilo(sheet, fila, 0, bold: true, backgroundColor: '#E2EFDA');
+    fila++;
+
+    final riesgos = datos['evaluacionDanos']['resumenRiesgos'];
+    
+    // Encabezados
+    _setCellValue(sheet, fila, 0, 'Nivel de Riesgo');
+    _setCellValue(sheet, fila, 1, 'Cantidad');
+    _setCellValue(sheet, fila, 2, 'Urgencia');
+    _aplicarEstiloTablaHeader(sheet, fila, 0, 3, '#F4CCCC');
+    fila++;
+
+    // Datos de riesgo
+    final List<List<dynamic>> datosRiesgo = [
+      ['Riesgo Alto', riesgos['riesgoAlto'] ?? 0, 'Intervención inmediata', '#FFE8E8'],
+      ['Riesgo Medio', riesgos['riesgoMedio'] ?? 0, 'Refuerzo a mediano plazo', '#FFF2CC'],
+      ['Riesgo Bajo', riesgos['riesgoBajo'] ?? 0, 'Monitoreo preventivo', '#E8F5E8'],
+    ];
+
+    for (var riesgo in datosRiesgo) {
+      _setCellValue(sheet, fila, 0, riesgo[0].toString());
+      _setCellValue(sheet, fila, 1, riesgo[1].toString());
+      _setCellValue(sheet, fila, 2, riesgo[2].toString());
+      _aplicarEstiloFila(sheet, fila, 0, 3, riesgo[3].toString());
+      fila++;
+    }
+  }
+
+  fila++; // Espaciado
+
+  // Nivel de daño más crítico
+  if (datos['evaluacionDanos']['estadisticas']?['nivelDano'] != null) {
+    _setCellValue(sheet, fila, 0, 'CASOS CRÍTICOS IDENTIFICADOS');
+    _aplicarEstilo(sheet, fila, 0, bold: true, backgroundColor: '#FFE2CC');
+    fila++;
+
+    final nivelesDano = Map<String, dynamic>.from(datos['evaluacionDanos']['estadisticas']['nivelDano']);
+    int colapsoTotal = nivelesDano['Colapso total']?['conteo'] ?? 0;
+    int danoSevero = nivelesDano['Daño severo']?['conteo'] ?? 0;
+    
+    if (colapsoTotal > 0 || danoSevero > 0) {
+      _setCellValue(sheet, fila, 0, '⚠️ Colapso total: $colapsoTotal inmuebles');
+      _aplicarEstiloFila(sheet, fila, 0, 1, '#FFE8E8');
+      fila++;
+      _setCellValue(sheet, fila, 0, '⚠️ Daño severo: $danoSevero inmuebles');
+      _aplicarEstiloFila(sheet, fila, 0, 1, '#FFE8E8');
+      fila++;
+    } else {
+      _setCellValue(sheet, fila, 0, '✅ No se detectaron casos críticos');
+      _aplicarEstiloFila(sheet, fila, 0, 1, '#E8F5E8');
+      fila++;
+    }
+  }
+
+  return fila;
+}
+
+/// Crea conclusiones y recomendaciones integrales finales
+void _crearConclusionesIntegralesCompletas(
+  Sheet sheet,
+  Map<String, dynamic> datos,
+  Map<String, dynamic> metadatos,
+  int filaInicial,
+) {
+  int fila = filaInicial;
+
+  // Título de sección
+  _setCellValue(sheet, fila, 0, 'CONCLUSIONES Y RECOMENDACIONES INTEGRALES');
+  _aplicarEstiloSeccion(sheet, fila, 0);
+  fila++;
+
+  // Análisis integral de prioridades
+  _setCellValue(sheet, fila, 0, 'MATRIZ DE PRIORIDADES INTEGRALES');
+  _aplicarEstilo(sheet, fila, 0, bold: true, backgroundColor: '#D9E2F3');
+  fila++;
+
+  // Calcular prioridades basadas en todos los datos
+  int inmueblesCriticos = 0;
+  int inmueblesVulnerables = 0;
+  int inmueblesSeguros = 0;
+
+  // De evaluación de daños
+  if (datos['evaluacionDanos']?['resumenRiesgos'] != null) {
+    final riesgos = datos['evaluacionDanos']['resumenRiesgos'];
+    inmueblesCriticos = (riesgos['riesgoAlto'] ?? 0);
+    inmueblesVulnerables = (riesgos['riesgoMedio'] ?? 0);
+    inmueblesSeguros = (riesgos['riesgoBajo'] ?? 0);
+  }
+
+  // De material dominante
+  int materialesVulnerables = 0;
+  if (datos['materialDominante']?['conteoMateriales'] != null) {
+    final materiales = Map<String, int>.from(datos['materialDominante']['conteoMateriales']);
+    materialesVulnerables = (materiales['Adobe'] ?? 0) + (materiales['Madera/Lámina/Otros'] ?? 0);
+  }
+
+  final int totalFormatos = metadatos['totalFormatos'] ?? 0;
+
+  // Recomendaciones por prioridad
+  final List<List<String>> recomendaciones = [
+    ['PRIORIDAD CRÍTICA', '$inmueblesCriticos inmuebles', 'Evacuación y refuerzo inmediato'],
+    ['PRIORIDAD ALTA', '$materialesVulnerables inmuebles', 'Programa de refuerzo estructural'],
+    ['PRIORIDAD MEDIA', '$inmueblesVulnerables inmuebles', 'Monitoreo y mejoras graduales'],
+    ['MANTENIMIENTO', '$inmueblesSeguros inmuebles', 'Mantenimiento preventivo'],
+  ];
+
+  // Encabezados
+  _setCellValue(sheet, fila, 0, 'Nivel de Prioridad');
+  _setCellValue(sheet, fila, 1, 'Afectados');
+  _setCellValue(sheet, fila, 2, 'Acción Recomendada');
+  _aplicarEstiloTablaHeader(sheet, fila, 0, 3, '#B4C6E7');
+  fila++;
+
+  // Escribir recomendaciones con colores por prioridad
+  final List<String> coloresPrioridad = ['#FFE8E8', '#FFF2CC', '#FFF2E6', '#E8F5E8'];
+  
+  for (int i = 0; i < recomendaciones.length; i++) {
+    var recomendacion = recomendaciones[i];
+    _setCellValue(sheet, fila, 0, recomendacion[0]);
+    _setCellValue(sheet, fila, 1, recomendacion[1]);
+    _setCellValue(sheet, fila, 2, recomendacion[2]);
+    _aplicarEstiloFila(sheet, fila, 0, 3, coloresPrioridad[i]);
+    fila++;
+  }
+
+  fila += 2; // Espaciado
+
+  // Conclusión ejecutiva final
+  _setCellValue(sheet, fila, 0, 'CONCLUSIÓN EJECUTIVA INTEGRAL');
+  _aplicarEstilo(sheet, fila, 0, bold: true, backgroundColor: '#E7E6E6');
+  fila++;
+
+  // Generar conclusión basada en todos los datos
+  String conclusion = _generarConclusionIntegral(datos, metadatos, inmueblesCriticos, materialesVulnerables, totalFormatos);
+  
+  _setCellValue(sheet, fila, 0, conclusion);
+  _aplicarEstilo(sheet, fila, 0, backgroundColor: '#F9F9F9');
+  fila++;
+
+  fila++; // Espaciado final
+
+  // Firma y validación
+  _setCellValue(sheet, fila, 0, 'Reporte generado automáticamente por CENApp - Sistema de Evaluación Estructural');
+  _aplicarEstilo(sheet, fila, 0, backgroundColor: '#E7E6E6');
+  _setCellValue(sheet, fila, 1, DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now()));
+  _aplicarEstilo(sheet, fila, 1, backgroundColor: '#E7E6E6');
+}
+
+/// Genera conclusión integral basada en todos los módulos analizados
+String _generarConclusionIntegral(
+  Map<String, dynamic> datos, 
+  Map<String, dynamic> metadatos,
+  int inmueblesCriticos,
+  int materialesVulnerables,
+  int totalFormatos,
+) {
+  StringBuffer conclusion = StringBuffer();
+  
+  conclusion.write('Análisis integral de $totalFormatos inmuebles completado. ');
+  
+  // Evaluación general de riesgo
+  double porcentajeCritico = totalFormatos > 0 ? (inmueblesCriticos / totalFormatos) * 100 : 0;
+  double porcentajeVulnerable = totalFormatos > 0 ? (materialesVulnerables / totalFormatos) * 100 : 0;
+  
+  if (porcentajeCritico > 10) {
+    conclusion.write('ALERTA: ${porcentajeCritico.toStringAsFixed(1)}% de inmuebles en riesgo crítico requieren intervención inmediata. ');
+  } else if (porcentajeCritico > 0) {
+    conclusion.write('Se identificaron $inmueblesCriticos inmuebles en riesgo crítico que requieren atención prioritaria. ');
+  } else {
+    conclusion.write('Situación general estable sin casos críticos identificados. ');
+  }
+  
+  if (porcentajeVulnerable > 30) {
+    conclusion.write('El ${porcentajeVulnerable.toStringAsFixed(1)}% de inmuebles presenta materiales vulnerables que requieren programa de refuerzo. ');
+  }
+  
+  // Material predominante
+  if (datos['materialDominante']?['conteoMateriales'] != null) {
+    final materiales = Map<String, int>.from(datos['materialDominante']['conteoMateriales']);
+    if (materiales.isNotEmpty) {
+      final materialPrincipal = materiales.entries
+          .where((e) => e.value > 0)
+          .fold<MapEntry<String, int>?>(null, (prev, curr) => prev == null || curr.value > prev.value ? curr : prev);
+      if (materialPrincipal != null) {
+        conclusion.write('Material predominante: ${materialPrincipal.key}. ');
+      }
+    }
+  }
+  
+  conclusion.write('Se recomienda implementar las acciones prioritarias identificadas para optimizar la seguridad estructural regional.');
+  
+  return conclusion.toString();
+}
+
+
+
+
+  Future<String> generarReporteEvaluacionDanosExcel({
+  required String titulo,
+  required String subtitulo,
+  required Map<String, dynamic> datos,
+  required List<Map<String, dynamic>> tablas,
+  required Map<String, dynamic> metadatos,
+  Directory? directorio,
+}) async {
+  try {
+    print('📊 [EXCEL-DAÑOS] Iniciando generación de reporte Excel: $titulo');
+
+    // Crear nuevo libro de Excel usando la librería excel
+    var excel = Excel.createExcel();
+    
+    // Eliminar hoja por defecto
+    excel.delete('Sheet1');
+    
+    // Crear hoja única con todo el contenido
+    String nombreHoja = 'Evaluación de Daños';
+    excel.copy('Sheet1', nombreHoja);
+    excel.delete('Sheet1');
+    
+    Sheet sheet = excel[nombreHoja];
+    
+    // Crear contenido completo en una sola hoja
+    await _crearContenidoEvaluacionDanosCompleto(sheet, titulo, subtitulo, datos, tablas, metadatos);
+
+    // Guardar archivo
+    final String rutaArchivo = await _guardarArchivoExcelEstandar(
+      excel, 
+      titulo, 
+      directorio
+    );
+    
+    print('✅ [EXCEL-DAÑOS] Reporte Excel generado exitosamente: $rutaArchivo');
+    return rutaArchivo;
+
+  } catch (e) {
+    print('❌ [EXCEL-DAÑOS] Error al generar reporte Excel: $e');
+    throw Exception('Error al generar reporte Excel de evaluación de daños: $e');
+  }
+}
+
+/// Crea todo el contenido del reporte de evaluación de daños en una sola hoja
+Future<void> _crearContenidoEvaluacionDanosCompleto(
+  Sheet sheet,
+  String titulo,
+  String subtitulo,
+  Map<String, dynamic> datos,
+  List<Map<String, dynamic>> tablas,
+  Map<String, dynamic> metadatos,
+) async {
+  int filaActual = 0;
+
+  // === SECCIÓN 1: ENCABEZADO ===
+  filaActual = _crearEncabezadoUsoTopografia(sheet, titulo, subtitulo, metadatos, filaActual);
+  filaActual += 2;
+
+  // === SECCIÓN 2: FILTROS APLICADOS ===
+  filaActual = _crearSeccionFiltrosUsoTopografia(sheet, metadatos, filaActual);
+  filaActual += 2;
+
+  // === SECCIÓN 3: RESUMEN DE RIESGOS ===
+  filaActual = _crearResumenRiesgosGenerales(sheet, datos, metadatos, filaActual);
+  filaActual += 2;
+
+  // === SECCIÓN 4: ANÁLISIS GEOTÉCNICO ===
+  filaActual = _crearAnalisisGeotecnico(sheet, datos, filaActual);
+  filaActual += 2;
+
+  // === SECCIÓN 5: EVALUACIÓN DE SISTEMAS ESTRUCTURALES ===
+  filaActual = _crearEvaluacionSistemasEstructurales(sheet, datos, filaActual);
+  filaActual += 2;
+
+  // === SECCIÓN 6: CLASIFICACIÓN POR NIVEL DE DAÑO ===
+  filaActual = _crearClasificacionNivelDano(sheet, datos, filaActual);
+  filaActual += 2;
+
+  // === SECCIÓN 7: RECOMENDACIONES DE INTERVENCIÓN ===
+  _crearRecomendacionesIntervencion(sheet, datos, metadatos, filaActual);
+}
+
+/// Crea resumen de riesgos generales
+int _crearResumenRiesgosGenerales(
+  Sheet sheet,
+  Map<String, dynamic> datos,
+  Map<String, dynamic> metadatos,
+  int filaInicial,
+) {
+  int fila = filaInicial;
+
+  // Título de sección
+  _setCellValue(sheet, fila, 0, 'RESUMEN DE RIESGOS GENERALES');
+  _aplicarEstiloSeccion(sheet, fila, 0);
+  fila++;
+
+  final int totalFormatos = metadatos['totalFormatos'] ?? 0;
+
+  // Extraer datos de resumen de riesgos
+  Map<String, dynamic> resumenRiesgos = {};
+  if (datos.containsKey('resumenRiesgos')) {
+    resumenRiesgos = Map<String, dynamic>.from(datos['resumenRiesgos']);
+  }
+
+  int riesgoAlto = resumenRiesgos['riesgoAlto'] ?? 0;
+  int riesgoMedio = resumenRiesgos['riesgoMedio'] ?? 0;
+  int riesgoBajo = resumenRiesgos['riesgoBajo'] ?? 0;
+
+  // Encabezados de tabla
+  _setCellValue(sheet, fila, 0, 'Nivel de Riesgo');
+  _setCellValue(sheet, fila, 1, 'Cantidad');
+  _setCellValue(sheet, fila, 2, 'Porcentaje');
+  _setCellValue(sheet, fila, 3, 'Prioridad de Intervención');
+  _aplicarEstiloTablaHeader(sheet, fila, 0, 4, '#FF6B6B');
+  fila++;
+
+  // Calcular porcentajes
+  double porcentajeAlto = totalFormatos > 0 ? (riesgoAlto / totalFormatos) * 100 : 0;
+  double porcentajeMedio = totalFormatos > 0 ? (riesgoMedio / totalFormatos) * 100 : 0;
+  double porcentajeBajo = totalFormatos > 0 ? (riesgoBajo / totalFormatos) * 100 : 0;
+
+  // Datos de riesgos con colores específicos
+  final List<List<dynamic>> datosRiesgos = [
+    ['RIESGO ALTO', riesgoAlto, '${porcentajeAlto.toStringAsFixed(1)}%', 'INMEDIATA', '#FFE8E8'],
+    ['RIESGO MEDIO', riesgoMedio, '${porcentajeMedio.toStringAsFixed(1)}%', 'URGENTE', '#FFF2CC'],
+    ['RIESGO BAJO', riesgoBajo, '${porcentajeBajo.toStringAsFixed(1)}%', 'PROGRAMADA', '#E8F5E8'],
+  ];
+
+  for (var datosRiesgo in datosRiesgos) {
+    _setCellValue(sheet, fila, 0, datosRiesgo[0]);
+    _setCellValue(sheet, fila, 1, datosRiesgo[1].toString());
+    _setCellValue(sheet, fila, 2, datosRiesgo[2]);
+    _setCellValue(sheet, fila, 3, datosRiesgo[3]);
+    
+    _aplicarEstiloFila(sheet, fila, 0, 4, datosRiesgo[4]);
+    fila++;
+  }
+
+  // Total
+  _setCellValue(sheet, fila, 0, 'TOTAL EVALUADO');
+  _setCellValue(sheet, fila, 1, totalFormatos.toString());
+  _setCellValue(sheet, fila, 2, '100%');
+  _setCellValue(sheet, fila, 3, 'Base de análisis');
+  _aplicarEstiloTablaHeader(sheet, fila, 0, 4, '#D9E2F3');
+  fila++;
+
+  return fila;
+}
+
+/// Crea análisis geotécnico detallado
+int _crearAnalisisGeotecnico(
+  Sheet sheet,
+  Map<String, dynamic> datos,
+  int filaInicial,
+) {
+  int fila = filaInicial;
+
+  // Título de sección
+  _setCellValue(sheet, fila, 0, 'ANÁLISIS GEOTÉCNICO Y CIMENTACIÓN');
+  _aplicarEstiloSeccion(sheet, fila, 0);
+  fila++;
+
+  // Verificar si hay datos geotécnicos
+  if (!datos.containsKey('estadisticas') || 
+      !datos['estadisticas'].containsKey('geotecnicos')) {
+    _setCellValue(sheet, fila, 0, 'No hay datos geotécnicos disponibles');
+    return fila + 1;
+  }
+
+  Map<String, dynamic> geotecnicos = datos['estadisticas']['geotecnicos'];
+
+  // Encabezados
+  _setCellValue(sheet, fila, 0, 'Problema Geotécnico');
+  _setCellValue(sheet, fila, 1, 'Inmuebles Afectados');
+  _setCellValue(sheet, fila, 2, 'Porcentaje');
+  _setCellValue(sheet, fila, 3, 'Nivel de Gravedad');
+  _setCellValue(sheet, fila, 4, 'Acción Recomendada');
+  _aplicarEstiloTablaHeader(sheet, fila, 0, 5, '#8B4513');
+  fila++;
+
+  // Mapeo de gravedad y acciones
+  Map<String, Map<String, String>> accionesGeotecnicas = {
+    'Grietas en el terreno': {
+      'gravedad': 'ALTA',
+      'accion': 'Estudio geotécnico especializado'
+    },
+    'Hundimientos': {
+      'gravedad': 'CRÍTICA',
+      'accion': 'Evaluación estructural inmediata'
+    },
+    'Inclinación del edificio': {
+      'gravedad': 'CRÍTICA',
+      'accion': 'Evacuación y refuerzo urgente'
+    },
+  };
+
+  // Procesar datos geotécnicos
+  geotecnicos.forEach((problema, stats) {
+    int conteo = stats['conteo'] ?? 0;
+    double porcentaje = stats['porcentaje'] ?? 0;
+    
+    if (conteo > 0) {
+      var info = accionesGeotecnicas[problema] ?? {
+        'gravedad': 'MEDIA',
+        'accion': 'Evaluación específica requerida'
+      };
+
+      _setCellValue(sheet, fila, 0, problema);
+      _setCellValue(sheet, fila, 1, conteo.toString());
+      _setCellValue(sheet, fila, 2, '${porcentaje.toStringAsFixed(1)}%');
+      _setCellValue(sheet, fila, 3, info['gravedad']!);
+      _setCellValue(sheet, fila, 4, info['accion']!);
+      
+      // Color según gravedad
+      String bgColor = '#FFFFFF';
+      if (info['gravedad'] == 'CRÍTICA') bgColor = '#FFE8E8';
+      else if (info['gravedad'] == 'ALTA') bgColor = '#FFF2CC';
+      else bgColor = fila % 2 == 0 ? '#F2F2F2' : '#FFFFFF';
+      
+      _aplicarEstiloFila(sheet, fila, 0, 5, bgColor);
+      fila++;
+    }
+  });
+
+  return fila;
+}
+
+/// Crea evaluación de sistemas estructurales
+int _crearEvaluacionSistemasEstructurales(
+  Sheet sheet,
+  Map<String, dynamic> datos,
+  int filaInicial,
+) {
+  int fila = filaInicial;
+
+  // Título de sección
+  _setCellValue(sheet, fila, 0, 'EVALUACIÓN DE SISTEMAS ESTRUCTURALES');
+  _aplicarEstiloSeccion(sheet, fila, 0);
+  fila++;
+
+  // Categorías a evaluar
+  final List<Map<String, String>> categorias = [
+    {'id': 'sistemaEstructuralDeficiente', 'titulo': 'Calidad Estructural'},
+    {'id': 'techoPesado', 'titulo': 'Sistema de Techo'},
+    {'id': 'murosDelgados', 'titulo': 'Refuerzo en Muros'},
+    {'id': 'irregularidadPlanta', 'titulo': 'Geometría en Planta'},
+    {'id': 'losas', 'titulo': 'Condición de Losas'},
+  ];
+
+  // Encabezados
+  _setCellValue(sheet, fila, 0, 'Sistema Evaluado');
+  _setCellValue(sheet, fila, 1, 'Condición Principal');
+  _setCellValue(sheet, fila, 2, 'Cantidad');
+  _setCellValue(sheet, fila, 3, 'Porcentaje');
+  _setCellValue(sheet, fila, 4, 'Recomendación');
+  _aplicarEstiloTablaHeader(sheet, fila, 0, 5, '#4472C4');
+  fila++;
+
+  // Procesar cada categoría
+  for (var categoria in categorias) {
+    String id = categoria['id']!;
+    String titulo = categoria['titulo']!;
+    
+    if (datos['estadisticas'].containsKey(id)) {
+      Map<String, dynamic> estadisticasCategoria = datos['estadisticas'][id];
+      
+      // Encontrar la condición predominante
+      String condicionPrincipal = 'No determinada';
+      int maxConteo = 0;
+      double maxPorcentaje = 0;
+      
+      estadisticasCategoria.forEach((condicion, stats) {
+        int conteo = stats['conteo'] ?? 0;
+        if (conteo > maxConteo) {
+          maxConteo = conteo;
+          maxPorcentaje = stats['porcentaje'] ?? 0;
+          condicionPrincipal = condicion;
+        }
+      });
+      
+      // Generar recomendación
+      String recomendacion = _generarRecomendacionSistema(id, condicionPrincipal);
+      
+      _setCellValue(sheet, fila, 0, titulo);
+      _setCellValue(sheet, fila, 1, condicionPrincipal);
+      _setCellValue(sheet, fila, 2, maxConteo.toString());
+      _setCellValue(sheet, fila, 3, '${maxPorcentaje.toStringAsFixed(1)}%');
+      _setCellValue(sheet, fila, 4, recomendacion);
+      
+      // Color según riesgo implícito
+      String bgColor = _obtenerColorRiesgoSistema(id, condicionPrincipal);
+      _aplicarEstiloFila(sheet, fila, 0, 5, bgColor);
+      fila++;
+    }
+  }
+
+  return fila;
+}
+
+/// Crea clasificación por nivel de daño
+int _crearClasificacionNivelDano(
+  Sheet sheet,
+  Map<String, dynamic> datos,
+  int filaInicial,
+) {
+  int fila = filaInicial;
+
+  // Título de sección
+  _setCellValue(sheet, fila, 0, 'CLASIFICACIÓN POR NIVEL DE DAÑO');
+  _aplicarEstiloSeccion(sheet, fila, 0);
+  fila++;
+
+  // Verificar datos de nivel de daño
+  if (!datos['estadisticas'].containsKey('nivelDano')) {
+    _setCellValue(sheet, fila, 0, 'No hay datos de clasificación de daños');
+    return fila + 1;
+  }
+
+  Map<String, dynamic> nivelDano = datos['estadisticas']['nivelDano'];
+
+  // Encabezados
+  _setCellValue(sheet, fila, 0, 'Nivel de Daño');
+  _setCellValue(sheet, fila, 1, 'Inmuebles');
+  _setCellValue(sheet, fila, 2, 'Porcentaje');
+  _setCellValue(sheet, fila, 3, 'Tiempo de Respuesta');
+  _setCellValue(sheet, fila, 4, 'Acciones Prioritarias');
+  _aplicarEstiloTablaHeader(sheet, fila, 0, 5, '#C5504B');
+  fila++;
+
+  // Ordenar por gravedad (de mayor a menor)
+  final ordenGravedad = [
+    'Colapso total',
+    'Daño severo', 
+    'Daño medio',
+    'Daño ligero',
+    'Sin daño aparente'
+  ];
+
+  // Mapeo de tiempos y acciones
+  Map<String, Map<String, String>> accionesPorNivel = {
+    'Colapso total': {
+      'tiempo': 'INMEDIATO',
+      'acciones': 'Evacuación, demolición controlada'
+    },
+    'Daño severo': {
+      'tiempo': '24-48 HORAS',
+      'acciones': 'Refuerzo urgente, apuntalamiento'
+    },
+    'Daño medio': {
+      'tiempo': '1-2 SEMANAS',
+      'acciones': 'Reparación estructural programada'
+    },
+    'Daño ligero': {
+      'tiempo': '1-3 MESES',
+      'acciones': 'Mantenimiento preventivo'
+    },
+    'Sin daño aparente': {
+      'tiempo': 'MONITOREO',
+      'acciones': 'Inspección periódica'
+    },
+  };
+
+  for (String nivel in ordenGravedad) {
+    if (nivelDano.containsKey(nivel)) {
+      int conteo = nivelDano[nivel]['conteo'] ?? 0;
+      double porcentaje = nivelDano[nivel]['porcentaje'] ?? 0;
+      
+      if (conteo > 0) {
+        var info = accionesPorNivel[nivel]!;
+        
+        _setCellValue(sheet, fila, 0, nivel.toUpperCase());
+        _setCellValue(sheet, fila, 1, conteo.toString());
+        _setCellValue(sheet, fila, 2, '${porcentaje.toStringAsFixed(1)}%');
+        _setCellValue(sheet, fila, 3, info['tiempo']!);
+        _setCellValue(sheet, fila, 4, info['acciones']!);
+        
+        // Color según severidad
+        String bgColor = _obtenerColorNivelDano(nivel);
+        _aplicarEstiloFila(sheet, fila, 0, 5, bgColor);
+        fila++;
+      }
+    }
+  }
+
+  return fila;
+}
+
+/// Crea recomendaciones de intervención
+void _crearRecomendacionesIntervencion(
+  Sheet sheet,
+  Map<String, dynamic> datos,
+  Map<String, dynamic> metadatos,
+  int filaInicial,
+) {
+  int fila = filaInicial;
+
+  // Título de sección
+  _setCellValue(sheet, fila, 0, 'RECOMENDACIONES DE INTERVENCIÓN');
+  _aplicarEstiloSeccion(sheet, fila, 0);
+  fila++;
+
+  // Análisis de prioridades
+  Map<String, dynamic> resumenRiesgos = datos['resumenRiesgos'] ?? {};
+  int riesgoAlto = resumenRiesgos['riesgoAlto'] ?? 0;
+  int riesgoMedio = resumenRiesgos['riesgoMedio'] ?? 0;
+  final int totalFormatos = metadatos['totalFormatos'] ?? 0;
+
+  _setCellValue(sheet, fila, 0, 'PLAN DE ACCIÓN PRIORITARIO:');
+  _aplicarEstilo(sheet, fila, 0, bold: true, backgroundColor: '#E74C3C');
+  fila++;
+
+  // Recomendaciones específicas basadas en datos
+  List<String> recomendaciones = [];
+
+  if (riesgoAlto > 0) {
+    double porcentajeAlto = (riesgoAlto / totalFormatos) * 100;
+    recomendaciones.add('• PRIORIDAD 1: Intervención inmediata en $riesgoAlto inmuebles de riesgo alto (${porcentajeAlto.toStringAsFixed(1)}%)');
+  }
+
+  if (riesgoMedio > 0) {
+    double porcentajeMedio = (riesgoMedio / totalFormatos) * 100;
+    recomendaciones.add('• PRIORIDAD 2: Programar refuerzo en $riesgoMedio inmuebles de riesgo medio (${porcentajeMedio.toStringAsFixed(1)}%)');
+  }
+
+  // Verificar problemas geotécnicos
+  if (datos['estadisticas'].containsKey('geotecnicos')) {
+    Map<String, dynamic> geotecnicos = datos['estadisticas']['geotecnicos'];
+    int problemasGeo = 0;
+    geotecnicos.forEach((problema, stats) {
+      problemasGeo += stats['conteo'] as int? ?? 0;
+    });
+    
+    if (problemasGeo > 0) {
+      recomendaciones.add('• Realizar estudios geotécnicos especializados para $problemasGeo casos identificados');
+    }
+  }
+
+  recomendaciones.addAll([
+    '• Establecer sistema de monitoreo continuo para inmuebles en riesgo',
+    '• Capacitar equipos de respuesta para emergencias estructurales',
+    '• Desarrollar protocolos de evacuación específicos por nivel de daño',
+    '• Implementar inspecciones periódicas programadas',
+  ]);
+
+  // Escribir recomendaciones
+  for (String recomendacion in recomendaciones) {
+    _setCellValue(sheet, fila, 0, recomendacion);
+    _aplicarEstilo(sheet, fila, 0, backgroundColor: '#F8F9FA');
+    fila++;
+  }
+
+  fila++;
+
+  // Conclusión final
+  String conclusion = metadatos['conclusiones'] ?? 
+      'Análisis completado. Se requiere acción inmediata en inmuebles de alto riesgo y seguimiento programado para el resto.';
+
+  _setCellValue(sheet, fila, 0, 'CONCLUSIÓN:');
+  _aplicarEstilo(sheet, fila, 0, bold: true, backgroundColor: '#3498DB');
+  fila++;
+
+  _setCellValue(sheet, fila, 0, conclusion);
+  _aplicarEstilo(sheet, fila, 0, backgroundColor: '#EBF3FD');
+}
+
+// === MÉTODOS AUXILIARES ESPECÍFICOS ===
+
+/// Genera recomendación específica para cada sistema
+String _generarRecomendacionSistema(String idSistema, String condicion) {
+  Map<String, Map<String, String>> recomendaciones = {
+    'sistemaEstructuralDeficiente': {
+      'Sistema deficiente': 'Refuerzo estructural urgente',
+      'Sistema adecuado': 'Mantenimiento preventivo regular'
+    },
+    'techoPesado': {
+      'Techo pesado': 'Evaluar carga estructural y reforzar',
+      'Techo ligero': 'Verificar anclajes y conectores'
+    },
+    'murosDelgados': {
+      'Muros sin refuerzo': 'Instalar refuerzo sísmico',
+      'Muros reforzados': 'Inspección de refuerzos existentes'
+    },
+    'irregularidadPlanta': {
+      'Geometría irregular': 'Análisis sísmico especializado',
+      'Geometría regular': 'Monitoreo estándar'
+    },
+    'losas': {
+      'Colapso': 'Reparación o reemplazo inmediato',
+      'Grietas máximas': 'Sellado y monitoreo de grietas',
+      'Flecha máxima': 'Evaluación de capacidad de carga'
+    }
+  };
+
+  return recomendaciones[idSistema]?[condicion] ?? 'Evaluación técnica especializada';
+}
+
+/// Obtiene color según riesgo del sistema
+String _obtenerColorRiesgoSistema(String idSistema, String condicion) {
+  // Condiciones de alto riesgo
+  List<String> altoRiesgo = [
+    'Sistema deficiente', 'Techo pesado', 'Muros sin refuerzo', 
+    'Geometría irregular', 'Colapso'
+  ];
+  
+  if (altoRiesgo.contains(condicion)) return '#FFE8E8';
+  return '#E8F5E8';
+}
+
+/// Obtiene color según nivel de daño
+String _obtenerColorNivelDano(String nivel) {
+  switch (nivel) {
+    case 'Colapso total': return '#FF6B6B';
+    case 'Daño severo': return '#FF9F43';
+    case 'Daño medio': return '#FFA502';
+    case 'Daño ligero': return '#7BED9F';
+    case 'Sin daño aparente': return '#70A1FF';
+    default: return '#FFFFFF';
+  }
+}
+
 
   /// Genera un reporte completo de Sistema Estructural en Excel
 /// Incluye análisis detallado de elementos estructurales por categoría

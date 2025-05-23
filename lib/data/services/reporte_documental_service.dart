@@ -325,7 +325,7 @@ class ReporteDocumentalService {
 
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final String filePath =
-          '${outputDir.path}/reporte_uso_vivienda_$timestamp.pdf';
+          '${outputDir.path}/$titulo$timestamp.pdf';
       print("📄 [PDF] Ruta de destino: $filePath");
 
       // 5. Convertir PDF a bytes en un isolate separado para no bloquear la UI

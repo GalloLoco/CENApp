@@ -14,12 +14,13 @@ import '../../data/services/excel_reporte_service.dart'; // Nuevo import
 
 class ReporteService {
   final CloudStorageService _cloudService = CloudStorageService();
-  final ExcelReporteService _excelService = ExcelReporteService(); // Nueva instancia
+  final ExcelReporteService _excelService =
+      ExcelReporteService(); // Nueva instancia
 
   /// Genera un reporte completo unificado que incluye todas las secciones de análisis
   /// Este reporte consolida: Resumen General, Uso y Topografía, Material Dominante,
   /// Sistema Estructural y Evaluación de Daños en un solo documento integral
-  /// 
+  ///
   /// **ACTUALIZADO**: Ahora incluye generación de Excel
   Future<Map<String, String>> generarReporteCompleto({
     required String nombreInmueble,
@@ -29,8 +30,9 @@ class ReporteService {
     required List<Map<String, dynamic>> ubicaciones,
   }) async {
     try {
-      print('📊 [REPORTE COMPLETO] Iniciando generación de reporte integral...');
-      
+      print(
+          '📊 [REPORTE COMPLETO] Iniciando generación de reporte integral...');
+
       // Paso 1: Buscar formatos que cumplan con los criterios (reutiliza lógica existente)
       List<FormatoEvaluacion> formatos = await _buscarFormatos(
         nombreInmueble: nombreInmueble,
@@ -45,7 +47,8 @@ class ReporteService {
             'No se encontraron formatos que cumplan con los criterios especificados');
       }
 
-      print('✅ [REPORTE COMPLETO] Encontrados ${formatos.length} formatos para análisis');
+      print(
+          '✅ [REPORTE COMPLETO] Encontrados ${formatos.length} formatos para análisis');
 
       // Paso 2: Construir metadatos base para el reporte
       Map<String, dynamic> metadatos = {
@@ -58,28 +61,33 @@ class ReporteService {
         'usuarioCreador': usuarioCreador.isEmpty ? 'Todos' : usuarioCreador,
         'ubicaciones': ubicaciones,
         'autor': 'Sistema CENApp - Análisis Integral',
-        'periodoEvaluacion': '${DateFormat('MM/yyyy').format(fechaInicio)} - ${DateFormat('MM/yyyy').format(fechaFin)}',
+        'periodoEvaluacion':
+            '${DateFormat('MM/yyyy').format(fechaInicio)} - ${DateFormat('MM/yyyy').format(fechaFin)}',
       };
 
       // Paso 3: Generar análisis completo utilizando el servicio especializado
       print('🔍 [REPORTE COMPLETO] Ejecutando análisis multidimensional...');
-      Map<String, dynamic> datosCompletos = await ReporteCompletoService.generarReporteCompleto(
+      Map<String, dynamic> datosCompletos =
+          await ReporteCompletoService.generarReporteCompleto(
         formatos: formatos,
         metadatos: metadatos,
       );
 
       // Paso 4: Preparar tablas unificadas (reutiliza lógica de cada reporte individual)
       print('📋 [REPORTE COMPLETO] Consolidando tablas estadísticas...');
-      List<Map<String, dynamic>> tablasCompletas = ReporteCompletoService.prepararTablasCompletas(datosCompletos);
+      List<Map<String, dynamic>> tablasCompletas =
+          ReporteCompletoService.prepararTablasCompletas(datosCompletos);
 
       // Paso 5: Generar gráficas consolidadas (reutiliza generadores existentes)
       print('📊 [REPORTE COMPLETO] Preparando gráficas consolidadas...');
-      List<Uint8List> graficasCompletas = await ReporteCompletoService.generarGraficasCompletas(datosCompletos);
+      List<Uint8List> graficasCompletas =
+          await ReporteCompletoService.generarGraficasCompletas(datosCompletos);
 
       // Paso 6: Generar conclusiones integrales
       print('📝 [REPORTE COMPLETO] Generando conclusiones integrales...');
-      String conclusionesCompletas = ReporteCompletoService.generarConclusionesCompletas(datosCompletos);
-      
+      String conclusionesCompletas =
+          ReporteCompletoService.generarConclusionesCompletas(datosCompletos);
+
       // Agregar conclusiones al metadatos
       metadatos['conclusiones'] = conclusionesCompletas;
 
@@ -87,14 +95,16 @@ class ReporteService {
       print('📄 [REPORTE COMPLETO] Generando documento PDF consolidado...');
       String rutaPDF = await ReporteDocumentalService.generarReportePDF(
         titulo: 'Reporte Completo de Evaluación Estructural',
-        subtitulo: 'Análisis Integral Multidimensional - Período: ${metadatos['periodoEvaluacion']}',
+        subtitulo:
+            'Análisis Integral Multidimensional - Período: ${metadatos['periodoEvaluacion']}',
         datos: datosCompletos,
         tablas: tablasCompletas,
         graficas: graficasCompletas,
         metadatos: metadatos,
       );
 
-      print('✅ [REPORTE COMPLETO] Reporte integral generado exitosamente: $rutaPDF');
+      print(
+          '✅ [REPORTE COMPLETO] Reporte integral generado exitosamente: $rutaPDF');
 
       return {
         'pdf': rutaPDF,
@@ -139,7 +149,8 @@ class ReporteService {
 
       // Paso 4: Generar placeholders para gráficas
       List<Uint8List> graficas =
-          await EvaluacionDanosReport.generarPlaceholdersGraficas(datosEstadisticos);
+          await EvaluacionDanosReport.generarPlaceholdersGraficas(
+              datosEstadisticos);
 
       // Paso 5: Construir metadatos para el reporte
       Map<String, dynamic> metadatos = {
@@ -210,7 +221,8 @@ class ReporteService {
 
     // Paso 4: Generar placeholders para gráficas
     List<Uint8List> graficas =
-        await MaterialDominanteReport.generarPlaceholdersGraficas(datosEstadisticos);
+        await MaterialDominanteReport.generarPlaceholdersGraficas(
+            datosEstadisticos);
 
     // Paso 5: Construir metadatos para el reporte
     Map<String, dynamic> metadatos = {
@@ -226,7 +238,18 @@ class ReporteService {
           datosEstadisticos, formatos.length),
     };
 
-    // Paso 6: Generar documento PDF
+    // 🆕 Paso 6: Generar Excel usando nuestro servicio especializado
+    String rutaExcel = await _excelService.generarReporteMaterialDominanteExcel(
+      titulo: metadatos['titulo']!,
+      subtitulo: metadatos['subtitulo']!,
+      datos: datosEstadisticos,
+      tablas: tablas,
+      metadatos: metadatos,
+    );
+
+    print('✅ [EXCEL] Reporte Material Dominante Excel generado: $rutaExcel');
+
+// Paso 7: Generar también PDF (mantener funcionalidad existente)
     String rutaPDF = await ReporteDocumentalService.generarReportePDF(
       titulo: 'Reporte Estadístico',
       subtitulo: 'Material Dominante de Construcción',
@@ -237,7 +260,8 @@ class ReporteService {
     );
 
     return {
-      'pdf': rutaPDF,
+      'excel': rutaExcel, // 🆕 NUEVO: Excel con análisis detallado
+      'pdf': rutaPDF, // Mantener PDF existente
     };
   }
 
@@ -274,7 +298,8 @@ class ReporteService {
 
     // Paso 4: Generar placeholders para gráficas
     List<Uint8List> graficas =
-        await SistemaEstructuralReport.generarPlaceholdersGraficas(datosEstadisticos);
+        await SistemaEstructuralReport.generarPlaceholdersGraficas(
+            datosEstadisticos);
 
     // Paso 5: Construir metadatos para el reporte
     Map<String, dynamic> metadatos = {
@@ -306,93 +331,98 @@ class ReporteService {
   }
 
   /// Genera un reporte de uso de vivienda y topografía (VERSIÓN ACTUALIZADA CON EXCEL)
-Future<Map<String, String>> generarReporteUsoViviendaTopografia({
-  required String nombreInmueble,
-  required DateTime fechaInicio,
-  required DateTime fechaFin,
-  required String usuarioCreador,
-  required List<Map<String, dynamic>> ubicaciones,
-}) async {
-  try {
-    print('📊 [REPORTE] Iniciando generación de Uso de Vivienda y Topografía...');
-    
-    // Paso 1: Buscar formatos que cumplan con los criterios
-    List<FormatoEvaluacion> formatos = await _buscarFormatos(
-      nombreInmueble: nombreInmueble,
-      fechaInicio: fechaInicio,
-      fechaFin: fechaFin,
-      usuarioCreador: usuarioCreador,
-      ubicaciones: ubicaciones,
-    );
+  Future<Map<String, String>> generarReporteUsoViviendaTopografia({
+    required String nombreInmueble,
+    required DateTime fechaInicio,
+    required DateTime fechaFin,
+    required String usuarioCreador,
+    required List<Map<String, dynamic>> ubicaciones,
+  }) async {
+    try {
+      print(
+          '📊 [REPORTE] Iniciando generación de Uso de Vivienda y Topografía...');
 
-    if (formatos.isEmpty) {
+      // Paso 1: Buscar formatos que cumplan con los criterios
+      List<FormatoEvaluacion> formatos = await _buscarFormatos(
+        nombreInmueble: nombreInmueble,
+        fechaInicio: fechaInicio,
+        fechaFin: fechaFin,
+        usuarioCreador: usuarioCreador,
+        ubicaciones: ubicaciones,
+      );
+
+      if (formatos.isEmpty) {
+        throw Exception(
+            'No se encontraron formatos que cumplan con los criterios especificados');
+      }
+
+      print('✅ [REPORTE] Encontrados ${formatos.length} formatos');
+
+      // Paso 2: Analizar los datos para generar estadísticas
+      Map<String, dynamic> datosEstadisticos =
+          EstadisticosService.analizarUsoViviendaTopografia(formatos);
+
+      // Paso 3: Preparar datos para las tablas del reporte
+      List<Map<String, dynamic>> tablas =
+          _prepararTablasParaReporte(datosEstadisticos);
+
+      // Paso 4: Construir metadatos para el reporte
+      Map<String, dynamic> metadatos = {
+        'titulo': 'Uso de Vivienda y Topografía',
+        'subtitulo':
+            'Análisis de Patrones de Uso y Características Topográficas',
+        'totalFormatos': formatos.length,
+        'nombreInmueble': nombreInmueble.isEmpty ? 'Todos' : nombreInmueble,
+        'fechaInicio': DateFormat('dd/MM/yyyy').format(fechaInicio),
+        'fechaFin': DateFormat('dd/MM/yyyy').format(fechaFin),
+        'usuarioCreador': usuarioCreador.isEmpty ? 'Todos' : usuarioCreador,
+        'ubicaciones': ubicaciones,
+        'autor': 'Sistema CENApp - Uso y Topografía',
+        'periodoEvaluacion':
+            '${DateFormat('MM/yyyy').format(fechaInicio)} - ${DateFormat('MM/yyyy').format(fechaFin)}',
+        'conclusiones':
+            _generarConclusiones(datosEstadisticos, formatos.length),
+      };
+
+      print('📊 [REPORTE] Iniciando generación de documentos...');
+
+      // 🆕 Paso 5: Generar reporte Excel usando nuestro servicio
+      String rutaExcel = await _excelService.generarReporteUsoTopografiaExcel(
+        titulo: metadatos['titulo']!,
+        subtitulo: metadatos['subtitulo']!,
+        datos: datosEstadisticos,
+        tablas: tablas,
+        metadatos: metadatos,
+      );
+
+      print('✅ [EXCEL] Reporte Excel generado: $rutaExcel');
+
+      // Paso 6: Generar también PDF (mantener funcionalidad existente)
+      List<Uint8List> graficas =
+          await _generarGraficasReporte(datosEstadisticos);
+
+      String rutaPDF = await ReporteDocumentalService.generarReportePDF(
+        titulo: 'Reporte Estadístico',
+        subtitulo: 'Uso de Vivienda y Topografía',
+        datos: datosEstadisticos,
+        tablas: tablas,
+        graficas: graficas,
+        metadatos: metadatos,
+      );
+
+      print('✅ [PDF] Reporte PDF generado: $rutaPDF');
+
+      // Retornar ambos archivos
+      return {
+        'excel': rutaExcel, // 🆕 NUEVO: Excel con gráficos
+        'pdf': rutaPDF, // Mantener PDF existente
+      };
+    } catch (e) {
+      print('❌ [REPORTE] Error en Uso de Vivienda y Topografía: $e');
       throw Exception(
-          'No se encontraron formatos que cumplan con los criterios especificados');
+          'Error al generar reporte de uso de vivienda y topografía: $e');
     }
-
-    print('✅ [REPORTE] Encontrados ${formatos.length} formatos');
-
-    // Paso 2: Analizar los datos para generar estadísticas
-    Map<String, dynamic> datosEstadisticos =
-        EstadisticosService.analizarUsoViviendaTopografia(formatos);
-
-    // Paso 3: Preparar datos para las tablas del reporte
-    List<Map<String, dynamic>> tablas =
-        _prepararTablasParaReporte(datosEstadisticos);
-
-    // Paso 4: Construir metadatos para el reporte
-    Map<String, dynamic> metadatos = {
-      'titulo': 'Uso de Vivienda y Topografía',
-      'subtitulo': 'Análisis de Patrones de Uso y Características Topográficas',
-      'totalFormatos': formatos.length,
-      'nombreInmueble': nombreInmueble.isEmpty ? 'Todos' : nombreInmueble,
-      'fechaInicio': DateFormat('dd/MM/yyyy').format(fechaInicio),
-      'fechaFin': DateFormat('dd/MM/yyyy').format(fechaFin),
-      'usuarioCreador': usuarioCreador.isEmpty ? 'Todos' : usuarioCreador,
-      'ubicaciones': ubicaciones,
-      'autor': 'Sistema CENApp - Uso y Topografía',
-      'periodoEvaluacion': '${DateFormat('MM/yyyy').format(fechaInicio)} - ${DateFormat('MM/yyyy').format(fechaFin)}',
-      'conclusiones': _generarConclusiones(datosEstadisticos, formatos.length),
-    };
-
-    print('📊 [REPORTE] Iniciando generación de documentos...');
-
-    // 🆕 Paso 5: Generar reporte Excel usando nuestro servicio
-    String rutaExcel = await _excelService.generarReporteUsoTopografiaExcel(
-      titulo: metadatos['titulo']!,
-      subtitulo: metadatos['subtitulo']!,
-      datos: datosEstadisticos,
-      tablas: tablas,
-      metadatos: metadatos,
-    );
-
-    print('✅ [EXCEL] Reporte Excel generado: $rutaExcel');
-
-    // Paso 6: Generar también PDF (mantener funcionalidad existente)
-    List<Uint8List> graficas = await _generarGraficasReporte(datosEstadisticos);
-    
-    String rutaPDF = await ReporteDocumentalService.generarReportePDF(
-      titulo: 'Reporte Estadístico',
-      subtitulo: 'Uso de Vivienda y Topografía',
-      datos: datosEstadisticos,
-      tablas: tablas,
-      graficas: graficas,
-      metadatos: metadatos,
-    );
-
-    print('✅ [PDF] Reporte PDF generado: $rutaPDF');
-
-    // Retornar ambos archivos
-    return {
-      'excel': rutaExcel,  // 🆕 NUEVO: Excel con gráficos
-      'pdf': rutaPDF,      // Mantener PDF existente
-    };
-
-  } catch (e) {
-    print('❌ [REPORTE] Error en Uso de Vivienda y Topografía: $e');
-    throw Exception('Error al generar reporte de uso de vivienda y topografía: $e');
   }
-}
 
   /// Genera un reporte de resumen general
   /// **NUEVO**: Ahora incluye generación de Excel
@@ -405,7 +435,7 @@ Future<Map<String, String>> generarReporteUsoViviendaTopografia({
   }) async {
     try {
       print('📊 [RESUMEN GENERAL] Iniciando generación con soporte Excel...');
-      
+
       // Paso 1: Buscar formatos que cumplan con los criterios
       List<FormatoEvaluacion> formatos = await _buscarFormatos(
         nombreInmueble: nombreInmueble,
@@ -465,10 +495,10 @@ Future<Map<String, String>> generarReporteUsoViviendaTopografia({
       print('📊 [RESUMEN GENERAL] Generando Excel...');
       String rutaExcel = await _excelService.generarReporteResumenGeneralExcel(
         titulo: metadatos['titulo']!,
-      subtitulo: metadatos['subtitulo']!,
-      datos: datosEstadisticos,
-      tablas: tablas,
-      metadatos: metadatos,
+        subtitulo: metadatos['subtitulo']!,
+        datos: datosEstadisticos,
+        tablas: tablas,
+        metadatos: metadatos,
       );
 
       print('✅ [RESUMEN GENERAL] Ambos formatos generados exitosamente');
@@ -479,7 +509,6 @@ Future<Map<String, String>> generarReporteUsoViviendaTopografia({
         'pdf': rutaPDF,
         'excel': rutaExcel, // **NUEVO**: Retornar también la ruta del Excel
       };
-      
     } catch (e) {
       print('❌ [RESUMEN GENERAL] Error al generar reporte: $e');
       throw Exception('Error al generar reporte de resumen general: $e');

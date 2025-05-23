@@ -2,6 +2,7 @@
 
 import 'dart:io';
 import 'package:excel/excel.dart';
+import 'dart:math';
 import 'package:intl/intl.dart';
 import './file_storage_service.dart';
 
@@ -10,6 +11,478 @@ import './file_storage_service.dart';
 /// tablas formateadas y representaciones visuales de gráficos
 class ExcelReporteService {
   final FileStorageService _fileService = FileStorageService();
+
+  /// Genera un reporte completo de Material Dominante en Excel
+/// Incluye análisis detallado de materiales de construcción predominantes
+Future<String> generarReporteMaterialDominanteExcel({
+  required String titulo,
+  required String subtitulo,
+  required Map<String, dynamic> datos,
+  required List<Map<String, dynamic>> tablas,
+  required Map<String, dynamic> metadatos,
+  Directory? directorio,
+}) async {
+  try {
+    print('📊 [EXCEL-MATERIAL] Iniciando generación de reporte Excel: $titulo');
+
+    // Crear nuevo libro de Excel usando la librería excel
+    var excel = Excel.createExcel();
+    
+    // Eliminar hoja por defecto
+    excel.delete('Sheet1');
+    
+    // Crear hoja única con todo el contenido
+    String nombreHoja = 'Material Dominante';
+    excel.copy('Sheet1', nombreHoja);
+    excel.delete('Sheet1');
+    
+    Sheet sheet = excel[nombreHoja];
+    
+    // Crear contenido completo en una sola hoja
+    await _crearContenidoMaterialDominanteCompleto(sheet, titulo, subtitulo, datos, tablas, metadatos);
+
+    // Guardar archivo
+    final String rutaArchivo = await _guardarArchivoExcelEstandar(
+      excel, 
+      titulo, 
+      directorio
+    );
+    
+    print('✅ [EXCEL-MATERIAL] Reporte Excel generado exitosamente: $rutaArchivo');
+    return rutaArchivo;
+
+  } catch (e) {
+    print('❌ [EXCEL-MATERIAL] Error al generar reporte Excel: $e');
+    throw Exception('Error al generar reporte Excel de material dominante: $e');
+  }
+}
+
+/// Crea todo el contenido del reporte de material dominante en una sola hoja
+Future<void> _crearContenidoMaterialDominanteCompleto(
+  Sheet sheet,
+  String titulo,
+  String subtitulo,
+  Map<String, dynamic> datos,
+  List<Map<String, dynamic>> tablas,
+  Map<String, dynamic> metadatos,
+) async {
+  int filaActual = 0;
+
+  // === SECCIÓN 1: ENCABEZADO ===
+  filaActual = _crearEncabezadoUsoTopografia(sheet, titulo, subtitulo, metadatos, filaActual);
+  filaActual += 2;
+
+  // === SECCIÓN 2: FILTROS APLICADOS ===
+  filaActual = _crearSeccionFiltrosUsoTopografia(sheet, metadatos, filaActual);
+  filaActual += 2;
+
+  // === SECCIÓN 3: RESUMEN ESTADÍSTICO ===
+  filaActual = _crearResumenEstadisticoMaterialDominante(sheet, datos, metadatos, filaActual);
+  filaActual += 2;
+
+  // === SECCIÓN 4: ANÁLISIS DETALLADO DE MATERIALES ===
+  filaActual = _crearAnalisisDetalladoMateriales(sheet, datos, filaActual);
+  filaActual += 2;
+
+  // === SECCIÓN 5: CLASIFICACIÓN POR RESISTENCIA ===
+  filaActual = _crearClasificacionResistencia(sheet, datos, filaActual);
+  filaActual += 2;
+
+  // === SECCIÓN 6: RECOMENDACIONES TÉCNICAS ===
+  _crearRecomendacionesTecnicas(sheet, datos, metadatos, filaActual);
+}
+
+/// Crea resumen estadístico específico para materiales
+int _crearResumenEstadisticoMaterialDominante(
+  Sheet sheet,
+  Map<String, dynamic> datos,
+  Map<String, dynamic> metadatos,
+  int filaInicial,
+) {
+  int fila = filaInicial;
+
+  // Título de sección
+  _setCellValue(sheet, fila, 0, 'RESUMEN ESTADÍSTICO DE MATERIALES');
+  _aplicarEstiloSeccion(sheet, fila, 0);
+  fila++;
+
+  final int totalFormatos = metadatos['totalFormatos'] ?? 0;
+
+  // Extraer datos de conteo de materiales
+  Map<String, int> conteoMateriales = {};
+  if (datos.containsKey('conteoMateriales')) {
+    conteoMateriales = Map<String, int>.from(datos['conteoMateriales']);
+  }
+
+  // Calcular estadísticas principales
+  int materialesDistintos = conteoMateriales.values.where((conteo) => conteo > 0).length;
+  int totalMaterialesIdentificados = conteoMateriales.values.fold(0, (sum, conteo) => sum + conteo);
+  
+  // Calcular índice de diversidad (Shannon)
+  double indiceDiversidad = 0.0;
+  if (totalMaterialesIdentificados > 0) {
+    for (var conteo in conteoMateriales.values) {
+      if (conteo > 0) {
+        double proporcion = conteo / totalMaterialesIdentificados;
+        indiceDiversidad -= proporcion * (proporcion > 0 ? log(proporcion * 1.4427) : 0); // log2
+      }
+    }
+  }
+
+  // Encabezados de tabla
+  _setCellValue(sheet, fila, 0, 'Concepto');
+  _setCellValue(sheet, fila, 1, 'Valor');
+  _setCellValue(sheet, fila, 2, 'Interpretación');
+  _aplicarEstiloTablaHeader(sheet, fila, 0, 3, '#FFB366');
+  fila++;
+
+  // Estadísticas principales
+  final List<List<String>> estadisticas = [
+    ['Total de inmuebles analizados', '$totalFormatos', '100% de la muestra'],
+    ['Materiales distintos identificados', '$materialesDistintos', 'Diversidad de materiales'],
+    ['Inmuebles con material identificado', '$totalMaterialesIdentificados', 'Claridad en identificación'],
+    ['Índice de diversidad Shannon', indiceDiversidad.toStringAsFixed(2), 
+     indiceDiversidad < 1.0 ? 'Baja diversidad' : indiceDiversidad < 2.0 ? 'Diversidad media' : 'Alta diversidad'],
+  ];
+
+  // Encontrar material predominante
+  if (conteoMateriales.isNotEmpty) {
+    final materialPredominante = conteoMateriales.entries
+        .where((entry) => entry.value > 0)
+        .reduce((a, b) => a.value > b.value ? a : b);
+    
+    double porcentajePredominante = totalFormatos > 0 ? (materialPredominante.value / totalFormatos) * 100 : 0;
+    estadisticas.add([
+      'Material predominante', 
+      materialPredominante.key, 
+      '${materialPredominante.value} inmuebles (${porcentajePredominante.toStringAsFixed(1)}%)'
+    ]);
+  }
+
+  // Escribir estadísticas
+  for (int i = 0; i < estadisticas.length; i++) {
+    var stat = estadisticas[i];
+    _setCellValue(sheet, fila, 0, stat[0]);
+    _setCellValue(sheet, fila, 1, stat[1]);
+    _setCellValue(sheet, fila, 2, stat[2]);
+    
+    // Alternar colores
+    String bgColor = fila % 2 == 0 ? '#F2F2F2' : '#FFFFFF';
+    _aplicarEstiloFila(sheet, fila, 0, 3, bgColor);
+    fila++;
+  }
+
+  return fila;
+}
+
+/// Crea análisis detallado de materiales con características técnicas
+int _crearAnalisisDetalladoMateriales(
+  Sheet sheet,
+  Map<String, dynamic> datos,
+  int filaInicial,
+) {
+  int fila = filaInicial;
+
+  // Título de sección
+  _setCellValue(sheet, fila, 0, 'ANÁLISIS DETALLADO DE MATERIALES');
+  _aplicarEstiloSeccion(sheet, fila, 0);
+  fila++;
+
+  // Verificar si hay datos
+  if (!datos.containsKey('conteoMateriales') || datos['conteoMateriales'].isEmpty) {
+    _setCellValue(sheet, fila, 0, 'No hay datos de materiales disponibles');
+    return fila + 1;
+  }
+
+  Map<String, int> conteoMateriales = Map<String, int>.from(datos['conteoMateriales']);
+  
+  // Encabezados de tabla expandida
+  _setCellValue(sheet, fila, 0, 'Material');
+  _setCellValue(sheet, fila, 1, 'Cantidad');
+  _setCellValue(sheet, fila, 2, 'Porcentaje');
+  _setCellValue(sheet, fila, 3, 'Resistencia');
+  _setCellValue(sheet, fila, 4, 'Durabilidad');
+  _setCellValue(sheet, fila, 5, 'Características');
+  _aplicarEstiloTablaHeader(sheet, fila, 0, 6, '#C6E0B4');
+  fila++;
+
+  // Propiedades técnicas de materiales
+  Map<String, Map<String, String>> propiedadesMateriales = {
+    'Ladrillo': {
+      'resistencia': 'Media-Alta',
+      'durabilidad': 'Alta',
+      'caracteristicas': 'Resistente a compresión, buen aislamiento térmico'
+    },
+    'Concreto': {
+      'resistencia': 'Alta',
+      'durabilidad': 'Muy Alta',
+      'caracteristicas': 'Excelente resistencia, versatilidad estructural'
+    },
+    'Adobe': {
+      'resistencia': 'Baja',
+      'durabilidad': 'Media',
+      'caracteristicas': 'Económico, vulnerable a humedad y sismos'
+    },
+    'Madera/Lámina/Otros': {
+      'resistencia': 'Variable',
+      'durabilidad': 'Baja-Media',
+      'caracteristicas': 'Flexible, requiere mantenimiento constante'
+    },
+    'No determinado': {
+      'resistencia': 'Desconocida',
+      'durabilidad': 'Desconocida',
+      'caracteristicas': 'Requiere evaluación técnica específica'
+    },
+  };
+
+  // Ordenar materiales por cantidad
+  var materialesOrdenados = conteoMateriales.entries
+      .where((entry) => entry.value > 0)
+      .toList()
+    ..sort((a, b) => b.value.compareTo(a.value));
+
+  int totalMateriales = materialesOrdenados.fold(0, (sum, entry) => sum + entry.value);
+
+  // Datos de materiales
+  for (int i = 0; i < materialesOrdenados.length; i++) {
+    var entry = materialesOrdenados[i];
+    String material = entry.key;
+    int conteo = entry.value;
+    double porcentaje = totalMateriales > 0 ? (conteo / totalMateriales) * 100 : 0;
+    
+    Map<String, String> propiedades = propiedadesMateriales[material] ?? {
+      'resistencia': 'No especificada',
+      'durabilidad': 'No especificada',
+      'caracteristicas': 'Consultar especificaciones técnicas'
+    };
+
+    _setCellValue(sheet, fila, 0, material);
+    _setCellValue(sheet, fila, 1, conteo.toString());
+    _setCellValue(sheet, fila, 2, '${porcentaje.toStringAsFixed(1)}%');
+    _setCellValue(sheet, fila, 3, propiedades['resistencia']!);
+    _setCellValue(sheet, fila, 4, propiedades['durabilidad']!);
+    _setCellValue(sheet, fila, 5, propiedades['caracteristicas']!);
+    
+    // Alternar colores con códigos específicos por nivel de resistencia
+    String bgColor = '#FFFFFF';
+    if (propiedades['resistencia'] == 'Alta' || propiedades['resistencia'] == 'Muy Alta') {
+      bgColor = '#E8F5E8'; // Verde claro para alta resistencia
+    } else if (propiedades['resistencia'] == 'Baja') {
+      bgColor = '#FFE8E8'; // Rojo claro para baja resistencia
+    } else if (fila % 2 == 0) {
+      bgColor = '#F2F2F2';
+    }
+    _aplicarEstiloFila(sheet, fila, 0, 6, bgColor);
+    fila++;
+  }
+
+  // Fila de total
+  _setCellValue(sheet, fila, 0, 'TOTAL');
+  _setCellValue(sheet, fila, 1, totalMateriales.toString());
+  _setCellValue(sheet, fila, 2, '100%');
+  _setCellValue(sheet, fila, 3, 'Mixto');
+  _setCellValue(sheet, fila, 4, 'Variable');
+  _setCellValue(sheet, fila, 5, 'Combinación de propiedades');
+  _aplicarEstiloTablaHeader(sheet, fila, 0, 6, '#D9E2F3');
+  fila++;
+
+  return fila;
+}
+
+/// Crea clasificación por resistencia estructural
+int _crearClasificacionResistencia(
+  Sheet sheet,
+  Map<String, dynamic> datos,
+  int filaInicial,
+) {
+  int fila = filaInicial;
+
+  // Título de sección
+  _setCellValue(sheet, fila, 0, 'CLASIFICACIÓN POR RESISTENCIA ESTRUCTURAL');
+  _aplicarEstiloSeccion(sheet, fila, 0);
+  fila++;
+
+  if (!datos.containsKey('conteoMateriales') || datos['conteoMateriales'].isEmpty) {
+    _setCellValue(sheet, fila, 0, 'No hay datos suficientes para clasificación');
+    return fila + 1;
+  }
+
+  Map<String, int> conteoMateriales = Map<String, int>.from(datos['conteoMateriales']);
+
+  // Clasificar materiales por resistencia
+  Map<String, List<String>> clasificacionResistencia = {
+    'Alta Resistencia': ['Concreto'],
+    'Media-Alta Resistencia': ['Ladrillo'],
+    'Baja Resistencia': ['Adobe'],
+    'Resistencia Variable': ['Madera/Lámina/Otros'],
+    'Sin Clasificar': ['No determinado'],
+  };
+
+  // Encabezados
+  _setCellValue(sheet, fila, 0, 'Nivel de Resistencia');
+  _setCellValue(sheet, fila, 1, 'Materiales');
+  _setCellValue(sheet, fila, 2, 'Cantidad Total');
+  _setCellValue(sheet, fila, 3, 'Porcentaje');
+  _setCellValue(sheet, fila, 4, 'Recomendación');
+  _aplicarEstiloTablaHeader(sheet, fila, 0, 5, '#F4B183');
+  fila++;
+
+  int totalInmuebles = conteoMateriales.values.fold(0, (sum, val) => sum + val);
+
+  // Recomendaciones por nivel de resistencia
+  Map<String, String> recomendaciones = {
+    'Alta Resistencia': 'Continuar mantenimiento preventivo',
+    'Media-Alta Resistencia': 'Monitoreo periódico, refuerzo opcional',
+    'Baja Resistencia': 'Evaluación urgente, considerar refuerzo',
+    'Resistencia Variable': 'Inspección caso por caso',
+    'Sin Clasificar': 'Evaluación técnica inmediata requerida',
+  };
+
+  // Procesar cada nivel de resistencia
+  for (var entry in clasificacionResistencia.entries) {
+    String nivelResistencia = entry.key;
+    List<String> materialesEnNivel = entry.value;
+    
+    // Calcular total para este nivel
+    int cantidadTotal = 0;
+    List<String> materialesPresentes = [];
+    
+    for (String material in materialesEnNivel) {
+      if (conteoMateriales.containsKey(material) && conteoMateriales[material]! > 0) {
+        cantidadTotal += conteoMateriales[material]!;
+        materialesPresentes.add('$material (${conteoMateriales[material]})');
+      }
+    }
+    
+    if (cantidadTotal > 0) {
+      double porcentaje = totalInmuebles > 0 ? (cantidadTotal / totalInmuebles) * 100 : 0;
+      
+      _setCellValue(sheet, fila, 0, nivelResistencia);
+      _setCellValue(sheet, fila, 1, materialesPresentes.join(', '));
+      _setCellValue(sheet, fila, 2, cantidadTotal.toString());
+      _setCellValue(sheet, fila, 3, '${porcentaje.toStringAsFixed(1)}%');
+      _setCellValue(sheet, fila, 4, recomendaciones[nivelResistencia] ?? 'Consultar especialista');
+      
+      // Color por nivel de riesgo
+      String bgColor = '#FFFFFF';
+      if (nivelResistencia.contains('Alta Resistencia')) {
+        bgColor = '#E8F5E8'; // Verde
+      } else if (nivelResistencia.contains('Baja Resistencia')) {
+        bgColor = '#FFE8E8'; // Rojo
+      } else if (nivelResistencia.contains('Variable') || nivelResistencia.contains('Sin Clasificar')) {
+        bgColor = '#FFF2CC'; // Amarillo
+      } else {
+        bgColor = fila % 2 == 0 ? '#F2F2F2' : '#FFFFFF';
+      }
+      
+      _aplicarEstiloFila(sheet, fila, 0, 5, bgColor);
+      fila++;
+    }
+  }
+
+  return fila;
+}
+
+/// Crea sección de recomendaciones técnicas
+void _crearRecomendacionesTecnicas(
+  Sheet sheet,
+  Map<String, dynamic> datos,
+  Map<String, dynamic> metadatos,
+  int filaInicial,
+) {
+  int fila = filaInicial;
+
+  // Título de sección
+  _setCellValue(sheet, fila, 0, 'RECOMENDACIONES TÉCNICAS Y CONCLUSIONES');
+  _aplicarEstiloSeccion(sheet, fila, 0);
+  fila++;
+
+  if (!datos.containsKey('conteoMateriales')) {
+    _setCellValue(sheet, fila, 0, 'No hay datos suficientes para generar recomendaciones');
+    return;
+  }
+
+  Map<String, int> conteoMateriales = Map<String, int>.from(datos['conteoMateriales']);
+  final int totalFormatos = metadatos['totalFormatos'] ?? 0;
+
+  // Análisis de riesgos por material predominante
+  _setCellValue(sheet, fila, 0, 'ANÁLISIS DE RIESGOS:');
+  _aplicarEstilo(sheet, fila, 0, bold: true, backgroundColor: '#FFE2CC');
+  fila++;
+
+  // Calcular porcentajes de materiales vulnerables
+  int materialesVulnerables = (conteoMateriales['Adobe'] ?? 0) + 
+                              (conteoMateriales['Madera/Lámina/Otros'] ?? 0);
+  double porcentajeVulnerable = totalFormatos > 0 ? (materialesVulnerables / totalFormatos) * 100 : 0;
+
+  int materialesResistentes = (conteoMateriales['Concreto'] ?? 0) + 
+                              (conteoMateriales['Ladrillo'] ?? 0);
+  double porcentajeResistente = totalFormatos > 0 ? (materialesResistentes / totalFormatos) * 100 : 0;
+
+  _setCellValue(sheet, fila, 0, '• Materiales vulnerables: ${porcentajeVulnerable.toStringAsFixed(1)}% ($materialesVulnerables inmuebles)');
+  _aplicarEstilo(sheet, fila, 0, backgroundColor: '#FFE8E8');
+  fila++;
+
+  _setCellValue(sheet, fila, 0, '• Materiales resistentes: ${porcentajeResistente.toStringAsFixed(1)}% ($materialesResistentes inmuebles)');
+  _aplicarEstilo(sheet, fila, 0, backgroundColor: '#E8F5E8');
+  fila++;
+
+  fila++;
+
+  // Recomendaciones específicas
+  _setCellValue(sheet, fila, 0, 'RECOMENDACIONES ESPECÍFICAS:');
+  _aplicarEstilo(sheet, fila, 0, bold: true, backgroundColor: '#E2EFDA');
+  fila++;
+
+  List<String> recomendaciones = [];
+
+  if (porcentajeVulnerable > 30) {
+    recomendaciones.add('• PRIORIDAD ALTA: Implementar programa de refuerzo masivo para inmuebles con materiales vulnerables');
+  }
+
+  if (porcentajeVulnerable > 50) {
+    recomendaciones.add('• Establecer plan de evacuación para zonas con alta concentración de materiales de bajo desempeño');
+  }
+
+  if (conteoMateriales['No determinado'] != null && conteoMateriales['No determinado']! > 0) {
+    double porcentajeIndeterminado = (conteoMateriales['No determinado']! / totalFormatos) * 100;
+    recomendaciones.add('• Realizar evaluaciones técnicas específicas para ${porcentajeIndeterminado.toStringAsFixed(1)}% de inmuebles sin material determinado');
+  }
+
+  recomendaciones.addAll([
+    '• Establecer programa de mantenimiento preventivo para materiales de alta resistencia',
+    '• Desarrollar normativas específicas para cada tipo de material identificado',
+    '• Capacitar evaluadores en identificación precisa de materiales de construcción',
+  ]);
+
+  // Escribir recomendaciones
+  for (String recomendacion in recomendaciones) {
+    _setCellValue(sheet, fila, 0, recomendacion);
+    _aplicarEstilo(sheet, fila, 0, backgroundColor: '#F9F9F9');
+    fila++;
+  }
+
+  fila++;
+
+  // Conclusión final
+  String materialPredominante = 'No determinado';
+  if (conteoMateriales.isNotEmpty) {
+    final entry = conteoMateriales.entries
+        .where((e) => e.value > 0)
+        .reduce((a, b) => a.value > b.value ? a : b);
+    materialPredominante = entry.key;
+  }
+
+  String conclusion = metadatos['conclusiones'] ?? 
+      'Material predominante identificado: $materialPredominante. Se recomienda continuar con el monitoreo y evaluación de materiales para optimizar las estrategias de refuerzo estructural.';
+
+  _setCellValue(sheet, fila, 0, 'CONCLUSIÓN:');
+  _aplicarEstilo(sheet, fila, 0, bold: true, backgroundColor: '#D9E2F3');
+  fila++;
+
+  _setCellValue(sheet, fila, 0, conclusion);
+  _aplicarEstilo(sheet, fila, 0, backgroundColor: '#F2F7FF');
+}
 
  Future<String> generarReporteUsoTopografiaExcel({
   required String titulo,

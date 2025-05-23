@@ -12,6 +12,505 @@ import './file_storage_service.dart';
 class ExcelReporteService {
   final FileStorageService _fileService = FileStorageService();
 
+  /// Genera un reporte completo de Sistema Estructural en Excel
+/// Incluye análisis detallado de elementos estructurales por categoría
+Future<String> generarReporteSistemaEstructuralExcel({
+  required String titulo,
+  required String subtitulo,
+  required Map<String, dynamic> datos,
+  required List<Map<String, dynamic>> tablas,
+  required Map<String, dynamic> metadatos,
+  Directory? directorio,
+}) async {
+  try {
+    print('📊 [EXCEL-SISTEMA] Iniciando generación de reporte Excel: $titulo');
+
+    // Crear nuevo libro de Excel usando la librería excel
+    var excel = Excel.createExcel();
+    
+    // Eliminar hoja por defecto
+    excel.delete('Sheet1');
+    
+    // Crear hoja única con todo el contenido
+    String nombreHoja = 'Sistema Estructural';
+    excel.copy('Sheet1', nombreHoja);
+    excel.delete('Sheet1');
+    
+    Sheet sheet = excel[nombreHoja];
+    
+    // Crear contenido completo en una sola hoja
+    await _crearContenidoSistemaEstructuralCompleto(sheet, titulo, subtitulo, datos, tablas, metadatos);
+
+    // Guardar archivo
+    final String rutaArchivo = await _guardarArchivoExcelEstandar(
+      excel, 
+      titulo, 
+      directorio
+    );
+    
+    print('✅ [EXCEL-SISTEMA] Reporte Excel generado exitosamente: $rutaArchivo');
+    return rutaArchivo;
+
+  } catch (e) {
+    print('❌ [EXCEL-SISTEMA] Error al generar reporte Excel: $e');
+    throw Exception('Error al generar reporte Excel de sistema estructural: $e');
+  }
+}
+
+/// Crea todo el contenido del reporte de sistema estructural en una sola hoja
+Future<void> _crearContenidoSistemaEstructuralCompleto(
+  Sheet sheet,
+  String titulo,
+  String subtitulo,
+  Map<String, dynamic> datos,
+  List<Map<String, dynamic>> tablas,
+  Map<String, dynamic> metadatos,
+) async {
+  int filaActual = 0;
+
+  // === SECCIÓN 1: ENCABEZADO ===
+  filaActual = _crearEncabezadoUsoTopografia(sheet, titulo, subtitulo, metadatos, filaActual);
+  filaActual += 2;
+
+  // === SECCIÓN 2: FILTROS APLICADOS ===
+  filaActual = _crearSeccionFiltrosUsoTopografia(sheet, metadatos, filaActual);
+  filaActual += 2;
+
+  // === SECCIÓN 3: RESUMEN ESTADÍSTICO ===
+  filaActual = _crearResumenEstadisticoSistemaEstructural(sheet, datos, metadatos, filaActual);
+  filaActual += 2;
+
+  // === SECCIÓN 4: ANÁLISIS POR CATEGORÍAS ESTRUCTURALES ===
+  filaActual = _crearAnalisisCategorias(sheet, datos, filaActual);
+  filaActual += 2;
+
+  // === SECCIÓN 5: MATRIZ DE COMPATIBILIDAD ===
+  filaActual = _crearMatrizCompatibilidad(sheet, datos, filaActual);
+  filaActual += 2;
+
+  // === SECCIÓN 6: EVALUACIÓN DE VULNERABILIDAD ===
+  filaActual = _crearEvaluacionVulnerabilidad(sheet, datos, filaActual);
+  filaActual += 2;
+
+  // === SECCIÓN 7: RECOMENDACIONES TÉCNICAS ===
+  _crearRecomendacionesTecnicasSistema(sheet, datos, metadatos, filaActual);
+}
+
+/// Crea resumen estadístico específico para sistema estructural
+int _crearResumenEstadisticoSistemaEstructural(
+  Sheet sheet,
+  Map<String, dynamic> datos,
+  Map<String, dynamic> metadatos,
+  int filaInicial,
+) {
+  int fila = filaInicial;
+
+  // Título de sección
+  _setCellValue(sheet, fila, 0, 'RESUMEN ESTADÍSTICO SISTEMA ESTRUCTURAL');
+  _aplicarEstiloSeccion(sheet, fila, 0);
+  fila++;
+
+  final int totalFormatos = metadatos['totalFormatos'] ?? 0;
+
+  // Categorías del sistema estructural
+  final List<String> categorias = [
+    'direccionX', 'direccionY', 'murosMamposteria', 
+    'sistemasPiso', 'sistemasTecho', 'cimentacion'
+  ];
+
+  // Calcular estadísticas por categoría
+  int totalElementos = 0;
+  int categoriasConDatos = 0;
+  
+  for (String categoria in categorias) {
+    if (datos['estadisticas']?.containsKey(categoria) == true) {
+      Map<String, dynamic> estadisticasCategoria = datos['estadisticas'][categoria];
+      if (estadisticasCategoria.isNotEmpty) {
+        categoriasConDatos++;
+        totalElementos += estadisticasCategoria.values
+            .map((e) => e['conteo'] as int? ?? 0)
+            .fold(0, (sum, count) => sum + count);
+      }
+    }
+  }
+
+  // Encabezados de tabla
+  _setCellValue(sheet, fila, 0, 'Concepto');
+  _setCellValue(sheet, fila, 1, 'Valor');
+  _setCellValue(sheet, fila, 2, 'Interpretación');
+  _aplicarEstiloTablaHeader(sheet, fila, 0, 3, '#9BC2E6');
+  fila++;
+
+  // Estadísticas principales
+  final List<List<String>> estadisticas = [
+    ['Total inmuebles analizados', '$totalFormatos', '100% de la muestra'],
+    ['Categorías con datos', '$categoriasConDatos', 'De 6 categorías principales'],
+    ['Total elementos registrados', '$totalElementos', 'Suma de todos los elementos'],
+    ['Promedio elementos/inmueble', 
+     totalFormatos > 0 ? (totalElementos / totalFormatos).toStringAsFixed(1) : '0',
+     'Diversidad estructural promedio'],
+  ];
+
+  // Escribir estadísticas
+  for (int i = 0; i < estadisticas.length; i++) {
+    var stat = estadisticas[i];
+    _setCellValue(sheet, fila, 0, stat[0]);
+    _setCellValue(sheet, fila, 1, stat[1]);
+    _setCellValue(sheet, fila, 2, stat[2]);
+    
+    // Alternar colores
+    String bgColor = fila % 2 == 0 ? '#F2F2F2' : '#FFFFFF';
+    _aplicarEstiloFila(sheet, fila, 0, 3, bgColor);
+    fila++;
+  }
+
+  return fila;
+}
+
+/// Crea análisis detallado por categorías estructurales
+int _crearAnalisisCategorias(
+  Sheet sheet,
+  Map<String, dynamic> datos,
+  int filaInicial,
+) {
+  int fila = filaInicial;
+
+  // Título de sección
+  _setCellValue(sheet, fila, 0, 'ANÁLISIS POR CATEGORÍAS ESTRUCTURALES');
+  _aplicarEstiloSeccion(sheet, fila, 0);
+  fila++;
+
+  // Definir categorías con sus nombres legibles y colores
+  final List<Map<String, dynamic>> categorias = [
+    {'id': 'direccionX', 'nombre': 'Dirección X', 'color': '#E8F5E8'},
+    {'id': 'direccionY', 'nombre': 'Dirección Y', 'color': '#E8F0FF'},
+    {'id': 'murosMamposteria', 'nombre': 'Muros de Mampostería', 'color': '#FFF2CC'},
+    {'id': 'sistemasPiso', 'nombre': 'Sistemas de Piso', 'color': '#FFE2CC'},
+    {'id': 'sistemasTecho', 'nombre': 'Sistemas de Techo', 'color': '#F2E2FF'},
+    {'id': 'cimentacion', 'nombre': 'Cimentación', 'color': '#E2F0D9'},
+  ];
+
+  for (var categoria in categorias) {
+    String id = categoria['id'];
+    String nombre = categoria['nombre'];
+    String color = categoria['color'];
+
+    // Verificar si hay datos para esta categoría
+    if (!datos['estadisticas']?.containsKey(id) || 
+        datos['estadisticas'][id].isEmpty) {
+      continue;
+    }
+
+    Map<String, dynamic> estadisticasCategoria = datos['estadisticas'][id];
+
+    // Subtítulo de categoría
+    _setCellValue(sheet, fila, 0, nombre.toUpperCase());
+    _aplicarEstilo(sheet, fila, 0, bold: true, backgroundColor: color);
+    fila++;
+
+    // Encabezados específicos
+    _setCellValue(sheet, fila, 0, 'Elemento Estructural');
+    _setCellValue(sheet, fila, 1, 'Cantidad');
+    _setCellValue(sheet, fila, 2, 'Porcentaje');
+    _setCellValue(sheet, fila, 3, 'Clasificación');
+    _aplicarEstiloTablaHeader(sheet, fila, 0, 4, '#D9E2F3');
+    fila++;
+
+    // Ordenar elementos por cantidad
+    var elementosOrdenados = estadisticasCategoria.entries
+        .where((entry) => entry.value['conteo'] > 0)
+        .toList()
+      ..sort((a, b) => b.value['conteo'].compareTo(a.value['conteo']));
+
+    int totalCategoria = elementosOrdenados.fold(0, (sum, entry) => sum + entry.value['conteo'] as int);
+
+    // Mostrar elementos
+    for (int i = 0; i < elementosOrdenados.length; i++) {
+      var entry = elementosOrdenados[i];
+      String elemento = entry.key;
+      int conteo = entry.value['conteo'];
+      double porcentaje = totalCategoria > 0 ? (conteo / totalCategoria) * 100 : 0;
+      
+      String clasificacion = '';
+      if (i == 0) clasificacion = 'Predominante';
+      else if (porcentaje > 20) clasificacion = 'Significativo';
+      else if (porcentaje > 10) clasificacion = 'Moderado';
+      else clasificacion = 'Menor';
+
+      _setCellValue(sheet, fila, 0, elemento);
+      _setCellValue(sheet, fila, 1, conteo.toString());
+      _setCellValue(sheet, fila, 2, '${porcentaje.toStringAsFixed(1)}%');
+      _setCellValue(sheet, fila, 3, clasificacion);
+      
+      // Alternar colores
+      String bgColor = fila % 2 == 0 ? '#F9F9F9' : '#FFFFFF';
+      _aplicarEstiloFila(sheet, fila, 0, 4, bgColor);
+      fila++;
+    }
+
+    // Línea de separación
+    fila++;
+  }
+
+  return fila;
+}
+
+/// Crea matriz de compatibilidad entre sistemas
+int _crearMatrizCompatibilidad(
+  Sheet sheet,
+  Map<String, dynamic> datos,
+  int filaInicial,
+) {
+  int fila = filaInicial;
+
+  // Título de sección
+  _setCellValue(sheet, fila, 0, 'MATRIZ DE COMPATIBILIDAD DE SISTEMAS');
+  _aplicarEstiloSeccion(sheet, fila, 0);
+  fila++;
+
+  // Descripción
+  _setCellValue(sheet, fila, 0, 'Análisis de combinaciones estructurales más frecuentes');
+  _aplicarEstilo(sheet, fila, 0, backgroundColor: '#F0F8FF');
+  fila++;
+  fila++;
+
+  // Obtener elementos predominantes de cada categoría
+  Map<String, String> elementosPredominantes = {};
+  
+  final List<String> categoriasClave = ['direccionX', 'direccionY', 'cimentacion'];
+  
+  for (String categoria in categoriasClave) {
+    if (datos['estadisticas']?.containsKey(categoria)) {
+      Map<String, dynamic> estadisticas = datos['estadisticas'][categoria];
+      if (estadisticas.isNotEmpty) {
+        var predominante = estadisticas.entries
+            .where((e) => e.value['conteo'] > 0)
+            .reduce((a, b) => a.value['conteo'] > b.value['conteo'] ? a : b);
+        elementosPredominantes[categoria] = predominante.key;
+      }
+    }
+  }
+
+  // Encabezados
+  _setCellValue(sheet, fila, 0, 'Sistema');
+  _setCellValue(sheet, fila, 1, 'Elemento Predominante');
+  _setCellValue(sheet, fila, 2, 'Compatibilidad');
+  _setCellValue(sheet, fila, 3, 'Recomendación');
+  _aplicarEstiloTablaHeader(sheet, fila, 0, 4, '#C6E0B4');
+  fila++;
+
+  // Análisis de compatibilidad
+  final Map<String, String> nombresCategoria = {
+    'direccionX': 'Dirección X',
+    'direccionY': 'Dirección Y',
+    'cimentacion': 'Cimentación',
+  };
+
+  elementosPredominantes.forEach((categoria, elemento) {
+    String compatibilidad = _evaluarCompatibilidad(elemento);
+    String recomendacion = _obtenerRecomendacion(elemento);
+    
+    _setCellValue(sheet, fila, 0, nombresCategoria[categoria] ?? categoria);
+    _setCellValue(sheet, fila, 1, elemento);
+    _setCellValue(sheet, fila, 2, compatibilidad);
+    _setCellValue(sheet, fila, 3, recomendacion);
+    
+    // Color según compatibilidad
+    String bgColor = '#FFFFFF';
+    if (compatibilidad.contains('Alta')) bgColor = '#E8F5E8';
+    else if (compatibilidad.contains('Media')) bgColor = '#FFF2CC';
+    else if (compatibilidad.contains('Baja')) bgColor = '#FFE8E8';
+    
+    _aplicarEstiloFila(sheet, fila, 0, 4, bgColor);
+    fila++;
+  });
+
+  return fila;
+}
+
+/// Crea evaluación de vulnerabilidad
+int _crearEvaluacionVulnerabilidad(
+  Sheet sheet,
+  Map<String, dynamic> datos,
+  int filaInicial,
+) {
+  int fila = filaInicial;
+
+  // Título de sección
+  _setCellValue(sheet, fila, 0, 'EVALUACIÓN DE VULNERABILIDAD ESTRUCTURAL');
+  _aplicarEstiloSeccion(sheet, fila, 0);
+  fila++;
+
+  // Verificar si hay datos de vulnerabilidad
+  if (!datos['estadisticas']?.containsKey('vulnerabilidad')) {
+    _setCellValue(sheet, fila, 0, 'No hay datos de vulnerabilidad disponibles');
+    return fila + 1;
+  }
+
+  Map<String, dynamic> vulnerabilidad = datos['estadisticas']['vulnerabilidad'];
+
+  // Encabezados
+  _setCellValue(sheet, fila, 0, 'Factor de Vulnerabilidad');
+  _setCellValue(sheet, fila, 1, 'Casos Detectados');
+  _setCellValue(sheet, fila, 2, 'Nivel de Riesgo');
+  _setCellValue(sheet, fila, 3, 'Acción Requerida');
+  _aplicarEstiloTablaHeader(sheet, fila, 0, 4, '#FFB366');
+  fila++;
+
+  // Factores de vulnerabilidad con niveles de riesgo
+  vulnerabilidad.forEach((factor, stats) {
+    int conteo = stats['conteo'] ?? 0;
+    if (conteo > 0) {
+      String nivelRiesgo = _evaluarNivelRiesgo(factor, conteo);
+      String accion = _determinarAccion(nivelRiesgo);
+      
+      _setCellValue(sheet, fila, 0, factor);
+      _setCellValue(sheet, fila, 1, conteo.toString());
+      _setCellValue(sheet, fila, 2, nivelRiesgo);
+      _setCellValue(sheet, fila, 3, accion);
+      
+      // Color según nivel de riesgo
+      String bgColor = '#FFFFFF';
+      if (nivelRiesgo.contains('Alto')) bgColor = '#FFE8E8';
+      else if (nivelRiesgo.contains('Medio')) bgColor = '#FFF2CC';
+      else bgColor = '#E8F5E8';
+      
+      _aplicarEstiloFila(sheet, fila, 0, 4, bgColor);
+      fila++;
+    }
+  });
+
+  return fila;
+}
+
+/// Crea recomendaciones técnicas específicas para sistema estructural
+void _crearRecomendacionesTecnicasSistema(
+  Sheet sheet,
+  Map<String, dynamic> datos,
+  Map<String, dynamic> metadatos,
+  int filaInicial,
+) {
+  int fila = filaInicial;
+
+  // Título de sección
+  _setCellValue(sheet, fila, 0, 'RECOMENDACIONES TÉCNICAS ESPECIALIZADAS');
+  _aplicarEstiloSeccion(sheet, fila, 0);
+  fila++;
+
+  // Análisis de elementos críticos
+  List<String> recomendacionesCriticas = _generarRecomendacionesCriticas(datos);
+  
+  _setCellValue(sheet, fila, 0, 'RECOMENDACIONES PRIORITARIAS:');
+  _aplicarEstilo(sheet, fila, 0, bold: true, backgroundColor: '#FFE2CC');
+  fila++;
+
+  for (String recomendacion in recomendacionesCriticas) {
+    _setCellValue(sheet, fila, 0, recomendacion);
+    _aplicarEstilo(sheet, fila, 0, backgroundColor: '#FFF9E6');
+    fila++;
+  }
+
+  fila++;
+
+  // Conclusión técnica
+  String conclusion = metadatos['conclusiones'] ?? 
+      'Se recomienda realizar evaluaciones periódicas del sistema estructural y mantener un registro actualizado de las condiciones encontradas.';
+
+  _setCellValue(sheet, fila, 0, 'CONCLUSIÓN TÉCNICA:');
+  _aplicarEstilo(sheet, fila, 0, bold: true, backgroundColor: '#E2EFDA');
+  fila++;
+
+  _setCellValue(sheet, fila, 0, conclusion);
+  _aplicarEstilo(sheet, fila, 0, backgroundColor: '#F2F7FF');
+}
+
+// === MÉTODOS AUXILIARES ESPECÍFICOS ===
+
+/// Evalúa compatibilidad de elementos estructurales
+String _evaluarCompatibilidad(String elemento) {
+  // Mapeo de compatibilidades basado en ingeniería estructural
+  Map<String, String> compatibilidades = {
+    'Marcos de concreto': 'Alta - Sistema rígido confiable',
+    'Muros de concreto': 'Alta - Estructura monolítica',
+    'Muros confinados': 'Media-Alta - Buen comportamiento sísmico',
+    'Losa maciza': 'Alta - Distribución uniforme de cargas',
+    'Zapatas aisladas': 'Media - Requiere buen suelo',
+    'Losa de cimentación': 'Alta - Distribución amplia de cargas',
+  };
+  
+  return compatibilidades[elemento] ?? 'Media - Requiere evaluación específica';
+}
+
+/// Obtiene recomendación para elemento específico
+String _obtenerRecomendacion(String elemento) {
+  Map<String, String> recomendaciones = {
+    'Marcos de concreto': 'Mantener inspección de juntas',
+    'Muros de concreto': 'Verificar fisuras periódicamente',
+    'Muros confinados': 'Inspeccionar elementos de confinamiento',
+    'Adobe o bahareque': 'Considerar refuerzo urgente',
+    'Losa maciza': 'Monitorear deflexiones',
+    'Teja': 'Verificar sistema de soporte',
+  };
+  
+  return recomendaciones[elemento] ?? 'Consultar especialista estructural';
+}
+
+/// Evalúa nivel de riesgo basado en el factor
+String _evaluarNivelRiesgo(String factor, int casos) {
+  // Factores de alto riesgo
+  List<String> factoresAltoRiesgo = [
+    'Geometría irregular',
+    'Discontinuidad en planta',
+    'Piso blando',
+    'Columna corta',
+  ];
+  
+  if (factoresAltoRiesgo.any((f) => factor.toLowerCase().contains(f.toLowerCase()))) {
+    return casos > 5 ? 'Riesgo Alto' : 'Riesgo Medio';
+  }
+  
+  return casos > 10 ? 'Riesgo Medio' : 'Riesgo Bajo';
+}
+
+/// Determina acción según nivel de riesgo
+String _determinarAccion(String nivelRiesgo) {
+  switch (nivelRiesgo) {
+    case 'Riesgo Alto':
+      return 'Evaluación estructural inmediata';
+    case 'Riesgo Medio':
+      return 'Inspección detallada en 6 meses';
+    case 'Riesgo Bajo':
+      return 'Monitoreo rutinario anual';
+    default:
+      return 'Consultar especialista';
+  }
+}
+
+/// Genera recomendaciones críticas basadas en los datos
+List<String> _generarRecomendacionesCriticas(Map<String, dynamic> datos) {
+  List<String> recomendaciones = [];
+  
+  // Verificar sistemas de adobe o bahareque
+  if (datos['estadisticas']?['direccionX']?.containsKey('Muros de adobe o bahareque') == true ||
+      datos['estadisticas']?['direccionY']?.containsKey('Muros de adobe o bahareque') == true) {
+    recomendaciones.add('• CRÍTICO: Inmuebles con adobe/bahareque requieren refuerzo estructural urgente');
+  }
+  
+  // Verificar vulnerabilidades geométricas
+  if (datos['estadisticas']?['vulnerabilidad']?.isNotEmpty == true) {
+    recomendaciones.add('• Implementar medidas correctivas para vulnerabilidades identificadas');
+  }
+  
+  // Recomendaciones generales
+  recomendaciones.addAll([
+    '• Establecer programa de inspección periódica según tipología estructural',
+    '• Capacitar personal en identificación de elementos estructurales críticos',
+    '• Desarrollar protocolos específicos por tipo de sistema estructural',
+  ]);
+  
+  return recomendaciones;
+}
+
   /// Genera un reporte completo de Material Dominante en Excel
 /// Incluye análisis detallado de materiales de construcción predominantes
 Future<String> generarReporteMaterialDominanteExcel({

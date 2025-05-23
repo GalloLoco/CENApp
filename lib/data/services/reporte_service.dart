@@ -315,7 +315,7 @@ class ReporteService {
           datosEstadisticos, formatos.length),
     };
 
-    // Paso 6: Generar documento PDF
+    // Paso 6: Generar documento PDF (mantener existente)
     String rutaPDF = await ReporteDocumentalService.generarReportePDF(
       titulo: 'Reporte Estadístico',
       subtitulo: 'Sistema Estructural',
@@ -325,8 +325,21 @@ class ReporteService {
       metadatos: metadatos,
     );
 
+// 🆕 Paso 7: Generar Excel usando nuestro servicio especializado
+    String rutaExcel =
+        await _excelService.generarReporteSistemaEstructuralExcel(
+      titulo: metadatos['titulo']!,
+      subtitulo: metadatos['subtitulo']!,
+      datos: datosEstadisticos,
+      tablas: tablas,
+      metadatos: metadatos,
+    );
+
+    print('✅ [EXCEL] Reporte Sistema Estructural Excel generado: $rutaExcel');
+
     return {
-      'pdf': rutaPDF,
+      'excel': rutaExcel, // 🆕 NUEVO: Excel con análisis detallado
+      'pdf': rutaPDF, // Mantener PDF existente
     };
   }
 

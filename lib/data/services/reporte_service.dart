@@ -305,15 +305,17 @@ class ReporteService {
     };
   }
 
-  /// Genera un reporte de uso de vivienda y topografía
-  /// **ACTUALIZADO**: Incluye generación de Excel
-  Future<Map<String, String>> generarReporteUsoViviendaTopografia({
-    required String nombreInmueble,
-    required DateTime fechaInicio,
-    required DateTime fechaFin,
-    required String usuarioCreador,
-    required List<Map<String, dynamic>> ubicaciones,
-  }) async {
+  /// Genera un reporte de uso de vivienda y topografía (VERSIÓN ACTUALIZADA CON EXCEL)
+Future<Map<String, String>> generarReporteUsoViviendaTopografia({
+  required String nombreInmueble,
+  required DateTime fechaInicio,
+  required DateTime fechaFin,
+  required String usuarioCreador,
+  required List<Map<String, dynamic>> ubicaciones,
+}) async {
+  try {
+    print('📊 [REPORTE] Iniciando generación de Uso de Vivienda y Topografía...');
+    
     // Paso 1: Buscar formatos que cumplan con los criterios
     List<FormatoEvaluacion> formatos = await _buscarFormatos(
       nombreInmueble: nombreInmueble,
@@ -328,6 +330,8 @@ class ReporteService {
           'No se encontraron formatos que cumplan con los criterios especificados');
     }
 
+    print('✅ [REPORTE] Encontrados ${formatos.length} formatos');
+
     // Paso 2: Analizar los datos para generar estadísticas
     Map<String, dynamic> datosEstadisticos =
         EstadisticosService.analizarUsoViviendaTopografia(formatos);
@@ -336,22 +340,37 @@ class ReporteService {
     List<Map<String, dynamic>> tablas =
         _prepararTablasParaReporte(datosEstadisticos);
 
-    // Paso 4: Generar gráficas
-    List<Uint8List> graficas = await _generarGraficasReporte(datosEstadisticos);
-
-    // Paso 5: Construir metadatos para el reporte
+    // Paso 4: Construir metadatos para el reporte
     Map<String, dynamic> metadatos = {
-      'titulo': 'Uso de Vivienda',
+      'titulo': 'Uso de Vivienda y Topografía',
+      'subtitulo': 'Análisis de Patrones de Uso y Características Topográficas',
       'totalFormatos': formatos.length,
       'nombreInmueble': nombreInmueble.isEmpty ? 'Todos' : nombreInmueble,
       'fechaInicio': DateFormat('dd/MM/yyyy').format(fechaInicio),
       'fechaFin': DateFormat('dd/MM/yyyy').format(fechaFin),
       'usuarioCreador': usuarioCreador.isEmpty ? 'Todos' : usuarioCreador,
       'ubicaciones': ubicaciones,
+      'autor': 'Sistema CENApp - Uso y Topografía',
+      'periodoEvaluacion': '${DateFormat('MM/yyyy').format(fechaInicio)} - ${DateFormat('MM/yyyy').format(fechaFin)}',
       'conclusiones': _generarConclusiones(datosEstadisticos, formatos.length),
     };
 
-    // Paso 6: Generar documentos PDF
+    print('📊 [REPORTE] Iniciando generación de documentos...');
+
+    // 🆕 Paso 5: Generar reporte Excel usando nuestro servicio
+    String rutaExcel = await _excelService.generarReporteUsoTopografiaExcel(
+      titulo: metadatos['titulo']!,
+      subtitulo: metadatos['subtitulo']!,
+      datos: datosEstadisticos,
+      tablas: tablas,
+      metadatos: metadatos,
+    );
+
+    print('✅ [EXCEL] Reporte Excel generado: $rutaExcel');
+
+    // Paso 6: Generar también PDF (mantener funcionalidad existente)
+    List<Uint8List> graficas = await _generarGraficasReporte(datosEstadisticos);
+    
     String rutaPDF = await ReporteDocumentalService.generarReportePDF(
       titulo: 'Reporte Estadístico',
       subtitulo: 'Uso de Vivienda y Topografía',
@@ -361,10 +380,19 @@ class ReporteService {
       metadatos: metadatos,
     );
 
+    print('✅ [PDF] Reporte PDF generado: $rutaPDF');
+
+    // Retornar ambos archivos
     return {
-      'pdf': rutaPDF,
+      'excel': rutaExcel,  // 🆕 NUEVO: Excel con gráficos
+      'pdf': rutaPDF,      // Mantener PDF existente
     };
+
+  } catch (e) {
+    print('❌ [REPORTE] Error en Uso de Vivienda y Topografía: $e');
+    throw Exception('Error al generar reporte de uso de vivienda y topografía: $e');
   }
+}
 
   /// Genera un reporte de resumen general
   /// **NUEVO**: Ahora incluye generación de Excel
@@ -436,9 +464,11 @@ class ReporteService {
       // **PASO 7: GENERAR EXCEL** (NUEVA FUNCIONALIDAD)
       print('📊 [RESUMEN GENERAL] Generando Excel...');
       String rutaExcel = await _excelService.generarReporteResumenGeneralExcel(
-        datos: datosEstadisticos,
-        tablas: tablas,
-        metadatos: metadatos,
+        titulo: metadatos['titulo']!,
+      subtitulo: metadatos['subtitulo']!,
+      datos: datosEstadisticos,
+      tablas: tablas,
+      metadatos: metadatos,
       );
 
       print('✅ [RESUMEN GENERAL] Ambos formatos generados exitosamente');

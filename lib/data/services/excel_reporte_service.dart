@@ -11,761 +11,550 @@ import './file_storage_service.dart';
 class ExcelReporteService {
   final FileStorageService _fileService = FileStorageService();
 
-  /// Genera un reporte completo de Resumen General en Excel
-  /// 
-  /// [datos]: Datos estadísticos del análisis
-  /// [tablas]: Lista de tablas para incluir en el reporte
-  /// [metadatos]: Información adicional del reporte
-  /// [directorio]: Directorio donde guardar el archivo (opcional)
-  /// 
-  /// Retorna la ruta del archivo Excel generado
-  Future<String> generarReporteResumenGeneralExcel({
-    required Map<String, dynamic> datos,
-    required List<Map<String, dynamic>> tablas,
-    required Map<String, dynamic> metadatos,
-    Directory? directorio,
-  }) async {
-    try {
-      print('📊 [EXCEL] Iniciando generación de Resumen General en Excel...');
-      
-      // Crear libro de Excel con configuración optimizada
-      final excel = Excel.createExcel();
-      
-      // Eliminar hoja por defecto si existe
-      if (excel.sheets.containsKey('Sheet1')) {
-        excel.delete('Sheet1');
+ Future<String> generarReporteUsoTopografiaExcel({
+  required String titulo,
+  required String subtitulo,
+  required Map<String, dynamic> datos,
+  required List<Map<String, dynamic>> tablas,
+  required Map<String, dynamic> metadatos,
+  Directory? directorio,
+}) async {
+  try {
+    print('📊 [EXCEL-USO] Iniciando generación de reporte Excel: $titulo');
+
+    // Crear nuevo libro de Excel usando la librería excel
+    var excel = Excel.createExcel();
+    
+    // Eliminar hoja por defecto
+    excel.delete('Sheet1');
+    
+    // Crear hoja única con todo el contenido
+    String nombreHoja = 'Uso de Vivienda y Topografía';
+    excel.copy('Sheet1', nombreHoja);
+    excel.delete('Sheet1');
+    
+    Sheet sheet = excel[nombreHoja];
+    
+    // Crear contenido completo en una sola hoja
+    await _crearContenidoUsoTopografiaCompleto(sheet, titulo, subtitulo, datos, tablas, metadatos);
+
+    // Guardar archivo
+    final String rutaArchivo = await _guardarArchivoExcelEstandar(
+      excel, 
+      titulo, 
+      directorio
+    );
+    
+    print('✅ [EXCEL-USO] Reporte Excel generado exitosamente: $rutaArchivo');
+    return rutaArchivo;
+
+  } catch (e) {
+    print('❌ [EXCEL-USO] Error al generar reporte Excel: $e');
+    throw Exception('Error al generar reporte Excel de uso y topografía: $e');
+  }
+}
+
+/// Crea todo el contenido del reporte en una sola hoja usando la librería excel estándar
+Future<void> _crearContenidoUsoTopografiaCompleto(
+  Sheet sheet,
+  String titulo,
+  String subtitulo,
+  Map<String, dynamic> datos,
+  List<Map<String, dynamic>> tablas,
+  Map<String, dynamic> metadatos,
+) async {
+  int filaActual = 0; // Empezar desde fila 0 (excel package usa base 0)
+
+  // === SECCIÓN 1: ENCABEZADO ===
+  filaActual = _crearEncabezadoUsoTopografia(sheet, titulo, subtitulo, metadatos, filaActual);
+  filaActual += 2;
+
+  // === SECCIÓN 2: FILTROS APLICADOS ===
+  filaActual = _crearSeccionFiltrosUsoTopografia(sheet, metadatos, filaActual);
+  filaActual += 2;
+
+  // === SECCIÓN 3: RESUMEN ESTADÍSTICO ===
+  filaActual = _crearResumenEstadisticoUsoTopografia(sheet, datos, metadatos, filaActual);
+  filaActual += 2;
+
+  // === SECCIÓN 4: ANÁLISIS DE USO DE VIVIENDA ===
+  filaActual = _crearAnalisisUsoVivienda(sheet, datos, filaActual);
+  filaActual += 2;
+
+  // === SECCIÓN 5: ANÁLISIS DE TOPOGRAFÍA ===
+  filaActual = _crearAnalisisTopografia(sheet, datos, filaActual);
+  filaActual += 2;
+
+  // === SECCIÓN 6: COMPARATIVA Y CONCLUSIONES ===
+  _crearSeccionComparativaYConclusiones(sheet, datos, metadatos, filaActual);
+}
+
+/// Crea encabezado principal del reporte
+int _crearEncabezadoUsoTopografia(
+  Sheet sheet,
+  String titulo,
+  String subtitulo,
+  Map<String, dynamic> metadatos,
+  int filaInicial,
+) {
+  int fila = filaInicial;
+
+  // Título principal (fusionar celdas A-F)
+  _setCellValue(sheet, fila, 0, titulo.toUpperCase());
+  _aplicarEstiloEncabezado(sheet, fila, 0, bold: true, fontSize: 16, backgroundColor: '#1F4E79');
+  fila++;
+
+  // Subtítulo
+  _setCellValue(sheet, fila, 0, subtitulo);
+  _aplicarEstiloEncabezado(sheet, fila, 0, bold: true, fontSize: 14, backgroundColor: '#2F5F8F');
+  fila++;
+
+  // Fecha de generación
+  String fechaGeneracion = DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now());
+  _setCellValue(sheet, fila, 0, 'Generado el: $fechaGeneracion');
+  _aplicarEstiloEncabezado(sheet, fila, 0, fontSize: 10, backgroundColor: '#E7E6E6');
+  fila++;
+
+  return fila;
+}
+
+/// Crea sección de filtros aplicados
+int _crearSeccionFiltrosUsoTopografia(
+  Sheet sheet,
+  Map<String, dynamic> metadatos,
+  int filaInicial,
+) {
+  int fila = filaInicial;
+
+  // Título de sección
+  _setCellValue(sheet, fila, 0, 'FILTROS APLICADOS');
+  _aplicarEstiloSeccion(sheet, fila, 0);
+  fila++;
+
+  // Lista de filtros
+  final List<List<String>> filtros = [
+    ['Nombre inmueble:', metadatos['nombreInmueble'] ?? 'Todos'],
+    ['Período:', '${metadatos['fechaInicio']} - ${metadatos['fechaFin']}'],
+    ['Usuario creador:', metadatos['usuarioCreador'] ?? 'Todos'],
+    ['Total formatos:', '${metadatos['totalFormatos']}'],
+  ];
+
+  // Agregar ubicaciones si existen
+  if (metadatos['ubicaciones'] != null && metadatos['ubicaciones'].isNotEmpty) {
+    final List<Map<String, dynamic>> ubicaciones = metadatos['ubicaciones'];
+    for (int i = 0; i < ubicaciones.length && i < 3; i++) {
+      final ubi = ubicaciones[i];
+      String ubicacionStr = '${ubi['municipio']}, ${ubi['ciudad']}';
+      if (ubi['colonia'] != null && ubi['colonia'].isNotEmpty) {
+        ubicacionStr += ', ${ubi['colonia']}';
       }
-      
-      // === HOJA 1: RESUMEN EJECUTIVO ===
-      await _crearHojaResumenEjecutivo(excel, datos, metadatos);
-      
-      // === HOJA 2: DISTRIBUCIÓN GEOGRÁFICA ===
-      await _crearHojaDistribucionGeografica(excel, datos, tablas);
-      
-      // === HOJA 3: ANÁLISIS TEMPORAL ===
-      await _crearHojaAnalisisTemporal(excel, datos);
-      
-      // === HOJA 4: GRÁFICOS Y VISUALIZACIONES ===
-      await _crearHojaGraficos(excel, datos);
-      
-      // === HOJA 5: DATOS RAW (para análisis adicional) ===
-      await _crearHojaDatosRaw(excel, datos);
-      
-      // Guardar archivo Excel
-      final rutaArchivo = await _guardarArchivoExcel(
-        excel, 
-        'ResumenGeneral_${DateTime.now().millisecondsSinceEpoch}',
-        directorio
-      );
-      
-      print('✅ [EXCEL] Reporte Resumen General Excel generado: $rutaArchivo');
-      return rutaArchivo;
-      
-    } catch (e) {
-      print('❌ [EXCEL] Error al generar reporte: $e');
-      throw Exception('Error al generar reporte Excel: $e');
+      filtros.add(['Ubicación ${i + 1}:', ubicacionStr]);
     }
   }
 
-  /// Crea la hoja de Resumen Ejecutivo con métricas clave
-  Future<void> _crearHojaResumenEjecutivo(
-    Excel excel, 
-    Map<String, dynamic> datos, 
-    Map<String, dynamic> metadatos
-  ) async {
-    final hoja = excel['Resumen Ejecutivo'];
-    int filaActual = 0;
-
-    // === ENCABEZADO DEL REPORTE ===
-    _escribirEncabezadoPrincipal(hoja, filaActual, metadatos);
-    filaActual += 6; // Saltar líneas del encabezado
+  // Escribir filtros
+  for (var filtro in filtros) {
+    _setCellValue(sheet, fila, 0, filtro[0]);
+    _aplicarEstilo(sheet, fila, 0, bold: true, backgroundColor: '#F2F2F2');
     
-    // === MÉTRICAS CLAVE ===
-    _escribirSeccionTitulo(hoja, filaActual++, 'MÉTRICAS CLAVE', 'A');
-    filaActual++;
+    _setCellValue(sheet, fila, 1, filtro[1]);
+    _aplicarEstilo(sheet, fila, 1, backgroundColor: '#FAFAFA');
     
-    // Crear tabla de métricas principales
-    final metricasClave = _calcularMetricasClave(datos, metadatos);
-    filaActual = _escribirTablaMetricas(hoja, filaActual, metricasClave);
-    filaActual += 2;
-    
-    // === DISTRIBUCIÓN GEOGRÁFICA RESUMEN ===
-    _escribirSeccionTitulo(hoja, filaActual++, 'COBERTURA GEOGRÁFICA', 'A');
-    filaActual++;
-    
-    filaActual = _escribirResumenGeografico(hoja, filaActual, datos);
-    filaActual += 2;
-    
-    // === TENDENCIAS TEMPORALES ===
-    _escribirSeccionTitulo(hoja, filaActual++, 'ACTIVIDAD TEMPORAL', 'A');
-    filaActual++;
-    
-    filaActual = _escribirResumenTemporal(hoja, filaActual, datos);
-    
-    // Aplicar estilos y formato final
-    _aplicarEstilosResumenEjecutivo(hoja);
+    fila++;
   }
 
-  /// Crea la hoja de Distribución Geográfica con tablas detalladas
-  Future<void> _crearHojaDistribucionGeografica(
-    Excel excel, 
-    Map<String, dynamic> datos, 
-    List<Map<String, dynamic>> tablas
-  ) async {
-    final hoja = excel['Distribución Geográfica'];
-    int filaActual = 0;
-    
-    // Encabezado de sección
-    _escribirCelda(hoja, filaActual++, 0, 'ANÁLISIS DE DISTRIBUCIÓN GEOGRÁFICA');
-    _aplicarEstiloTituloPrincipal(hoja, filaActual - 1, 0);
-    filaActual++;
-    
-    // Buscar y procesar tablas geográficas
-    for (var tabla in tablas) {
-      if (tabla['titulo'].toString().contains('Ciudad') || 
-          tabla['titulo'].toString().contains('Colonia')) {
-        
-        // Título de la tabla
-        _escribirSeccionTitulo(hoja, filaActual++, tabla['titulo'], 'A');
-        
-        // Descripción
-        if (tabla['descripcion'] != null) {
-          _escribirCelda(hoja, filaActual++, 0, tabla['descripcion']);
-          _aplicarEstiloDescripcion(hoja, filaActual - 1, 0);
-        }
-        filaActual++;
-        
-        // Escribir tabla con datos
-        filaActual = _escribirTablaCompleta(
-          hoja, 
-          filaActual, 
-          tabla['encabezados'], 
-          tabla['filas']
-        );
-        
-        // Agregar gráfico de representación textual
-        filaActual = _crearGraficoTextual(
-          hoja, 
-          filaActual + 1, 
-          tabla['filas'], 
-          'Distribución ${tabla['titulo']}'
-        );
-        filaActual += 3;
-      }
-    }
-    
-    _aplicarEstilosDistribucionGeografica(hoja);
+  return fila;
+}
+
+/// Crea resumen estadístico general
+int _crearResumenEstadisticoUsoTopografia(
+  Sheet sheet,
+  Map<String, dynamic> datos,
+  Map<String, dynamic> metadatos,
+  int filaInicial,
+) {
+  int fila = filaInicial;
+
+  // Título de sección
+  _setCellValue(sheet, fila, 0, 'RESUMEN ESTADÍSTICO GENERAL');
+  _aplicarEstiloSeccion(sheet, fila, 0);
+  fila++;
+
+  final int totalFormatos = metadatos['totalFormatos'] ?? 0;
+
+  // Calcular estadísticas de uso
+  int totalUsosRegistrados = 0;
+  int tiposUsoDistintos = 0;
+  if (datos.containsKey('usosVivienda') && datos['usosVivienda']['estadisticas'] != null) {
+    Map<String, dynamic> estadisticasUsos = datos['usosVivienda']['estadisticas'];
+    totalUsosRegistrados = estadisticasUsos.values.fold(0, (sum, stats) => sum + (stats['conteo'] as int? ?? 0));
+    tiposUsoDistintos = estadisticasUsos.values.where((stats) => (stats['conteo'] as int? ?? 0) > 0).length;
   }
 
-  /// Crea la hoja de Análisis Temporal
-  Future<void> _crearHojaAnalisisTemporal(
-    Excel excel, 
-    Map<String, dynamic> datos
-  ) async {
-    final hoja = excel['Análisis Temporal'];
-    int filaActual = 0;
-    
-    _escribirCelda(hoja, filaActual++, 0, 'ANÁLISIS TEMPORAL DE EVALUACIONES');
-    _aplicarEstiloTituloPrincipal(hoja, filaActual - 1, 0);
-    filaActual += 2;
-    
-    // Verificar si hay datos temporales
-    if (datos['distribucionTemporal']?['meses'] != null) {
-      Map<String, int> meses = Map<String, int>.from(datos['distribucionTemporal']['meses']);
-      
-      if (meses.isNotEmpty) {
-        // Crear tabla temporal
-        _escribirSeccionTitulo(hoja, filaActual++, 'EVALUACIONES POR MES', 'A');
-        filaActual++;
-        
-        // Convertir datos a formato de tabla
-        List<List<dynamic>> filasMeses = [];
-        meses.forEach((mes, cantidad) {
-          filasMeses.add([mes, cantidad]);
-        });
-        
-        // Ordenar cronológicamente
-        filasMeses.sort((a, b) => _compararMeses(a[0], b[0]));
-        
-        // Escribir tabla
-        filaActual = _escribirTablaCompleta(
-          hoja, 
-          filaActual, 
-          ['Período', 'Evaluaciones'], 
-          filasMeses
-        );
-        
-        // Crear gráfico temporal textual
-        filaActual = _crearGraficoTemporalTextual(hoja, filaActual + 2, filasMeses);
-        
-        // Estadísticas temporales adicionales
-        filaActual += 3;
-        _escribirEstadisticasTemporales(hoja, filaActual, filasMeses);
-      }
-    }
-    
-    _aplicarEstilosAnalisisTemporal(hoja);
+  // Calcular estadísticas de topografía
+  int totalTopografiaRegistrada = 0;
+  int tiposTopografiaDistintos = 0;
+  if (datos.containsKey('topografia') && datos['topografia']['estadisticas'] != null) {
+    Map<String, dynamic> estadisticasTopografia = datos['topografia']['estadisticas'];
+    totalTopografiaRegistrada = estadisticasTopografia.values.fold(0, (sum, stats) => sum + (stats['conteo'] as int? ?? 0));
+    tiposTopografiaDistintos = estadisticasTopografia.values.where((stats) => (stats['conteo'] as int? ?? 0) > 0).length;
   }
 
-  /// Crea la hoja de Gráficos con representaciones visuales en Excel
-  Future<void> _crearHojaGraficos(Excel excel, Map<String, dynamic> datos) async {
-    final hoja = excel['Gráficos'];
-    int filaActual = 0;
+  // Encabezados
+  _setCellValue(sheet, fila, 0, 'Concepto');
+  _setCellValue(sheet, fila, 1, 'Valor');
+  _setCellValue(sheet, fila, 2, 'Observación');
+  _aplicarEstiloTablaHeader(sheet, fila, 0, 3, '#70AD47');
+  fila++;
+
+  // Datos estadísticos
+  final List<List<String>> estadisticas = [
+    ['Total de inmuebles evaluados', '$totalFormatos', '100% de la muestra'],
+    ['Tipos de uso identificados', '$tiposUsoDistintos', 'Diversidad de uso'],
+    ['Total registros de uso', '$totalUsosRegistrados', 'Algunos inmuebles pueden tener múltiples usos'],
+    ['Tipos de topografía identificados', '$tiposTopografiaDistintos', 'Variedad topográfica'],
+    ['Total registros de topografía', '$totalTopografiaRegistrada', 'Características del terreno'],
+  ];
+
+  for (int i = 0; i < estadisticas.length; i++) {
+    var stat = estadisticas[i];
+    _setCellValue(sheet, fila, 0, stat[0]);
+    _setCellValue(sheet, fila, 1, stat[1]);
+    _setCellValue(sheet, fila, 2, stat[2]);
     
-    _escribirCelda(hoja, filaActual++, 0, 'REPRESENTACIONES GRÁFICAS');
-    _aplicarEstiloTituloPrincipal(hoja, filaActual - 1, 0);
-    filaActual += 2;
-    
-    // === GRÁFICO 1: TOP CIUDADES ===
-    if (datos['distribucionGeografica']?['ciudades'] != null) {
-      Map<String, int> ciudades = Map<String, int>.from(datos['distribucionGeografica']['ciudades']);
-      
-      if (ciudades.isNotEmpty) {
-        _escribirSeccionTitulo(hoja, filaActual++, 'TOP CIUDADES CON MÁS EVALUACIONES', 'A');
-        filaActual++;
-        
-        // Crear gráfico de barras horizontal textual
-        filaActual = _crearGraficoBarrasHorizontal(hoja, filaActual, ciudades, 'Ciudad');
-        filaActual += 3;
-      }
-    }
-    
-    // === GRÁFICO 2: DISTRIBUCIÓN DE COLONIAS ===
-    if (datos['distribucionGeografica']?['colonias'] != null) {
-      Map<String, int> colonias = Map<String, int>.from(datos['distribucionGeografica']['colonias']);
-      
-      if (colonias.isNotEmpty) {
-        _escribirSeccionTitulo(hoja, filaActual++, 'TOP 10 COLONIAS', 'A');
-        filaActual++;
-        
-        // Limitar a top 10
-        var coloniasOrdenadas = colonias.entries.toList()
-          ..sort((a, b) => b.value.compareTo(a.value));
-        
-        if (coloniasOrdenadas.length > 10) {
-          coloniasOrdenadas = coloniasOrdenadas.sublist(0, 10);
-        }
-        
-        Map<String, int> top10Colonias = Map.fromEntries(coloniasOrdenadas);
-        
-        filaActual = _crearGraficoBarrasHorizontal(hoja, filaActual, top10Colonias, 'Colonia');
-        filaActual += 3;
-      }
-    }
-    
-    // === GRÁFICO 3: TENDENCIA TEMPORAL ===
-    if (datos['distribucionTemporal']?['meses'] != null) {
-      Map<String, int> meses = Map<String, int>.from(datos['distribucionTemporal']['meses']);
-      
-      if (meses.isNotEmpty) {
-        _escribirSeccionTitulo(hoja, filaActual++, 'TENDENCIA TEMPORAL', 'A');
-        filaActual++;
-        
-        filaActual = _crearGraficoLinealTemporal(hoja, filaActual, meses);
-      }
-    }
-    
-    _aplicarEstilosGraficos(hoja);
+    // Alternar colores
+    String bgColor = fila % 2 == 0 ? '#F2F2F2' : '#FFFFFF';
+    _aplicarEstiloFila(sheet, fila, 0, 3, bgColor);
+    fila++;
   }
 
-  /// Crea la hoja de Datos Raw para análisis adicional
-  Future<void> _crearHojaDatosRaw(Excel excel, Map<String, dynamic> datos) async {
-    final hoja = excel['Datos Raw'];
-    int filaActual = 0;
-    
-    _escribirCelda(hoja, filaActual++, 0, 'DATOS EN FORMATO BRUTO PARA ANÁLISIS');
-    _aplicarEstiloTituloPrincipal(hoja, filaActual - 1, 0);
-    filaActual += 2;
-    
-    // === DATOS GEOGRÁFICOS ===
-    _escribirSeccionTitulo(hoja, filaActual++, 'DATOS GEOGRÁFICOS', 'A');
-    filaActual++;
-    
-    // Ciudades
-    if (datos['distribucionGeografica']?['ciudades'] != null) {
-      _escribirCelda(hoja, filaActual++, 0, 'CIUDADES');
-      _escribirCelda(hoja, filaActual, 0, 'Ciudad');
-      _escribirCelda(hoja, filaActual++, 1, 'Cantidad');
-      
-      Map<String, int> ciudades = Map<String, int>.from(datos['distribucionGeografica']['ciudades']);
-      ciudades.forEach((ciudad, cantidad) {
-        _escribirCelda(hoja, filaActual, 0, ciudad);
-        _escribirCelda(hoja, filaActual++, 1, cantidad);
-      });
-      filaActual += 2;
-    }
-    
-    // Colonias
-    if (datos['distribucionGeografica']?['colonias'] != null) {
-      _escribirCelda(hoja, filaActual++, 0, 'COLONIAS');
-      _escribirCelda(hoja, filaActual, 0, 'Colonia');
-      _escribirCelda(hoja, filaActual++, 1, 'Cantidad');
-      
-      Map<String, int> colonias = Map<String, int>.from(datos['distribucionGeografica']['colonias']);
-      colonias.forEach((colonia, cantidad) {
-        _escribirCelda(hoja, filaActual, 0, colonia);
-        _escribirCelda(hoja, filaActual++, 1, cantidad);
-      });
-      filaActual += 2;
-    }
-    
-    // === DATOS TEMPORALES ===
-    _escribirSeccionTitulo(hoja, filaActual++, 'DATOS TEMPORALES', 'A');
-    filaActual++;
-    
-    if (datos['distribucionTemporal']?['meses'] != null) {
-      _escribirCelda(hoja, filaActual, 0, 'Mes');
-      _escribirCelda(hoja, filaActual++, 1, 'Evaluaciones');
-      
-      Map<String, int> meses = Map<String, int>.from(datos['distribucionTemporal']['meses']);
-      meses.forEach((mes, cantidad) {
-        _escribirCelda(hoja, filaActual, 0, mes);
-        _escribirCelda(hoja, filaActual++, 1, cantidad);
-      });
-    }
-    
-    _aplicarEstilosDatosRaw(hoja);
+  return fila;
+}
+
+/// Crea análisis detallado de uso de vivienda
+int _crearAnalisisUsoVivienda(
+  Sheet sheet,
+  Map<String, dynamic> datos,
+  int filaInicial,
+) {
+  int fila = filaInicial;
+
+  // Título de sección
+  _setCellValue(sheet, fila, 0, 'ANÁLISIS DETALLADO DE USO DE VIVIENDA');
+  _aplicarEstiloSeccion(sheet, fila, 0);
+  fila++;
+
+  // Verificar si hay datos
+  if (!datos.containsKey('usosVivienda') || 
+      !datos['usosVivienda'].containsKey('estadisticas')) {
+    _setCellValue(sheet, fila, 0, 'No hay datos de uso de vivienda disponibles');
+    return fila + 1;
   }
 
-  // ============================================================================
-  // MÉTODOS AUXILIARES PARA CÁLCULOS Y PROCESAMIENTO
-  // ============================================================================
+  Map<String, dynamic> estadisticasUsos = datos['usosVivienda']['estadisticas'];
+  
+  // Encabezados de tabla
+  _setCellValue(sheet, fila, 0, 'Tipo de Uso');
+  _setCellValue(sheet, fila, 1, 'Cantidad');
+  _setCellValue(sheet, fila, 2, 'Porcentaje');
+  _setCellValue(sheet, fila, 3, 'Observaciones');
+  _aplicarEstiloTablaHeader(sheet, fila, 0, 4, '#9BC2E6');
+  fila++;
 
-  /// Calcula métricas clave del reporte
-  Map<String, dynamic> _calcularMetricasClave(
-    Map<String, dynamic> datos, 
-    Map<String, dynamic> metadatos
-  ) {
-    Map<String, dynamic> metricas = {};
+  // Ordenar datos por cantidad
+  var usosOrdenados = estadisticasUsos.entries
+      .where((entry) => entry.value['conteo'] > 0)
+      .toList()
+    ..sort((a, b) => b.value['conteo'].compareTo(a.value['conteo']));
+
+  int totalUsos = usosOrdenados.fold(0, (sum, entry) => sum + entry.value['conteo'] as int);
+
+  // Datos de uso
+  for (int i = 0; i < usosOrdenados.length; i++) {
+    var entry = usosOrdenados[i];
+    String uso = entry.key;
+    int conteo = entry.value['conteo'];
+    double porcentaje = totalUsos > 0 ? (conteo / totalUsos) * 100 : 0;
     
-    // Métricas básicas
-    metricas['Total Inmuebles'] = metadatos['totalFormatos'] ?? 0;
-    metricas['Período Análisis'] = '${metadatos['fechaInicio']} - ${metadatos['fechaFin']}';
+    String observacion = '';
+    if (i == 0) observacion = 'Uso predominante';
+    else if (porcentaje > 20) observacion = 'Uso significativo';
+    else if (porcentaje > 10) observacion = 'Uso moderado';
+    else observacion = 'Uso menor';
+
+    _setCellValue(sheet, fila, 0, uso);
+    _setCellValue(sheet, fila, 1, conteo.toString());
+    _setCellValue(sheet, fila, 2, '${porcentaje.toStringAsFixed(1)}%');
+    _setCellValue(sheet, fila, 3, observacion);
     
-    // Cobertura geográfica
-    int totalCiudades = datos['distribucionGeografica']?['ciudades']?.length ?? 0;
-    int totalColonias = datos['distribucionGeografica']?['colonias']?.length ?? 0;
-    
-    metricas['Ciudades Cubiertas'] = totalCiudades;
-    metricas['Colonias Cubiertas'] = totalColonias;
-    
-    // Ciudad principal
-    if (datos['distribucionGeografica']?['ciudades'] != null) {
-      Map<String, int> ciudades = Map<String, int>.from(datos['distribucionGeografica']['ciudades']);
-      if (ciudades.isNotEmpty) {
-        var ciudadPrincipal = ciudades.entries.reduce((a, b) => a.value > b.value ? a : b);
-        metricas['Ciudad Principal'] = '${ciudadPrincipal.key} (${ciudadPrincipal.value} inmuebles)';
-      }
-    }
-    
-    // Período más activo
-    if (datos['distribucionTemporal']?['meses'] != null) {
-      Map<String, int> meses = Map<String, int>.from(datos['distribucionTemporal']['meses']);
-      if (meses.isNotEmpty) {
-        var mesPrincipal = meses.entries.reduce((a, b) => a.value > b.value ? a : b);
-        metricas['Período Más Activo'] = '${mesPrincipal.key} (${mesPrincipal.value} evaluaciones)';
-      }
-    }
-    
-    return metricas;
+    // Alternar colores
+    String bgColor = fila % 2 == 0 ? '#F2F2F2' : '#FFFFFF';
+    _aplicarEstiloFila(sheet, fila, 0, 4, bgColor);
+    fila++;
   }
 
-  /// Crea un gráfico de barras horizontal textual en Excel
-  int _crearGraficoBarrasHorizontal(
-    Sheet hoja, 
-    int filaInicial, 
-    Map<String, int> datos, 
-    String etiqueta
-  ) {
-    int filaActual = filaInicial;
-    
-    // Ordenar datos por valor (descendente)
-    var datosOrdenados = datos.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-    
-    // Calcular valor máximo para escalar las barras
-    int valorMaximo = datosOrdenados.isNotEmpty ? datosOrdenados.first.value : 1;
-    
-    // Encabezados
-    _escribirCelda(hoja, filaActual, 0, etiqueta);
-    _escribirCelda(hoja, filaActual, 1, 'Cantidad');
-    _escribirCelda(hoja, filaActual, 2, 'Gráfico');
-    _escribirCelda(hoja, filaActual++, 3, '%');
-    
-    // Aplicar estilo a encabezados
-    for (int col = 0; col <= 3; col++) {
-      _aplicarEstiloEncabezadoTabla(hoja, filaActual - 1, col);
-    }
-    
-    // Datos y barras visuales
-    for (var entrada in datosOrdenados.take(10)) { // Limitar a top 10
-      String nombre = entrada.key;
-      int valor = entrada.value;
-      double porcentaje = (valor / valorMaximo) * 100;
-      
-      // Crear barra visual usando caracteres
-      String barra = _crearBarraVisual(porcentaje);
-      
-      _escribirCelda(hoja, filaActual, 0, nombre);
-      _escribirCelda(hoja, filaActual, 1, valor);
-      _escribirCelda(hoja, filaActual, 2, barra);
-      _escribirCelda(hoja, filaActual, 3, '${porcentaje.toStringAsFixed(1)}%');
-      
-      // Aplicar colores alternados
-      if (filaActual % 2 == 0) {
-        for (int col = 0; col <= 3; col++) {
-          _aplicarEstiloFilaAlternada(hoja, filaActual, col);
-        }
-      }
-      
-      filaActual++;
-    }
-    
-    return filaActual;
+  // Fila de total
+  _setCellValue(sheet, fila, 0, 'TOTAL');
+  _setCellValue(sheet, fila, 1, totalUsos.toString());
+  _setCellValue(sheet, fila, 2, '100%');
+  _setCellValue(sheet, fila, 3, 'Suma de todos los usos');
+  _aplicarEstiloTablaHeader(sheet, fila, 0, 4, '#D9E2F3');
+  fila++;
+
+  return fila;
+}
+
+/// Crea análisis detallado de topografía
+int _crearAnalisisTopografia(
+  Sheet sheet,
+  Map<String, dynamic> datos,
+  int filaInicial,
+) {
+  int fila = filaInicial;
+
+  // Título de sección
+  _setCellValue(sheet, fila, 0, 'ANÁLISIS DETALLADO DE TOPOGRAFÍA');
+  _aplicarEstiloSeccion(sheet, fila, 0);
+  fila++;
+
+  // Verificar si hay datos
+  if (!datos.containsKey('topografia') || 
+      !datos['topografia'].containsKey('estadisticas')) {
+    _setCellValue(sheet, fila, 0, 'No hay datos de topografía disponibles');
+    return fila + 1;
   }
 
-  /// Crea un gráfico lineal temporal textual
-  int _crearGraficoLinealTemporal(Sheet hoja, int filaInicial, Map<String, int> meses) {
-    int filaActual = filaInicial;
+  Map<String, dynamic> estadisticasTopografia = datos['topografia']['estadisticas'];
+  
+  // Encabezados de tabla
+  _setCellValue(sheet, fila, 0, 'Tipo de Topografía');
+  _setCellValue(sheet, fila, 1, 'Cantidad');
+  _setCellValue(sheet, fila, 2, 'Porcentaje');
+  _setCellValue(sheet, fila, 3, 'Características');
+  _aplicarEstiloTablaHeader(sheet, fila, 0, 4, '#A9D18E');
+  fila++;
+
+  // Ordenar datos por cantidad
+  var topografiaOrdenada = estadisticasTopografia.entries
+      .where((entry) => entry.value['conteo'] > 0)
+      .toList()
+    ..sort((a, b) => b.value['conteo'].compareTo(a.value['conteo']));
+
+  int totalTopografia = topografiaOrdenada.fold(0, (sum, entry) => sum + entry.value['conteo'] as int);
+
+  // Datos de topografía con características
+  Map<String, String> caracteristicasTopografia = {
+    'Planicie': 'Terreno plano, estable para construcción',
+    'Fondo de valle': 'Zona baja, posible riesgo de inundación',
+    'Ladera de cerro': 'Pendiente, riesgo de deslizamiento',
+    'Depósitos lacustres': 'Suelo blando, requiere cimentación especial',
+    'Rivera río/lago': 'Zona húmeda, considerar nivel freático',
+    'Costa': 'Ambiente salino, requiere materiales resistentes',
+  };
+
+  for (int i = 0; i < topografiaOrdenada.length; i++) {
+    var entry = topografiaOrdenada[i];
+    String tipo = entry.key;
+    int conteo = entry.value['conteo'];
+    double porcentaje = totalTopografia > 0 ? (conteo / totalTopografia) * 100 : 0;
+    String caracteristica = caracteristicasTopografia[tipo] ?? 'Consultar especificaciones técnicas';
+
+    _setCellValue(sheet, fila, 0, tipo);
+    _setCellValue(sheet, fila, 1, conteo.toString());
+    _setCellValue(sheet, fila, 2, '${porcentaje.toStringAsFixed(1)}%');
+    _setCellValue(sheet, fila, 3, caracteristica);
     
-    // Convertir y ordenar datos cronológicamente
-    List<MapEntry<String, int>> datosOrdenados = meses.entries.toList();
-    datosOrdenados.sort((a, b) => _compararMeses(a.key, b.key));
+    // Alternar colores
+    String bgColor = fila % 2 == 0 ? '#F2F2F2' : '#FFFFFF';
+    _aplicarEstiloFila(sheet, fila, 0, 4, bgColor);
+    fila++;
+  }
+
+  // Fila de total
+  _setCellValue(sheet, fila, 0, 'TOTAL');
+  _setCellValue(sheet, fila, 1, totalTopografia.toString());
+  _setCellValue(sheet, fila, 2, '100%');
+  _setCellValue(sheet, fila, 3, 'Todas las características identificadas');
+  _aplicarEstiloTablaHeader(sheet, fila, 0, 4, '#E2EFDA');
+  fila++;
+
+  return fila;
+}
+
+/// Crea sección de comparativa y conclusiones
+void _crearSeccionComparativaYConclusiones(
+  Sheet sheet,
+  Map<String, dynamic> datos,
+  Map<String, dynamic> metadatos,
+  int filaInicial,
+) {
+  int fila = filaInicial;
+
+  // Título de sección
+  _setCellValue(sheet, fila, 0, 'COMPARATIVA Y CONCLUSIONES');
+  _aplicarEstiloSeccion(sheet, fila, 0);
+  fila++;
+
+  // Análisis comparativo
+  _setCellValue(sheet, fila, 0, 'ANÁLISIS COMPARATIVO');
+  _aplicarEstilo(sheet, fila, 0, bold: true, backgroundColor: '#FFE2CC');
+  fila++;
+
+  // Encontrar uso y topografía predominantes
+  String usoPredominante = 'No determinado';
+  String topografiaPredominante = 'No determinado';
+
+  // Buscar uso más común
+  if (datos.containsKey('usosVivienda') && datos['usosVivienda']['estadisticas'] != null) {
+    Map<String, dynamic> estadisticasUsos = datos['usosVivienda']['estadisticas'];
+    var usoMax = estadisticasUsos.entries
+        .where((entry) => entry.value['conteo'] > 0)
+        .fold<MapEntry<String, dynamic>?>(null, (prev, curr) => prev == null || curr.value['conteo'] > prev.value['conteo'] ? curr : prev);
+    if (usoMax != null) usoPredominante = usoMax.key;
+  }
+
+  // Buscar topografía más común
+  if (datos.containsKey('topografia') && datos['topografia']['estadisticas'] != null) {
+    Map<String, dynamic> estadisticasTopografia = datos['topografia']['estadisticas'];
+    var topoMax = estadisticasTopografia.entries
+        .where((entry) => entry.value['conteo'] > 0)
+        .fold<MapEntry<String, dynamic>?>(null, (prev, curr) => prev == null || (curr as MapEntry<String, dynamic>).value['conteo'] > prev.value['conteo'] ? curr : prev);
+    if (topoMax != null) topografiaPredominante = topoMax.key;
+  }
+
+  // Comparativa
+  _setCellValue(sheet, fila, 0, 'Uso predominante:');
+  _setCellValue(sheet, fila, 1, usoPredominante);
+  _aplicarEstilo(sheet, fila, 0, bold: true);
+  fila++;
+
+  _setCellValue(sheet, fila, 0, 'Topografía predominante:');
+  _setCellValue(sheet, fila, 1, topografiaPredominante);
+  _aplicarEstilo(sheet, fila, 0, bold: true);
+  fila++;
+
+  fila++;
+
+  // Conclusiones
+  String conclusiones = metadatos['conclusiones'] ?? 'No hay conclusiones disponibles.';
+  _setCellValue(sheet, fila, 0, 'CONCLUSIONES:');
+  _aplicarEstilo(sheet, fila, 0, bold: true, backgroundColor: '#FFF2CC');
+  fila++;
+
+  // Dividir conclusiones en líneas más manejables
+  List<String> lineasConclusiones = conclusiones.split('\n').where((linea) => linea.trim().isNotEmpty).toList();
+  
+  for (String linea in lineasConclusiones) {
+    _setCellValue(sheet, fila, 0, linea.trim());
+    _aplicarEstilo(sheet, fila, 0, backgroundColor: '#FFF9E6');
+    fila++;
+  }
+}
+
+/// Guarda el archivo Excel usando la librería excel estándar
+Future<String> _guardarArchivoExcelEstandar(
+  Excel excel,
+  String titulo,
+  Directory? directorio,
+) async {
+  try {
+    // Obtener directorio de destino
+    final directorioFinal = directorio ?? await FileStorageService().obtenerDirectorioDescargas();
     
-    // Encontrar valor máximo para escalar
-    int valorMaximo = datosOrdenados.map((e) => e.value).reduce((a, b) => a > b ? a : b);
-    
-    // Encabezados
-    _escribirCelda(hoja, filaActual, 0, 'Período');
-    _escribirCelda(hoja, filaActual, 1, 'Evaluaciones');
-    _escribirCelda(hoja, filaActual++, 2, 'Tendencia');
-    
-    // Datos con indicador de tendencia
-    for (int i = 0; i < datosOrdenados.length; i++) {
-      var entrada = datosOrdenados[i];
-      String mes = entrada.key;
-      int valor = entrada.value;
-      
-      // Calcular indicador de tendencia
-      String tendencia = '';
-      if (i > 0) {
-        int valorAnterior = datosOrdenados[i - 1].value;
-        if (valor > valorAnterior) {
-          tendencia = '↗️ +${valor - valorAnterior}';
-        } else if (valor < valorAnterior) {
-          tendencia = '↘️ ${valor - valorAnterior}';
-        } else {
-          tendencia = '→ =';
-        }
+    // Crear subdirectorio para reportes Excel si no existe
+    final directorioReportes = Directory('${directorioFinal.path}/cenapp/reportes_excel');
+    if (!await directorioReportes.exists()) {
+      await directorioReportes.create(recursive: true);
+    }
+
+    // Generar nombre de archivo único
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    final nombreLimpio = _limpiarNombreArchivo(titulo);
+    final nombreArchivo = '${nombreLimpio}_$timestamp.xlsx';
+    final rutaCompleta = '${directorioReportes.path}/$nombreArchivo';
+
+    // Guardar archivo
+    final List<int>? bytes = excel.save();
+    if (bytes != null) {
+      final File archivo = File(rutaCompleta);
+      await archivo.writeAsBytes(bytes);
+
+      // Verificar que el archivo se guardó correctamente
+      if (await archivo.exists() && await archivo.length() > 0) {
+        print('✅ [EXCEL-USO] Archivo Excel guardado: $rutaCompleta (${await archivo.length()} bytes)');
+        return rutaCompleta;
       } else {
-        tendencia = '-- inicio';
+        throw Exception('El archivo Excel no se guardó correctamente');
       }
-      
-      _escribirCelda(hoja, filaActual, 0, mes);
-      _escribirCelda(hoja, filaActual, 1, valor);
-      _escribirCelda(hoja, filaActual++, 2, tendencia);
+    } else {
+      throw Exception('No se pudieron generar los bytes del archivo Excel');
     }
-    
-    return filaActual;
+
+  } catch (e) {
+    print('❌ [EXCEL-USO] Error al guardar archivo Excel: $e');
+    throw Exception('Error al guardar archivo Excel: $e');
   }
+}
 
-  /// Crea una barra visual usando caracteres Unicode
-  String _crearBarraVisual(double porcentaje) {
-    int longitudBarra = (porcentaje / 10).round(); // Cada 10% = 1 carácter
-    if (longitudBarra > 10) longitudBarra = 10; // Máximo 10 caracteres
-    
-    return '█' * longitudBarra + '░' * (10 - longitudBarra);
+// === MÉTODOS AUXILIARES PARA FORMATEO (usando librería excel estándar) ===
+
+/// Establece valor en una celda
+void _setCellValue(Sheet sheet, int fila, int columna, String valor) {
+  sheet.cell(CellIndex.indexByColumnRow(columnIndex: columna, rowIndex: fila)).value = TextCellValue(valor);
+}
+
+/// Aplica estilo de encabezado
+void _aplicarEstiloEncabezado(Sheet sheet, int fila, int columna, {bool bold = false, int fontSize = 12, String backgroundColor = '#FFFFFF'}) {
+  var cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: columna, rowIndex: fila));
+  cell.cellStyle = CellStyle(
+    bold: bold,
+    fontSize: fontSize,
+    backgroundColorHex: ExcelColor.white,
+  );
+}
+
+
+
+/// Aplica estilo general
+void _aplicarEstilo(Sheet sheet, int fila, int columna, {bool bold = false, String backgroundColor = '#FFFFFF'}) {
+  var cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: columna, rowIndex: fila));
+  cell.cellStyle = CellStyle(
+    bold: bold,
+    backgroundColorHex: ExcelColor.white,
+  );
+}
+
+/// Aplica estilo a header de tabla
+void _aplicarEstiloTablaHeader(Sheet sheet, int fila, int columnaInicio, int numColumnas, String backgroundColor) {
+  for (int i = 0; i < numColumnas; i++) {
+    var cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: columnaInicio + i, rowIndex: fila));
+    cell.cellStyle = CellStyle(
+      bold: true,
+      backgroundColorHex: ExcelColor.white,
+    );
   }
+}
 
-  /// Compara dos strings de mes/año para ordenamiento cronológico
-  int _compararMeses(String mesA, String mesB) {
-    try {
-      // Formato esperado: MM/yyyy
-      List<String> partesA = mesA.split('/');
-      List<String> partesB = mesB.split('/');
-      
-      int anioA = int.parse(partesA[1]);
-      int anioB = int.parse(partesB[1]);
-      int mesNumA = int.parse(partesA[0]);
-      int mesNumB = int.parse(partesB[0]);
-      
-      if (anioA != anioB) {
-        return anioA.compareTo(anioB);
-      } else {
-        return mesNumA.compareTo(mesNumB);
-      }
-    } catch (e) {
-      return mesA.compareTo(mesB); // Fallback a comparación alfabética
-    }
+/// Aplica estilo a una fila completa
+void _aplicarEstiloFila(Sheet sheet, int fila, int columnaInicio, int numColumnas, String backgroundColor) {
+  for (int i = 0; i < numColumnas; i++) {
+    var cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: columnaInicio + i, rowIndex: fila));
+    cell.cellStyle = CellStyle(
+      backgroundColorHex: ExcelColor.white,
+    );
   }
+}
 
-  // ============================================================================
-  // MÉTODOS AUXILIARES PARA ESCRITURA Y FORMATO
-  // ============================================================================
-
-  /// Escribe el encabezado principal del reporte
-  void _escribirEncabezadoPrincipal(Sheet hoja, int fila, Map<String, dynamic> metadatos) {
-    _escribirCelda(hoja, fila, 0, 'REPORTE DE RESUMEN GENERAL');
-    _aplicarEstiloTituloPrincipal(hoja, fila, 0);
-    
-    _escribirCelda(hoja, fila + 1, 0, 'Análisis de Evaluaciones Estructurales');
-    _aplicarEstiloSubtitulo(hoja, fila + 1, 0);
-    
-    String fechaGeneracion = DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now());
-    _escribirCelda(hoja, fila + 2, 0, 'Generado: $fechaGeneracion');
-    
-    _escribirCelda(hoja, fila + 3, 0, 'Período: ${metadatos['fechaInicio']} - ${metadatos['fechaFin']}');
-    _escribirCelda(hoja, fila + 4, 0, 'Total Inmuebles: ${metadatos['totalFormatos']}');
-  }
-
-  /// Escribe una sección con título
-  void _escribirSeccionTitulo(Sheet hoja, int fila, String titulo, String columna) {
-    _escribirCelda(hoja, fila, _columnaToIndex(columna), titulo);
-    _aplicarEstiloSeccion(hoja, fila, _columnaToIndex(columna));
-  }
-
-  /// Escribe una tabla completa con encabezados y datos
-  int _escribirTablaCompleta(
-    Sheet hoja, 
-    int filaInicial, 
-    List<String> encabezados, 
-    List<List<dynamic>> filas
-  ) {
-    int filaActual = filaInicial;
-    
-    // Escribir encabezados
-    for (int col = 0; col < encabezados.length; col++) {
-      _escribirCelda(hoja, filaActual, col, encabezados[col]);
-      _aplicarEstiloEncabezadoTabla(hoja, filaActual, col);
-    }
-    filaActual++;
-    
-    // Escribir datos
-    for (var fila in filas) {
-      for (int col = 0; col < fila.length && col < encabezados.length; col++) {
-        _escribirCelda(hoja, filaActual, col, fila[col]);
-        
-        // Aplicar color alternado cada dos filas
-        if (filaActual % 2 == 0) {
-          _aplicarEstiloFilaAlternada(hoja, filaActual, col);
-        }
-      }
-      filaActual++;
-    }
-    
-    return filaActual;
-  }
-
-  /// Escribe una tabla de métricas
-  int _escribirTablaMetricas(Sheet hoja, int filaInicial, Map<String, dynamic> metricas) {
-    int filaActual = filaInicial;
-    
-    // Encabezados
-    _escribirCelda(hoja, filaActual, 0, 'Métrica');
-    _escribirCelda(hoja, filaActual, 1, 'Valor');
-    _aplicarEstiloEncabezadoTabla(hoja, filaActual, 0);
-    _aplicarEstiloEncabezadoTabla(hoja, filaActual, 1);
-    filaActual++;
-    
-    // Métricas
-    metricas.forEach((clave, valor) {
-      _escribirCelda(hoja, filaActual, 0, clave);
-      _escribirCelda(hoja, filaActual, 1, valor.toString());
-      
-      if (filaActual % 2 == 0) {
-        _aplicarEstiloFilaAlternada(hoja, filaActual, 0);
-        _aplicarEstiloFilaAlternada(hoja, filaActual, 1);
-      }
-      
-      filaActual++;
-    });
-    
-    return filaActual;
-  }
-
-  /// Escribe un resumen geográfico
-  int _escribirResumenGeografico(Sheet hoja, int filaActual, Map<String, dynamic> datos) {
-    if (datos['distribucionGeografica'] == null) return filaActual;
-    
-    Map<String, int> ciudades = Map<String, int>.from(datos['distribucionGeografica']['ciudades'] ?? {});
-    Map<String, int> colonias = Map<String, int>.from(datos['distribucionGeografica']['colonias'] ?? {});
-    
-    _escribirCelda(hoja, filaActual++, 0, 'Ciudades evaluadas: ${ciudades.length}');
-    _escribirCelda(hoja, filaActual++, 0, 'Colonias evaluadas: ${colonias.length}');
-    
-    if (ciudades.isNotEmpty) {
-      var ciudadPrincipal = ciudades.entries.reduce((a, b) => a.value > b.value ? a : b);
-      _escribirCelda(hoja, filaActual++, 0, 'Ciudad principal: ${ciudadPrincipal.key} (${ciudadPrincipal.value} inmuebles)');
-    }
-    
-    return filaActual;
-  }
-
-  /// Escribe un resumen temporal
-  int _escribirResumenTemporal(Sheet hoja, int filaActual, Map<String, dynamic> datos) {
-    if (datos['distribucionTemporal']?['meses'] == null) return filaActual;
-    
-    Map<String, int> meses = Map<String, int>.from(datos['distribucionTemporal']['meses']);
-    
-    if (meses.isNotEmpty) {
-      var mesPrincipal = meses.entries.reduce((a, b) => a.value > b.value ? a : b);
-      int totalEvaluaciones = meses.values.fold(0, (sum, val) => sum + val);
-      double promedioPorMes = totalEvaluaciones / meses.length;
-      
-      _escribirCelda(hoja, filaActual++, 0, 'Período más activo: ${mesPrincipal.key} (${mesPrincipal.value} evaluaciones)');
-      _escribirCelda(hoja, filaActual++, 0, 'Promedio mensual: ${promedioPorMes.toStringAsFixed(1)} evaluaciones');
-    }
-    
-    return filaActual;
-  }
-
-  /// Crea un gráfico textual simple
-  int _crearGraficoTextual(
-    Sheet hoja, 
-    int filaInicial, 
-    List<List<dynamic>> datos, 
-    String titulo
-  ) {
-    int filaActual = filaInicial;
-    
-    _escribirCelda(hoja, filaActual++, 0, titulo);
-    _aplicarEstiloSeccion(hoja, filaActual - 1, 0);
-    filaActual++;
-    
-    // Tomar los primeros 5 elementos para el gráfico
-    var datosLimitados = datos.take(5).toList();
-    int valorMaximo = datosLimitados.isNotEmpty ? 
-        datosLimitados.map((e) => e[1] as int).reduce((a, b) => a > b ? a : b) : 1;
-    
-    for (var fila in datosLimitados) {
-      String nombre = fila[0].toString();
-      int valor = fila[1] as int;
-      double porcentaje = (valor / valorMaximo) * 100;
-      
-      String barra = _crearBarraVisual(porcentaje);
-      
-      _escribirCelda(hoja, filaActual, 0, nombre);
-      _escribirCelda(hoja, filaActual, 1, barra);
-      _escribirCelda(hoja, filaActual++, 2, valor.toString());
-    }
-    
-    return filaActual;
-  }
-
-  /// Crea un gráfico temporal textual
-  int _crearGraficoTemporalTextual(Sheet hoja, int filaInicial, List<List<dynamic>> meses) {
-    int filaActual = filaInicial;
-    
-    _escribirCelda(hoja, filaActual++, 0, 'TENDENCIA TEMPORAL');
-    _aplicarEstiloSeccion(hoja, filaActual - 1, 0);
-    filaActual++;
-    
-    _escribirCelda(hoja, filaActual, 0, 'Mes');
-    _escribirCelda(hoja, filaActual, 1, 'Evaluaciones');
-    _escribirCelda(hoja, filaActual++, 2, 'Gráfico');
-    
-    int valorMaximo = meses.isNotEmpty ? 
-        meses.map((e) => e[1] as int).reduce((a, b) => a > b ? a : b) : 1;
-    
-    for (var fila in meses) {
-      String mes = fila[0].toString();
-      int valor = fila[1] as int;
-      double porcentaje = (valor / valorMaximo) * 100;
-      
-      String barra = _crearBarraVisual(porcentaje);
-      
-      _escribirCelda(hoja, filaActual, 0, mes);
-      _escribirCelda(hoja, filaActual, 1, valor);
-      _escribirCelda(hoja, filaActual++, 2, barra);
-    }
-    
-    return filaActual;
-  }
-
-  /// Escribe estadísticas temporales adicionales
-  void _escribirEstadisticasTemporales(Sheet hoja, int filaInicial, List<List<dynamic>> meses) {
-    int filaActual = filaInicial;
-    
-    if (meses.isEmpty) return;
-    
-    _escribirSeccionTitulo(hoja, filaActual++, 'ESTADÍSTICAS TEMPORALES', 'A');
-    filaActual++;
-    
-    // Calcular estadísticas
-    List<int> valores = meses.map((e) => e[1] as int).toList();
-    int total = valores.fold(0, (sum, val) => sum + val);
-    double promedio = total / valores.length;
-    int maximo = valores.reduce((a, b) => a > b ? a : b);
-    int minimo = valores.reduce((a, b) => a < b ? a : b);
-    
-    _escribirCelda(hoja, filaActual++, 0, 'Total evaluaciones: $total');
-    _escribirCelda(hoja, filaActual++, 0, 'Promedio mensual: ${promedio.toStringAsFixed(1)}');
-    _escribirCelda(hoja, filaActual++, 0, 'Mes más activo: $maximo evaluaciones');
-    _escribirCelda(hoja, filaActual++, 0, 'Mes menos activo: $minimo evaluaciones');
-  }
-
-  // ============================================================================
-  // MÉTODOS AUXILIARES PARA ESTILOS Y FORMATO
-  // ============================================================================
-
-  /// Convierte letra de columna a índice numérico
-  int _columnaToIndex(String columna) {
-    return columna.toUpperCase().codeUnitAt(0) - 'A'.codeUnitAt(0);
-  }
-
-  /// Escribe una celda con manejo de errores
-  void _escribirCelda(Sheet hoja, int fila, int columna, dynamic valor) {
-    try {
-      final celda = CellIndex.indexByColumnRow(columnIndex: columna, rowIndex: fila);
-      
-      if (valor is String) {
-        hoja.cell(celda).value = TextCellValue(valor);
-      } else if (valor is int) {
-        hoja.cell(celda).value = IntCellValue(valor);
-      } else if (valor is double) {
-        hoja.cell(celda).value = DoubleCellValue(valor);
-      } else {
-        hoja.cell(celda).value = TextCellValue(valor.toString());
-      }
-    } catch (e) {
-      print('⚠️ Error escribiendo celda ($fila,$columna): $e');
-    }
-  }
-
-  /// Aplica estilo de título principal
-  void _aplicarEstiloTituloPrincipal(Sheet hoja, int fila, int columna) {
-    try {
-      final celda = CellIndex.indexByColumnRow(columnIndex: columna, rowIndex: fila);
-      hoja.cell(celda).cellStyle = CellStyle(
-        bold: true,
-        fontSize: 16,
-        fontFamily: getFontFamily(FontFamily.Arial),
-        horizontalAlign: HorizontalAlign.Center,
-        backgroundColorHex: ExcelColor.blue,
-        fontColorHex: ExcelColor.white,
-      );
-    } catch (e) {
-      print('⚠️ Error aplicando estilo título: $e');
-    }
-  }
-
-  /// Aplica estilo de subtítulo
-  void _aplicarEstiloSubtitulo(Sheet hoja, int fila, int columna) {
-    try {
-      final celda = CellIndex.indexByColumnRow(columnIndex: columna, rowIndex: fila);
-      hoja.cell(celda).cellStyle = CellStyle(
-        bold: true,
-        fontSize: 12,
-        fontFamily: getFontFamily(FontFamily.Arial),
-        horizontalAlign: HorizontalAlign.Center,
-        fontColorHex: ExcelColor.blue,
-      );
-    } catch (e) {
-      print('⚠️ Error aplicando estilo subtítulo: $e');
-    }
-  }
-
-  /// Aplica estilo de sección
+/// Limpia el nombre del archivo para el sistema de archivos
+String _limpiarNombreArchivo(String nombre) {
+  return nombre
+      .toLowerCase()
+      .replaceAll(' ', '_')
+      .replaceAll(RegExp(r'[^a-z0-9_]'), '')
+      .replaceAll(RegExp(r'_+'), '_')
+      .trim();
+}
+/// Aplica estilo de sección
   void _aplicarEstiloSeccion(Sheet hoja, int fila, int columna) {
     try {
       final celda = CellIndex.indexByColumnRow(columnIndex: columna, rowIndex: fila);
@@ -781,150 +570,454 @@ class ExcelReporteService {
     }
   }
 
-  /// Aplica estilo de encabezado de tabla
-  void _aplicarEstiloEncabezadoTabla(Sheet hoja, int fila, int columna) {
-    try {
-      final celda = CellIndex.indexByColumnRow(columnIndex: columna, rowIndex: fila);
-      hoja.cell(celda).cellStyle = CellStyle(
-        bold: true,
-        fontSize: 10,
-        fontFamily: getFontFamily(FontFamily.Arial),
-        backgroundColorHex: ExcelColor.grey100,
-        fontColorHex: ExcelColor.black,
-        horizontalAlign: HorizontalAlign.Center,
-      );
-    } catch (e) {
-      print('⚠️ Error aplicando estilo encabezado tabla: $e');
-    }
+
+
+  /// Genera un reporte completo de Resumen General en Excel
+  Future<String> generarReporteResumenGeneralExcel({
+    required String titulo,
+  required String subtitulo,
+  required Map<String, dynamic> datos,
+  required List<Map<String, dynamic>> tablas,
+  required Map<String, dynamic> metadatos,
+  Directory? directorio,
+}) async {
+  try {
+    print('📊 [EXCEL-RESUMEN] Iniciando generación optimizada de reporte Excel: $titulo');
+
+    // Crear nuevo libro de Excel usando la librería excel
+    var excel = Excel.createExcel();
+    
+    // Eliminar hoja por defecto
+    excel.delete('Sheet1');
+    
+    // Crear hoja única con TODO el contenido del resumen general
+    String nombreHoja = 'Resumen General Completo';
+    excel.copy('Sheet1', nombreHoja);
+    excel.delete('Sheet1');
+    
+    Sheet sheet = excel[nombreHoja];
+    
+    // Crear contenido completo en una sola hoja
+    await _crearContenidoResumenGeneralCompleto(sheet, titulo, subtitulo, datos, tablas, metadatos);
+
+    // Guardar archivo
+    final String rutaArchivo = await _guardarArchivoExcelEstandar(
+      excel, 
+      titulo, 
+      directorio
+    );
+    
+    print('✅ [EXCEL-RESUMEN] Reporte Excel optimizado generado exitosamente: $rutaArchivo');
+    return rutaArchivo;
+
+  } catch (e) {
+    print('❌ [EXCEL-RESUMEN] Error al generar reporte Excel optimizado: $e');
+    throw Exception('Error al generar reporte Excel: $e');
+  }
+}
+
+/// Crea todo el contenido del resumen general en una sola hoja
+Future<void> _crearContenidoResumenGeneralCompleto(
+  Sheet sheet,
+  String titulo,
+  String subtitulo,
+  Map<String, dynamic> datos,
+  List<Map<String, dynamic>> tablas,
+  Map<String, dynamic> metadatos,
+) async {
+  int filaActual = 0;
+
+  // === SECCIÓN 1: ENCABEZADO ===
+  filaActual = _crearEncabezadoUsoTopografia(sheet, titulo, subtitulo, metadatos, filaActual);
+  filaActual += 2;
+
+  // === SECCIÓN 2: FILTROS APLICADOS ===
+  filaActual = _crearSeccionFiltrosUsoTopografia(sheet, metadatos, filaActual);
+  filaActual += 2;
+
+  // === SECCIÓN 3: ESTADÍSTICAS GENERALES ===
+  filaActual = _crearEstadisticasGeneralesResumen(sheet, datos, metadatos, filaActual);
+  filaActual += 2;
+
+  // === SECCIÓN 4: DISTRIBUCIÓN POR CIUDADES ===
+  filaActual = _crearDistribucionCiudades(sheet, datos, filaActual);
+  filaActual += 2;
+
+  // === SECCIÓN 5: DISTRIBUCIÓN POR COLONIAS (TOP 10) ===
+  filaActual = _crearDistribucionColonias(sheet, datos, filaActual);
+  filaActual += 2;
+
+  // === SECCIÓN 6: DISTRIBUCIÓN TEMPORAL ===
+  filaActual = _crearDistribucionTemporal(sheet, datos, filaActual);
+  filaActual += 2;
+
+  // === SECCIÓN 7: INDICADORES CLAVE ===
+  _crearIndicadoresClave(sheet, datos, metadatos, filaActual);
+}
+
+/// Crea estadísticas generales del resumen
+int _crearEstadisticasGeneralesResumen(
+  Sheet sheet,
+  Map<String, dynamic> datos,
+  Map<String, dynamic> metadatos,
+  int filaInicial,
+) {
+  int fila = filaInicial;
+
+  // Título de sección
+  _setCellValue(sheet, fila, 0, 'ESTADÍSTICAS GENERALES');
+  _aplicarEstiloSeccion(sheet, fila, 0);
+  fila++;
+
+  final int totalFormatos = metadatos['totalFormatos'] ?? 0;
+  
+  // Extraer datos de distribución geográfica
+  Map<String, int> ciudades = {};
+  Map<String, int> colonias = {};
+  Map<String, int> meses = {};
+  
+  if (datos.containsKey('distribucionGeografica')) {
+    ciudades = Map<String, int>.from(datos['distribucionGeografica']['ciudades'] ?? {});
+    colonias = Map<String, int>.from(datos['distribucionGeografica']['colonias'] ?? {});
+  }
+  
+  if (datos.containsKey('distribucionTemporal')) {
+    meses = Map<String, int>.from(datos['distribucionTemporal']['meses'] ?? {});
   }
 
-  /// Aplica estilo de fila alternada
-  void _aplicarEstiloFilaAlternada(Sheet hoja, int fila, int columna) {
-    try {
-      final celda = CellIndex.indexByColumnRow(columnIndex: columna, rowIndex: fila);
-      hoja.cell(celda).cellStyle = CellStyle(
-        fontSize: 9,
-        fontFamily: getFontFamily(FontFamily.Arial),
-        backgroundColorHex: ExcelColor.grey200,
-      );
-    } catch (e) {
-      print('⚠️ Error aplicando estilo fila alternada: $e');
-    }
+  // Encabezados de tabla
+  _setCellValue(sheet, fila, 0, 'Concepto');
+  _setCellValue(sheet, fila, 1, 'Valor');
+  _setCellValue(sheet, fila, 2, 'Porcentaje/Observación');
+  _aplicarEstiloTablaHeader(sheet, fila, 0, 3, '#70AD47');
+  fila++;
+
+  // Estadísticas principales
+  final List<List<String>> estadisticas = [
+    ['Total de inmuebles evaluados', '$totalFormatos', '100%'],
+    ['Ciudades cubiertas', '${ciudades.length}', 'Cobertura geográfica'],
+    ['Colonias cubiertas', '${colonias.length}', 'Distribución local'],
+    ['Períodos analizados', '${meses.length}', 'Cobertura temporal'],
+  ];
+
+  // Encontrar ciudad principal
+  if (ciudades.isNotEmpty) {
+    final ciudadPrincipal = ciudades.entries.reduce((a, b) => a.value > b.value ? a : b);
+    final porcentajeCiudad = totalFormatos > 0 ? (ciudadPrincipal.value / totalFormatos * 100) : 0;
+    estadisticas.add([
+      'Ciudad principal', 
+      '${ciudadPrincipal.key}', 
+      '${ciudadPrincipal.value} inmuebles (${porcentajeCiudad.toStringAsFixed(1)}%)'
+    ]);
   }
 
-  /// Aplica estilo de descripción
-  void _aplicarEstiloDescripcion(Sheet hoja, int fila, int columna) {
-    try {
-      final celda = CellIndex.indexByColumnRow(columnIndex: columna, rowIndex: fila);
-      hoja.cell(celda).cellStyle = CellStyle(
-        fontSize: 9,
-        fontFamily: getFontFamily(FontFamily.Arial),
-        fontColorHex: ExcelColor.grey,
-        italic: true,
-      );
-    } catch (e) {
-      print('⚠️ Error aplicando estilo descripción: $e');
-    }
+  // Encontrar mes más activo
+  if (meses.isNotEmpty) {
+    final mesPrincipal = meses.entries.reduce((a, b) => a.value > b.value ? a : b);
+    estadisticas.add([
+      'Mes más activo', 
+      '${mesPrincipal.key}', 
+      '${mesPrincipal.value} evaluaciones'
+    ]);
   }
 
-  /// Aplica estilos específicos para cada hoja
-  void _aplicarEstilosResumenEjecutivo(Sheet hoja) {
-    // Ajustar ancho de columnas
-    try {
-      hoja.setColumnWidth(0, 25.0); // Columna A
-      hoja.setColumnWidth(1, 35.0); // Columna B
-      hoja.setColumnWidth(2, 15.0); // Columna C
-    } catch (e) {
-      print('⚠️ Error ajustando ancho columnas resumen: $e');
-    }
+  // Escribir estadísticas
+  for (int i = 0; i < estadisticas.length; i++) {
+    var stat = estadisticas[i];
+    _setCellValue(sheet, fila, 0, stat[0]);
+    _setCellValue(sheet, fila, 1, stat[1]);
+    _setCellValue(sheet, fila, 2, stat[2]);
+    
+    // Alternar colores
+    String bgColor = fila % 2 == 0 ? '#F2F2F2' : '#FFFFFF';
+    _aplicarEstiloFila(sheet, fila, 0, 3, bgColor);
+    fila++;
   }
 
-  void _aplicarEstilosDistribucionGeografica(Sheet hoja) {
-    try {
-      hoja.setColumnWidth(0, 30.0); // Nombres de lugares
-      hoja.setColumnWidth(1, 12.0); // Cantidades
-      hoja.setColumnWidth(2, 20.0); // Gráficos
-      hoja.setColumnWidth(3, 12.0); // Porcentajes
-    } catch (e) {
-      print('⚠️ Error ajustando ancho columnas geográficas: $e');
-    }
+  return fila;
+}
+
+/// Crea distribución por ciudades
+int _crearDistribucionCiudades(
+  Sheet sheet,
+  Map<String, dynamic> datos,
+  int filaInicial,
+) {
+  int fila = filaInicial;
+
+  // Título de sección
+  _setCellValue(sheet, fila, 0, 'DISTRIBUCIÓN POR CIUDADES');
+  _aplicarEstiloSeccion(sheet, fila, 0);
+  fila++;
+
+  // Verificar si hay datos
+  if (!datos.containsKey('distribucionGeografica') || 
+      datos['distribucionGeografica']['ciudades'].isEmpty) {
+    _setCellValue(sheet, fila, 0, 'No hay datos de distribución por ciudades disponibles');
+    return fila + 1;
   }
 
-  void _aplicarEstilosAnalisisTemporal(Sheet hoja) {
-    try {
-      hoja.setColumnWidth(0, 15.0); // Períodos
-      hoja.setColumnWidth(1, 15.0); // Cantidades
-      hoja.setColumnWidth(2, 25.0); // Tendencias/Gráficos
-    } catch (e) {
-      print('⚠️ Error ajustando ancho columnas temporales: $e');
-    }
+  Map<String, int> ciudades = Map<String, int>.from(datos['distribucionGeografica']['ciudades']);
+  
+  // Encabezados
+  _setCellValue(sheet, fila, 0, 'Ciudad');
+  _setCellValue(sheet, fila, 1, 'Cantidad');
+  _setCellValue(sheet, fila, 2, 'Porcentaje');
+  _setCellValue(sheet, fila, 3, 'Clasificación');
+  _aplicarEstiloTablaHeader(sheet, fila, 0, 4, '#9BC2E6');
+  fila++;
+
+  // Ordenar ciudades por cantidad
+  var ciudadesOrdenadas = ciudades.entries.toList()
+    ..sort((a, b) => b.value.compareTo(a.value));
+
+  int totalCiudades = ciudades.values.fold(0, (sum, val) => sum + val);
+
+  for (int i = 0; i < ciudadesOrdenadas.length; i++) {
+    var entry = ciudadesOrdenadas[i];
+    String ciudad = entry.key;
+    int conteo = entry.value;
+    double porcentaje = totalCiudades > 0 ? (conteo / totalCiudades) * 100 : 0;
+    
+    String clasificacion = '';
+    if (i == 0) clasificacion = 'Principal';
+    else if (porcentaje > 15) clasificacion = 'Significativa';
+    else if (porcentaje > 5) clasificacion = 'Moderada';
+    else clasificacion = 'Menor';
+
+    _setCellValue(sheet, fila, 0, ciudad);
+    _setCellValue(sheet, fila, 1, conteo.toString());
+    _setCellValue(sheet, fila, 2, '${porcentaje.toStringAsFixed(2)}%');
+    _setCellValue(sheet, fila, 3, clasificacion);
+    
+    // Alternar colores
+    String bgColor = fila % 2 == 0 ? '#F2F2F2' : '#FFFFFF';
+    _aplicarEstiloFila(sheet, fila, 0, 4, bgColor);
+    fila++;
   }
 
-  void _aplicarEstilosGraficos(Sheet hoja) {
-    try {
-      hoja.setColumnWidth(0, 25.0); // Etiquetas
-      hoja.setColumnWidth(1, 12.0); // Valores
-      hoja.setColumnWidth(2, 30.0); // Barras visuales
-      hoja.setColumnWidth(3, 12.0); // Porcentajes
-    } catch (e) {
-      print('⚠️ Error ajustando ancho columnas gráficos: $e');
-    }
+  // Total
+  _setCellValue(sheet, fila, 0, 'TOTAL');
+  _setCellValue(sheet, fila, 1, totalCiudades.toString());
+  _setCellValue(sheet, fila, 2, '100%');
+  _setCellValue(sheet, fila, 3, 'Todas las ciudades');
+  _aplicarEstiloTablaHeader(sheet, fila, 0, 4, '#D9E2F3');
+  fila++;
+
+  return fila;
+}
+
+/// Crea distribución por colonias (top 10)
+int _crearDistribucionColonias(
+  Sheet sheet,
+  Map<String, dynamic> datos,
+  int filaInicial,
+) {
+  int fila = filaInicial;
+
+  // Título de sección
+  _setCellValue(sheet, fila, 0, 'DISTRIBUCIÓN POR COLONIAS (TOP 10)');
+  _aplicarEstiloSeccion(sheet, fila, 0);
+  fila++;
+
+  // Verificar si hay datos
+  if (!datos.containsKey('distribucionGeografica') || 
+      datos['distribucionGeografica']['colonias'].isEmpty) {
+    _setCellValue(sheet, fila, 0, 'No hay datos de distribución por colonias disponibles');
+    return fila + 1;
   }
 
-  void _aplicarEstilosDatosRaw(Sheet hoja) {
-    try {
-      hoja.setColumnWidth(0, 30.0); // Nombres/Etiquetas
-      hoja.setColumnWidth(1, 15.0); // Valores
-    } catch (e) {
-      print('⚠️ Error ajustando ancho columnas datos raw: $e');
-    }
+  Map<String, int> colonias = Map<String, int>.from(datos['distribucionGeografica']['colonias']);
+  
+  // Encabezados
+  _setCellValue(sheet, fila, 0, 'Colonia');
+  _setCellValue(sheet, fila, 1, 'Cantidad');
+  _setCellValue(sheet, fila, 2, 'Porcentaje');
+  _setCellValue(sheet, fila, 3, 'Ranking');
+  _aplicarEstiloTablaHeader(sheet, fila, 0, 4, '#A9D18E');
+  fila++;
+
+  // Ordenar colonias y tomar top 10
+  var coloniasOrdenadas = colonias.entries.toList()
+    ..sort((a, b) => b.value.compareTo(a.value));
+  
+  var coloniasTop10 = coloniasOrdenadas.take(10).toList();
+  int totalColonias = colonias.values.fold(0, (sum, val) => sum + val);
+
+  for (int i = 0; i < coloniasTop10.length; i++) {
+    var entry = coloniasTop10[i];
+    String colonia = entry.key;
+    int conteo = entry.value;
+    double porcentaje = totalColonias > 0 ? (conteo / totalColonias) * 100 : 0;
+
+    _setCellValue(sheet, fila, 0, colonia);
+    _setCellValue(sheet, fila, 1, conteo.toString());
+    _setCellValue(sheet, fila, 2, '${porcentaje.toStringAsFixed(2)}%');
+    _setCellValue(sheet, fila, 3, '#${i + 1}');
+    
+    // Alternar colores
+    String bgColor = fila % 2 == 0 ? '#F2F2F2' : '#FFFFFF';
+    _aplicarEstiloFila(sheet, fila, 0, 4, bgColor);
+    fila++;
   }
 
-  // ============================================================================
-  // MÉTODOS AUXILIARES PARA GUARDADO
-  // ============================================================================
+  // Nota sobre el resto
+  if (colonias.length > 10) {
+    int restantes = colonias.length - 10;
+    int conteoRestantes = totalColonias - coloniasTop10.fold(0, (sum, entry) => sum + entry.value);
+    double porcentajeRestantes = totalColonias > 0 ? (conteoRestantes / totalColonias) * 100 : 0;
+    
+    _setCellValue(sheet, fila, 0, 'Otras $restantes colonias');
+    _setCellValue(sheet, fila, 1, conteoRestantes.toString());
+    _setCellValue(sheet, fila, 2, '${porcentajeRestantes.toStringAsFixed(2)}%');
+    _setCellValue(sheet, fila, 3, 'Resto');
+    _aplicarEstiloTablaHeader(sheet, fila, 0, 4, '#E2EFDA');
+    fila++;
+  }
 
-  /// Guarda el archivo Excel en el directorio especificado
-  Future<String> _guardarArchivoExcel(
-    Excel excel, 
-    String nombreBase, 
-    Directory? directorio
-  ) async {
-    try {
-      // Obtener directorio final
-      final directorioFinal = directorio ?? await _fileService.obtenerDirectorioDescargas();
-      
-      // Crear subdirectorio para reportes si no existe
-      final directorioReportes = Directory('${directorioFinal.path}/cenapp/reportes');
-      if (!await directorioReportes.exists()) {
-        await directorioReportes.create(recursive: true);
+  return fila;
+}
+
+/// Crea distribución temporal
+int _crearDistribucionTemporal(
+  Sheet sheet,
+  Map<String, dynamic> datos,
+  int filaInicial,
+) {
+  int fila = filaInicial;
+
+  // Título de sección
+  _setCellValue(sheet, fila, 0, 'DISTRIBUCIÓN TEMPORAL');
+  _aplicarEstiloSeccion(sheet, fila, 0);
+  fila++;
+
+  // Verificar si hay datos
+  if (!datos.containsKey('distribucionTemporal') || 
+      datos['distribucionTemporal']['meses'].isEmpty) {
+    _setCellValue(sheet, fila, 0, 'No hay datos de distribución temporal disponibles');
+    return fila + 1;
+  }
+
+  Map<String, int> meses = Map<String, int>.from(datos['distribucionTemporal']['meses']);
+  
+  // Encabezados
+  _setCellValue(sheet, fila, 0, 'Período (MM/YYYY)');
+  _setCellValue(sheet, fila, 1, 'Evaluaciones');
+  _setCellValue(sheet, fila, 2, 'Porcentaje');
+  _setCellValue(sheet, fila, 3, 'Tendencia');
+  _aplicarEstiloTablaHeader(sheet, fila, 0, 4, '#F4CCCC');
+  fila++;
+
+  // Ordenar meses cronológicamente
+  var mesesOrdenados = meses.entries.toList()
+    ..sort((a, b) {
+      try {
+        final fechaA = DateFormat('MM/yyyy').parse(a.key);
+        final fechaB = DateFormat('MM/yyyy').parse(b.key);
+        return fechaA.compareTo(fechaB);
+      } catch (e) {
+        return a.key.compareTo(b.key);
       }
-      
-      // Generar nombre de archivo único
-      final nombreArchivo = '$nombreBase.xlsx';
-      final rutaArchivo = '${directorioReportes.path}/$nombreArchivo';
-      
-      // Generar bytes del Excel
-      final List<int>? bytes = excel.save();
-      if (bytes == null) {
-        throw Exception('Error al generar bytes del archivo Excel');
-      }
-      
-      // Guardar archivo
-      final archivo = File(rutaArchivo);
-      await archivo.writeAsBytes(bytes);
-      
-      // Verificar que el archivo se guardó correctamente
-      if (!await archivo.exists() || await archivo.length() == 0) {
-        throw Exception('El archivo Excel no se guardó correctamente');
-      }
-      
-      print('✅ [EXCEL] Archivo guardado exitosamente: $rutaArchivo');
-      return rutaArchivo;
-      
-    } catch (e) {
-      print('❌ [EXCEL] Error al guardar archivo: $e');
-      throw Exception('Error al guardar archivo Excel: $e');
-    }
+    });
+
+  int totalEvaluaciones = meses.values.fold(0, (sum, val) => sum + val);
+  double promedioMensual = totalEvaluaciones / meses.length;
+
+  for (int i = 0; i < mesesOrdenados.length; i++) {
+    var entry = mesesOrdenados[i];
+    String mes = entry.key;
+    int conteo = entry.value;
+    double porcentaje = totalEvaluaciones > 0 ? (conteo / totalEvaluaciones) * 100 : 0;
+    
+    String tendencia = '';
+    if (conteo > promedioMensual * 1.2) tendencia = 'Alta actividad';
+    else if (conteo > promedioMensual * 0.8) tendencia = 'Actividad normal';
+    else tendencia = 'Baja actividad';
+
+    _setCellValue(sheet, fila, 0, mes);
+    _setCellValue(sheet, fila, 1, conteo.toString());
+    _setCellValue(sheet, fila, 2, '${porcentaje.toStringAsFixed(2)}%');
+    _setCellValue(sheet, fila, 3, tendencia);
+    
+    // Alternar colores
+    String bgColor = fila % 2 == 0 ? '#F2F2F2' : '#FFFFFF';
+    _aplicarEstiloFila(sheet, fila, 0, 4, bgColor);
+    fila++;
   }
+
+  // Promedio mensual
+  _setCellValue(sheet, fila, 0, 'PROMEDIO MENSUAL');
+  _setCellValue(sheet, fila, 1, promedioMensual.toStringAsFixed(1));
+  _setCellValue(sheet, fila, 2, '${(100 / meses.length).toStringAsFixed(1)}%');
+  _setCellValue(sheet, fila, 3, 'Referencia estadística');
+  _aplicarEstiloTablaHeader(sheet, fila, 0, 4, '#FFE2CC');
+  fila++;
+
+  return fila;
+}
+
+/// Crea indicadores clave y conclusiones
+void _crearIndicadoresClave(
+  Sheet sheet,
+  Map<String, dynamic> datos,
+  Map<String, dynamic> metadatos,
+  int filaInicial,
+) {
+  int fila = filaInicial;
+
+  // Título de sección
+  _setCellValue(sheet, fila, 0, 'INDICADORES CLAVE Y CONCLUSIONES');
+  _aplicarEstiloSeccion(sheet, fila, 0);
+  fila++;
+
+  // Calcular concentración geográfica
+  Map<String, int> ciudades = {};
+  if (datos.containsKey('distribucionGeografica')) {
+    ciudades = Map<String, int>.from(datos['distribucionGeografica']['ciudades'] ?? {});
+  }
+
+  if (ciudades.isNotEmpty && ciudades.length > 1) {
+    final totalEvaluaciones = ciudades.values.fold(0, (sum, val) => sum + val);
+    double indiceHerfindahl = 0;
+    
+    for (var conteo in ciudades.values) {
+      double proporcion = conteo / totalEvaluaciones;
+      indiceHerfindahl += proporcion * proporcion;
+    }
+    
+    String nivelConcentracion;
+    if (indiceHerfindahl > 0.7) {
+      nivelConcentracion = 'Alta concentración geográfica';
+    } else if (indiceHerfindahl > 0.4) {
+      nivelConcentracion = 'Concentración geográfica media';
+    } else {
+      nivelConcentracion = 'Distribución geográfica uniforme';
+    }
+
+    _setCellValue(sheet, fila, 0, 'Concentración geográfica:');
+    _setCellValue(sheet, fila, 1, nivelConcentracion);
+    _setCellValue(sheet, fila, 2, 'Índice: ${(indiceHerfindahl * 100).toStringAsFixed(1)}%');
+    _aplicarEstilo(sheet, fila, 0, bold: true);
+    fila++;
+  }
+
+  // Resumen ejecutivo
+  _setCellValue(sheet, fila, 0, 'RESUMEN EJECUTIVO:');
+  _aplicarEstilo(sheet, fila, 0, bold: true, backgroundColor: '#FFF2CC');
+  fila++;
+
+  final int totalFormatos = metadatos['totalFormatos'] ?? 0;
+  String resumenEjecutivo = 'Se analizaron $totalFormatos inmuebles distribuidos en ${ciudades.length} ciudades durante el período especificado. ';
+  
+  if (ciudades.isNotEmpty) {
+    final ciudadPrincipal = ciudades.entries.reduce((a, b) => a.value > b.value ? a : b);
+    resumenEjecutivo += 'La ciudad con mayor concentración de evaluaciones fue ${ciudadPrincipal.key} con ${ciudadPrincipal.value} inmuebles. ';
+  }
+  
+  resumenEjecutivo += 'Este análisis proporciona una base sólida para la planificación de recursos y toma de decisiones en evaluaciones estructurales futuras.';
+
+  _setCellValue(sheet, fila, 0, resumenEjecutivo);
+  _aplicarEstilo(sheet, fila, 0, backgroundColor: '#FFF9E6');
+  fila++;
+}
 }

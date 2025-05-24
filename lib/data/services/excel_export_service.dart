@@ -1,565 +1,487 @@
-// lib/data/services/excel_export_service.dart - Versión con una sola hoja
+// lib/data/services/excel_export_service.dart
 import 'dart:io';
-import 'package:excel/excel.dart';
+import 'dart:typed_data';
+import 'package:flutter/services.dart' show rootBundle;
+import 'package:syncfusion_flutter_xlsio/xlsio.dart';
 import '../../logica/formato_evaluacion.dart';
 import './file_storage_service.dart';
 
-/// Servicio para la exportación de documentos a Excel (versión de hoja única)
+/// Servicio optimizado para exportación a Excel usando Syncfusion
+/// Preparado para futuras implementaciones de gráficas
 class ExcelExportService {
   final FileStorageService _fileService = FileStorageService();
-
-  /// Exporta el formato de evaluación a un archivo Excel de una sola hoja
-  Future<String> exportarFormatoExcel(FormatoEvaluacion formato,
-      {Directory? directorio}) async {
+  
+  // Constantes para el formato
+  static const String SHEET_NAME = 'Formato Completo';
+  static const double LOGO_WIDTH = 80;
+  static const double LOGO_HEIGHT = 60;
+  
+  /// Exporta el formato de evaluación a Excel con logos
+  Future<String> exportarFormatoExcel(FormatoEvaluacion formato, {Directory? directorio}) async {
+    // Crear nuevo libro de Excel
+    final Workbook workbook = Workbook();
+    
     try {
-      // Obtener directorio
-      final directorioFinal =
-          directorio ?? await _fileService.obtenerDirectorioDocumentos();
-      final nombreArchivo = 'Cenapp${formato.id}.xlsx';
+      // Obtener directorio de destino
+      final directorioFinal = directorio ?? await _fileService.obtenerDirectorioDocumentos();
+      final nombreArchivo = 'Cenapred${formato.id}.xlsx';
       final rutaArchivo = '${directorioFinal.path}/$nombreArchivo';
-
-      // Crear un libro de Excel
-      final excel = Excel.createExcel();
-
-      // Usar solo una hoja para todos los datos
-      final hojaUnica = excel['Formato Completo'];
-
-      // Formatear coordenadas para mostrarlas en formato amigable
-      String coordenadasFormateadas = _formatearCoordenadas(
-          formato.ubicacionGeorreferencial.latitud,
-          formato.ubicacionGeorreferencial.longitud,
-          formato.ubicacionGeorreferencial.altitud);
-
-      // Eliminar la hoja por defecto si es diferente
-      if (excel.sheets.containsKey('Sheet1') &&
-          'Sheet1' != 'Formato Completo') {
-        excel.delete('Sheet1');
-      }
-
-      // Llenar la hoja única con todos los datos
-      int filaActual = 0;
-
-      // Título principal
-      _escribirCelda(
-          hojaUnica, filaActual++, 0, 'FORMATO DE EVALUACIÓN DE INMUEBLE');
-      _escribirCelda(hojaUnica, filaActual++, 0, 'ID: ${formato.id}');
-      _escribirCelda(hojaUnica, filaActual++, 0,
-          'Fecha de evaluacion: ${_formatearFecha(formato.fechaCreacion)} - Nombre del evaluador: ${formato.usuarioCreador} - Grado: ${formato.gradoUsuario}');
-      _escribirCelda(hojaUnica, filaActual++, 0, 'Coordenadas: ${coordenadasFormateadas}');
-
-      // Separador
-      filaActual++;
-
-      // ---- SECCIÓN 1: INFORMACIÓN GENERAL ----
-      filaActual = _escribirSeccionInfoGeneral(
-          hojaUnica, filaActual, formato.informacionGeneral);
-
-      // Separador
-      filaActual++;
-
-      // ---- SECCIÓN 2: SISTEMA ESTRUCTURAL ----
-      filaActual = _escribirSeccionSistemaEstructural(
-          hojaUnica, filaActual, formato.sistemaEstructural);
-
-      // Separador
-      filaActual++;
-
-      // ---- SECCIÓN 3: EVALUACIÓN DE DAÑOS ----
-      filaActual = _escribirSeccionEvaluacionDanos(
-          hojaUnica, filaActual, formato.evaluacionDanos);
-
-      // Separador
-      filaActual++;
-
-      // ---- SECCIÓN 4: UBICACIÓN GEORREFERENCIAL ----
-      filaActual = _escribirSeccionUbicacion(
-          hojaUnica, filaActual, formato.ubicacionGeorreferencial);
-
-      // IMPORTANTE: Aquí se generan los bytes del Excel
-      final bytes = excel.save(); // Esta línea genera los bytes
-      if (bytes == null) {
-        throw Exception('Error al codificar el archivo Excel');
-      }
-      // Guardar el archivo Excel
-      final archivo = File(rutaArchivo);
-      await archivo.writeAsBytes(bytes);
-
+      
+      // Crear hoja principal
+      final Worksheet sheet = workbook.worksheets[0];
+      sheet.name = SHEET_NAME;
+      
+      // Configurar estilos globales
+      _configurarEstilosGlobales(workbook);
+      
+      // Agregar logos en las esquinas superiores
+      await _agregarLogos(sheet);
+      
+      // Llenar contenido del formato
+      int filaActual = 8; // Empezar después de los logos
+      
+      // Encabezado principal
+      filaActual = _escribirEncabezado(sheet, filaActual, formato);
+      
+      // Secciones del formato
+      filaActual = _escribirInformacionGeneral(sheet, filaActual + 2, formato.informacionGeneral);
+      filaActual = _escribirSistemaEstructural(sheet, filaActual + 2, formato.sistemaEstructural);
+      filaActual = _escribirEvaluacionDanos(sheet, filaActual + 2, formato.evaluacionDanos);
+      filaActual = _escribirUbicacionGeorreferencial(sheet, filaActual + 2, formato.ubicacionGeorreferencial);
+      
+      // Ajustar anchos de columna automáticamente
+      _ajustarAnchoColumnas(sheet);
+      
+      // Guardar archivo
+      final List<int> bytes = workbook.saveAsStream();
+      final File file = File(rutaArchivo);
+      await file.writeAsBytes(bytes);
+      
+      // Liberar recursos
+      workbook.dispose();
+      
       return rutaArchivo;
     } catch (e) {
-      print('Error en exportarFormatoExcel: $e');
-      rethrow;
+      // Asegurar liberación de recursos en caso de error
+      workbook.dispose();
+      throw Exception('Error al exportar Excel con Syncfusion: $e');
     }
   }
 
-  // Métodos para escribir cada sección y retornar la siguiente fila disponible
-  int _escribirSeccionInfoGeneral(
-      Sheet hoja, int filaInicial, InformacionGeneral info) {
+  /// Configura estilos globales del libro
+  void _configurarEstilosGlobales(Workbook workbook) {
+    // Estilo para títulos principales
+    final Style tituloStyle = workbook.styles.add('TituloPrincipal');
+    tituloStyle.fontSize = 16;
+    tituloStyle.bold = true;
+    tituloStyle.hAlign = HAlignType.center;
+    tituloStyle.vAlign = VAlignType.center;
+    tituloStyle.backColor = '#E3F2FD'; // Azul claro
+    
+    // Estilo para subtítulos de sección
+    final Style seccionStyle = workbook.styles.add('TituloSeccion');
+    seccionStyle.fontSize = 14;
+    seccionStyle.bold = true;
+    seccionStyle.backColor = '#BBDEFB';
+    
+    // Estilo para subsecciones
+    final Style subseccionStyle = workbook.styles.add('Subseccion');
+    subseccionStyle.fontSize = 12;
+    subseccionStyle.bold = true;
+    subseccionStyle.backColor = '#E1F5FE';
+    
+    // Estilo para etiquetas
+    final Style etiquetaStyle = workbook.styles.add('Etiqueta');
+    etiquetaStyle.bold = true;
+    
+    // Estilo para valores
+    final Style valorStyle = workbook.styles.add('Valor');
+    valorStyle.wrapText = true;
+  }
+
+  /// Agrega logos en las esquinas superiores
+  Future<void> _agregarLogos(Worksheet sheet) async {
     try {
-      int fila = filaInicial;
-
-      // Encabezado de sección
-      _escribirCeldaResaltada(
-          hoja, fila++, 0, 'INFORMACIÓN GENERAL DEL INMUEBLE');
-
-      // Datos básicos
-      _escribirCelda(hoja, fila, 0, 'Nombre del inmueble:');
-      _escribirCelda(hoja, fila++, 1, info.nombreInmueble);
-
-      _escribirCelda(hoja, fila, 0, 'Calle:');
-      _escribirCelda(hoja, fila++, 1, info.calle);
-
-      _escribirCelda(hoja, fila, 0, 'Colonia:');
-      _escribirCelda(hoja, fila++, 1, info.colonia);
-
-      _escribirCelda(hoja, fila, 0, 'Código Postal:');
-      _escribirCelda(hoja, fila++, 1, info.codigoPostal);
-
-      _escribirCelda(hoja, fila, 0, 'Ciudad/Pueblo:');
-      _escribirCelda(hoja, fila++, 1, info.ciudadPueblo);
-
-      _escribirCelda(hoja, fila, 0, 'Delegación/Municipio:');
-      _escribirCelda(hoja, fila++, 1, info.delegacionMunicipio);
-
-      _escribirCelda(hoja, fila, 0, 'Estado:');
-      _escribirCelda(hoja, fila++, 1, info.estado);
-
-      _escribirCelda(hoja, fila, 0, 'Referencias:');
-      _escribirCelda(hoja, fila++, 1, info.referencias);
-
-      _escribirCelda(hoja, fila, 0, 'Persona contactada:');
-      _escribirCelda(hoja, fila++, 1, info.personaContacto);
-
-      _escribirCelda(hoja, fila, 0, 'Teléfono:');
-      _escribirCelda(hoja, fila++, 1, info.telefono);
-
-      // Dimensiones
-      fila++;
-      _escribirCeldaResaltada(hoja, fila++, 0, 'DIMENSIONES');
-
-      _escribirCelda(hoja, fila, 0, 'Frente X:');
-      _escribirCelda(hoja, fila++, 1, '${info.frenteX} metros');
-
-      _escribirCelda(hoja, fila, 0, 'Frente Y:');
-      _escribirCelda(hoja, fila++, 1, '${info.frenteY} metros');
-
-      _escribirCelda(hoja, fila, 0, 'Número de niveles:');
-      _escribirCelda(hoja, fila++, 1, info.niveles.toString());
-
-      _escribirCelda(hoja, fila, 0, 'Número de ocupantes:');
-      _escribirCelda(hoja, fila++, 1, info.ocupantes.toString());
-
-      _escribirCelda(hoja, fila, 0, 'Número de sótanos:');
-      _escribirCelda(hoja, fila++, 1, info.sotanos.toString());
-
-      // Usos
-      fila++;
-      _escribirCeldaResaltada(hoja, fila++, 0, 'USOS');
-
-      for (var entry in info.usos.entries) {
-        if (entry.value) {
-          _escribirCelda(hoja, fila, 0, entry.key);
-          _escribirCelda(hoja, fila++, 1, 'Sí');
-        }
+      // Cargar imagen del logo desde assets
+      final ByteData imageData = await rootBundle.load('assets/logoCenapp.png');
+      final Uint8List imageBytes = imageData.buffer.asUint8List();
+      
+      // Logo superior izquierdo
+      final Picture logoIzquierdo = sheet.pictures.addStream(1, 1, imageBytes);
+      logoIzquierdo.width = LOGO_WIDTH.toInt();
+      logoIzquierdo.height = LOGO_HEIGHT.toInt();
+      
+      // Logo superior derecho (columna H)
+      final Picture logoDerecho = sheet.pictures.addStream(1, 8, imageBytes);
+      logoDerecho.width = LOGO_WIDTH.toInt();
+      logoDerecho.height = LOGO_HEIGHT.toInt();
+      
+      // Ajustar altura de las primeras filas para acomodar logos
+      for (int i = 1; i <= 5; i++) {
+        sheet.getRangeByIndex(i, 1).rowHeight = 15;
       }
-
-      if (info.otroUso.isNotEmpty) {
-        _escribirCelda(hoja, fila, 0, 'Otro uso:');
-        _escribirCelda(hoja, fila++, 1, info.otroUso);
-      }
-
-      // Topografía
-      fila++;
-      _escribirCeldaResaltada(hoja, fila++, 0, 'TOPOGRAFÍA');
-
-      for (var entry in info.topografia.entries) {
-        if (entry.value) {
-          _escribirCelda(hoja, fila, 0, entry.key);
-          _escribirCelda(hoja, fila++, 1, 'Sí');
-        }
-      }
-
-      return fila; // Retornar la siguiente fila disponible
     } catch (e) {
-      print('Error en _escribirSeccionInfoGeneral: $e');
-      return filaInicial + 30; // Avanzar algunas filas en caso de error
+      print('Error al cargar logos: $e');
+      // Continuar sin logos si hay error
     }
   }
 
-  int _escribirSeccionSistemaEstructural(
-      Sheet hoja, int filaInicial, SistemaEstructural sistema) {
-    try {
-      int fila = filaInicial;
+  /// Escribe el encabezado principal
+  int _escribirEncabezado(Worksheet sheet, int filaInicial, FormatoEvaluacion formato) {
+    int fila = filaInicial;
+    
+    // Título principal centrado
+    final Range tituloRange = sheet.getRangeByIndex(fila, 2, fila, 7);
+    tituloRange.merge();
+    tituloRange.setText('FORMATO DE EVALUACIÓN DE INMUEBLE');
+    tituloRange.cellStyle.name = 'TituloPrincipal';
+    
+    fila += 2;
+    
+    // Información del formato
+    _escribirFilaCentrada(sheet, fila++, 'ID: ${formato.id}', 2, 7);
+    _escribirFilaCentrada(sheet, fila++, 
+      'Fecha de evaluación: ${_formatearFecha(formato.fechaCreacion)}', 2, 7);
+    _escribirFilaCentrada(sheet, fila++, 
+      'Evaluador: ${formato.gradoUsuario ?? ""} ${formato.usuarioCreador}', 2, 7);
+    
+    // Coordenadas
+    String coordenadas = _formatearCoordenadas(
+      formato.ubicacionGeorreferencial.latitud,
+      formato.ubicacionGeorreferencial.longitud,
+      formato.ubicacionGeorreferencial.altitud
+    );
+    _escribirFilaCentrada(sheet, fila++, 'Ubicación: $coordenadas', 2, 7);
+    
+    return fila;
+  }
 
-      // Encabezado de sección
-      _escribirCeldaResaltada(hoja, fila++, 0, 'SISTEMA ESTRUCTURAL');
-
-      // Dirección X
-      _escribirCeldaSubtitulo(hoja, fila++, 0, 'DIRECCIÓN X');
-      for (var entry in sistema.direccionX.entries) {
-        if (entry.value) {
-          _escribirCelda(hoja, fila, 0, entry.key);
-          _escribirCelda(hoja, fila++, 1, 'Sí');
-        }
+  /// Escribe la sección de información general
+  int _escribirInformacionGeneral(Worksheet sheet, int filaInicial, InformacionGeneral info) {
+    int fila = filaInicial;
+    
+    // Título de sección
+    _escribirTituloSeccion(sheet, fila++, 'INFORMACIÓN GENERAL DEL INMUEBLE');
+    fila++;
+    
+    // Datos básicos
+    _escribirCampo(sheet, fila++, 'Nombre del inmueble:', info.nombreInmueble);
+    _escribirCampo(sheet, fila++, 'Calle:', info.calle);
+    _escribirCampo(sheet, fila++, 'Colonia:', info.colonia);
+    _escribirCampo(sheet, fila++, 'Código Postal:', info.codigoPostal);
+    _escribirCampo(sheet, fila++, 'Ciudad/Pueblo:', info.ciudadPueblo);
+    _escribirCampo(sheet, fila++, 'Delegación/Municipio:', info.delegacionMunicipio);
+    _escribirCampo(sheet, fila++, 'Estado:', info.estado);
+    _escribirCampo(sheet, fila++, 'Referencias:', info.referencias);
+    _escribirCampo(sheet, fila++, 'Persona contactada:', info.personaContacto);
+    _escribirCampo(sheet, fila++, 'Teléfono:', info.telefono);
+    
+    fila++;
+    
+    // Dimensiones
+    _escribirSubseccion(sheet, fila++, 'DIMENSIONES');
+    _escribirCampo(sheet, fila++, 'Frente X:', '${info.frenteX} metros');
+    _escribirCampo(sheet, fila++, 'Frente Y:', '${info.frenteY} metros');
+    _escribirCampo(sheet, fila++, 'Número de niveles:', info.niveles.toString());
+    _escribirCampo(sheet, fila++, 'Número de ocupantes:', info.ocupantes.toString());
+    _escribirCampo(sheet, fila++, 'Número de sótanos:', info.sotanos.toString());
+    
+    fila++;
+    
+    // Usos
+    _escribirSubseccion(sheet, fila++, 'USOS DEL INMUEBLE');
+    info.usos.forEach((uso, seleccionado) {
+      if (seleccionado) {
+        _escribirCampo(sheet, fila++, uso, 'Sí');
       }
-
-      // Dirección Y
-      fila++;
-      _escribirCeldaSubtitulo(hoja, fila++, 0, 'DIRECCIÓN Y');
-      for (var entry in sistema.direccionY.entries) {
-        if (entry.value) {
-          _escribirCelda(hoja, fila, 0, entry.key);
-          _escribirCelda(hoja, fila++, 1, 'Sí');
-        }
+    });
+    if (info.otroUso.isNotEmpty) {
+      _escribirCampo(sheet, fila++, 'Otro uso:', info.otroUso);
+    }
+    
+    fila++;
+    
+    // Topografía
+    _escribirSubseccion(sheet, fila++, 'TOPOGRAFÍA');
+    info.topografia.forEach((tipo, seleccionado) {
+      if (seleccionado) {
+        _escribirCampo(sheet, fila++, tipo, 'Sí');
       }
+    });
+    
+    return fila;
+  }
 
-      // Muros de mampostería
-      fila++;
-      _escribirCeldaSubtitulo(hoja, fila++, 0, 'MUROS DE MAMPOSTERÍA');
-      for (var entry in sistema.murosMamposteria.entries) {
-        if (entry.value) {
-          _escribirCelda(hoja, fila, 0, entry.key);
-          _escribirCelda(hoja, fila++, 1, 'Sí');
-        }
+  /// Escribe la sección de sistema estructural
+  int _escribirSistemaEstructural(Worksheet sheet, int filaInicial, SistemaEstructural sistema) {
+    int fila = filaInicial;
+    
+    _escribirTituloSeccion(sheet, fila++, 'SISTEMA ESTRUCTURAL');
+    fila++;
+    
+    // Dirección X
+    fila = _escribirMapBool(sheet, fila, 'DIRECCIÓN X', sistema.direccionX);
+    
+    // Dirección Y
+    fila = _escribirMapBool(sheet, fila, 'DIRECCIÓN Y', sistema.direccionY);
+    
+    // Muros de mampostería
+    fila = _escribirMapBool(sheet, fila, 'MUROS DE MAMPOSTERÍA', sistema.murosMamposteria);
+    
+    // Sistemas de piso
+    fila = _escribirMapBool(sheet, fila, 'SISTEMAS DE PISO', sistema.sistemasPiso);
+    
+    // Sistemas de techo
+    fila = _escribirMapBool(sheet, fila, 'SISTEMAS DE TECHO', sistema.sistemasTecho);
+    if (sistema.otroTecho.isNotEmpty) {
+      _escribirCampo(sheet, fila++, 'Otro techo:', sistema.otroTecho);
+    }
+    
+    // Cimentación
+    fila = _escribirMapBool(sheet, fila, 'CIMENTACIÓN', sistema.cimentacion);
+    
+    // Vulnerabilidad
+    fila = _escribirMapBool(sheet, fila, 'VULNERABILIDAD', sistema.vulnerabilidad);
+    
+    // Posición en manzana
+    fila = _escribirMapBool(sheet, fila, 'POSICIÓN EN MANZANA', sistema.posicionManzana);
+    
+    // Otras características
+    fila = _escribirMapBool(sheet, fila, 'OTRAS CARACTERÍSTICAS', sistema.otrasCaracteristicas);
+    
+    // Separación edificios
+    _escribirCampo(sheet, fila++, 'Separación edificios vecinos:', '${sistema.separacionEdificios} cm');
+    
+    return fila;
+  }
+
+  /// Escribe la sección de evaluación de daños
+  int _escribirEvaluacionDanos(Worksheet sheet, int filaInicial, EvaluacionDanos evaluacion) {
+    int fila = filaInicial;
+    
+    _escribirTituloSeccion(sheet, fila++, 'EVALUACIÓN DE DAÑOS');
+    fila++;
+    
+    // Daños geotécnicos
+    fila = _escribirMapBool(sheet, fila, 'DAÑOS GEOTÉCNICOS', evaluacion.geotecnicos);
+    
+    // Inclinación
+    _escribirCampo(sheet, fila++, 'Inclinación del edificio:', '${evaluacion.inclinacionEdificio}%');
+    fila++;
+    
+    // Losas
+    _escribirSubseccion(sheet, fila++, 'LOSAS');
+    _escribirCampo(sheet, fila++, 'Colapso:', evaluacion.losasColapso ? 'Sí' : 'No');
+    _escribirCampo(sheet, fila++, 'Grietas máximas:', '${evaluacion.losasGrietasMax} mm');
+    _escribirCampo(sheet, fila++, 'Flecha máxima:', '${evaluacion.losasFlechaMax} cm');
+    fila++;
+    
+    // Conexiones con falla
+    fila = _escribirMapBool(sheet, fila, 'CONEXIONES CON FALLA', evaluacion.conexionesFalla);
+    
+    // Tabla de daños a la estructura (simplificada)
+    _escribirSubseccion(sheet, fila++, 'DAÑOS A LA ESTRUCTURA');
+    evaluacion.danosEstructura.forEach((estructura, danos) {
+      bool tieneDanos = danos.values.any((v) => v);
+      if (tieneDanos) {
+        _escribirCampo(sheet, fila++, estructura + ':', '');
+        danos.forEach((tipoDano, seleccionado) {
+          if (seleccionado) {
+            sheet.getRangeByIndex(fila, 3).setText('• $tipoDano');
+            fila++;
+          }
+        });
       }
-
-      // Sistemas de piso
-      fila++;
-      _escribirCeldaSubtitulo(hoja, fila++, 0, 'SISTEMAS DE PISO');
-      for (var entry in sistema.sistemasPiso.entries) {
-        if (entry.value) {
-          _escribirCelda(hoja, fila, 0, entry.key);
-          _escribirCelda(hoja, fila++, 1, 'Sí');
-        }
+    });
+    
+    fila++;
+    
+    // Mediciones
+    _escribirSubseccion(sheet, fila++, 'MEDICIONES');
+    evaluacion.mediciones.forEach((estructura, mediciones) {
+      bool tieneMediciones = mediciones.values.any((v) => v > 0);
+      if (tieneMediciones) {
+        _escribirCampo(sheet, fila++, estructura + ':', '');
+        mediciones.forEach((tipoMedicion, valor) {
+          if (valor > 0) {
+            sheet.getRangeByIndex(fila, 3).setText('• $tipoMedicion: $valor');
+            fila++;
+          }
+        });
       }
+    });
+    
+    fila++;
+    
+    // Entrepiso crítico
+    _escribirSubseccion(sheet, fila++, 'ENTREPISO CRÍTICO');
+    _escribirCampo(sheet, fila++, 'Columnas con daño severo:', evaluacion.columnasConDanoSevero.toString());
+    _escribirCampo(sheet, fila++, 'Total columnas en entrepiso:', evaluacion.totalColumnasEntrepiso.toString());
+    
+    fila++;
+    
+    // Nivel de daño
+    fila = _escribirMapBool(sheet, fila, 'NIVEL DE DAÑO', evaluacion.nivelDano);
+    
+    // Otros daños
+    fila = _escribirMapBool(sheet, fila, 'OTROS DAÑOS', evaluacion.otrosDanos);
+    
+    return fila;
+  }
 
-      // Sistemas de techo
-      fila++;
-      _escribirCeldaSubtitulo(hoja, fila++, 0, 'SISTEMAS DE TECHO');
-      for (var entry in sistema.sistemasTecho.entries) {
-        if (entry.value) {
-          _escribirCelda(hoja, fila, 0, entry.key);
-          _escribirCelda(hoja, fila++, 1, 'Sí');
-        }
+  /// Escribe la sección de ubicación georreferencial
+  int _escribirUbicacionGeorreferencial(Worksheet sheet, int filaInicial, UbicacionGeorreferencial ubicacion) {
+    int fila = filaInicial;
+    
+    _escribirTituloSeccion(sheet, fila++, 'UBICACIÓN GEORREFERENCIAL');
+    fila++;
+    
+    _escribirCampo(sheet, fila++, 'Existen planos:', ubicacion.existenPlanos ?? 'No especificado');
+    _escribirCampo(sheet, fila++, 'Dirección:', ubicacion.direccion);
+    
+    String coordenadasDetalle = _formatearCoordenadas(
+      ubicacion.latitud,
+      ubicacion.longitud,
+      ubicacion.altitud
+    );
+    _escribirCampo(sheet, fila++, 'Coordenadas:', coordenadasDetalle);
+    
+    fila++;
+    
+    // Fotografías
+    _escribirSubseccion(sheet, fila++, 'FOTOGRAFÍAS ADJUNTAS');
+    if (ubicacion.rutasFotos.isNotEmpty) {
+      _escribirCampo(sheet, fila++, 'Número de fotografías:', ubicacion.rutasFotos.length.toString());
+      ubicacion.rutasFotos.forEach((ruta) {
+        String nombreArchivo = ruta.split('/').last;
+        sheet.getRangeByIndex(fila, 3).setText('• $nombreArchivo');
+        fila++;
+      });
+    } else {
+      _escribirCampo(sheet, fila++, 'Fotografías:', 'No hay fotografías adjuntas');
+    }
+    
+    return fila;
+  }
+
+  // ===== MÉTODOS AUXILIARES =====
+
+  /// Escribe un título de sección
+  void _escribirTituloSeccion(Worksheet sheet, int fila, String titulo) {
+    final Range range = sheet.getRangeByIndex(fila, 1, fila, 8);
+    range.merge();
+    range.setText(titulo);
+    range.cellStyle.name = 'TituloSeccion';
+  }
+
+  /// Escribe un subtítulo
+  void _escribirSubseccion(Worksheet sheet, int fila, String titulo) {
+    final Range range = sheet.getRangeByIndex(fila, 1, fila, 6);
+    range.merge();
+    range.setText(titulo);
+    range.cellStyle.name = 'Subseccion';
+  }
+
+  /// Escribe un campo etiqueta-valor
+  void _escribirCampo(Worksheet sheet, int fila, String etiqueta, String valor) {
+    sheet.getRangeByIndex(fila, 1).setText(etiqueta);
+    sheet.getRangeByIndex(fila, 1).cellStyle.name = 'Etiqueta';
+    
+    final Range valorRange = sheet.getRangeByIndex(fila, 3, fila, 6);
+    valorRange.merge();
+    valorRange.setText(valor);
+    valorRange.cellStyle.name = 'Valor';
+  }
+
+  /// Escribe una fila centrada
+  void _escribirFilaCentrada(Worksheet sheet, int fila, String texto, int colInicio, int colFin) {
+    final Range range = sheet.getRangeByIndex(fila, colInicio, fila, colFin);
+    range.merge();
+    range.setText(texto);
+    range.cellStyle.hAlign = HAlignType.center;
+  }
+
+  /// Escribe un mapa de valores booleanos
+  int _escribirMapBool(Worksheet sheet, int fila, String titulo, Map<String, bool> mapa) {
+    _escribirSubseccion(sheet, fila++, titulo);
+    
+    mapa.forEach((key, value) {
+      if (value) {
+        _escribirCampo(sheet, fila++, key, 'Sí');
       }
+    });
+    
+    // Si no hay elementos seleccionados
+    if (!mapa.values.any((v) => v)) {
+      _escribirCampo(sheet, fila++, 'Sin selección', '-');
+    }
+    
+    return fila + 1; // Espacio adicional
+  }
 
-      if (sistema.otroTecho.isNotEmpty) {
-        _escribirCelda(hoja, fila, 0, 'Otro:');
-        _escribirCelda(hoja, fila++, 1, sistema.otroTecho);
+  /// Ajusta el ancho de las columnas automáticamente
+  void _ajustarAnchoColumnas(Worksheet sheet) {
+    // Ajustar columnas principales
+    sheet.autoFitColumn(1); // Etiquetas
+    sheet.autoFitColumn(2); // Espaciador
+    
+    // Establecer ancho mínimo para columnas de contenido
+    for (int i = 3; i <= 8; i++) {
+      if (sheet.getColumnWidth(i) < 15) {
+        sheet.getRangeByIndex(1, i).columnWidth = 15;
       }
-
-      // Cimentación
-      fila++;
-      _escribirCeldaSubtitulo(hoja, fila++, 0, 'CIMENTACIÓN');
-      for (var entry in sistema.cimentacion.entries) {
-        if (entry.value) {
-          _escribirCelda(hoja, fila, 0, entry.key);
-          _escribirCelda(hoja, fila++, 1, 'Sí');
-        }
-      }
-
-      // Vulnerabilidad
-      fila++;
-      _escribirCeldaSubtitulo(hoja, fila++, 0, 'VULNERABILIDAD');
-      for (var entry in sistema.vulnerabilidad.entries) {
-        if (entry.value) {
-          _escribirCelda(hoja, fila, 0, entry.key);
-          _escribirCelda(hoja, fila++, 1, 'Sí');
-        }
-      }
-
-      // Posición en manzana
-      fila++;
-      _escribirCeldaSubtitulo(hoja, fila++, 0, 'POSICIÓN EN MANZANA');
-      for (var entry in sistema.posicionManzana.entries) {
-        if (entry.value) {
-          _escribirCelda(hoja, fila, 0, entry.key);
-          _escribirCelda(hoja, fila++, 1, 'Sí');
-        }
-      }
-
-      // Otras características
-      fila++;
-      _escribirCeldaSubtitulo(hoja, fila++, 0, 'OTRAS CARACTERÍSTICAS');
-      for (var entry in sistema.otrasCaracteristicas.entries) {
-        if (entry.value) {
-          _escribirCelda(hoja, fila, 0, entry.key);
-          _escribirCelda(hoja, fila++, 1, 'Sí');
-        }
-      }
-
-      // Separación edificios
-      fila++;
-      _escribirCelda(hoja, fila, 0, 'Separación edificios vecinos:');
-      _escribirCelda(hoja, fila++, 1, '${sistema.separacionEdificios} cm');
-
-      return fila; // Retornar la siguiente fila disponible
-    } catch (e) {
-      print('Error en _escribirSeccionSistemaEstructural: $e');
-      return filaInicial + 50; // Avanzar algunas filas en caso de error
+    }
+    
+    // Columna 1 más ancha para etiquetas
+    if (sheet.getColumnWidth(1) < 30) {
+      sheet.getRangeByIndex(1, 1).columnWidth = 30;
     }
   }
 
-  int _escribirSeccionEvaluacionDanos(
-      Sheet hoja, int filaInicial, EvaluacionDanos evaluacion) {
-    try {
-      int fila = filaInicial;
-
-      // Encabezado de sección
-      _escribirCeldaResaltada(hoja, fila++, 0, 'EVALUACIÓN DE DAÑOS');
-
-      // Daños geotécnicos
-      _escribirCeldaSubtitulo(hoja, fila++, 0, 'DAÑOS GEOTÉCNICOS');
-      for (var entry in evaluacion.geotecnicos.entries) {
-        if (entry.value) {
-          _escribirCelda(hoja, fila, 0, entry.key);
-          _escribirCelda(hoja, fila++, 1, 'Sí');
-        }
-      }
-
-      // Inclinación
-      fila++;
-      _escribirCelda(hoja, fila, 0, 'Inclinación del edificio:');
-      _escribirCelda(hoja, fila++, 1, '${evaluacion.inclinacionEdificio}%');
-
-      // Losas
-      fila++;
-      _escribirCeldaSubtitulo(hoja, fila++, 0, 'LOSAS');
-      _escribirCelda(hoja, fila, 0, 'Colapso:');
-      _escribirCelda(hoja, fila++, 1, evaluacion.losasColapso ? 'Sí' : 'No');
-      _escribirCelda(hoja, fila, 0, 'Grietas máximas:');
-      _escribirCelda(hoja, fila++, 1, '${evaluacion.losasGrietasMax} mm');
-      _escribirCelda(hoja, fila, 0, 'Flecha máxima:');
-      _escribirCelda(hoja, fila++, 1, '${evaluacion.losasFlechaMax} cm');
-
-      // Conexiones con falla
-      fila++;
-      _escribirCeldaSubtitulo(hoja, fila++, 0, 'CONEXIONES CON FALLA');
-      for (var entry in evaluacion.conexionesFalla.entries) {
-        if (entry.value) {
-          _escribirCelda(hoja, fila, 0, entry.key);
-          _escribirCelda(hoja, fila++, 1, 'Sí');
-        }
-      }
-
-      // Daños a la estructura
-      fila++;
-      _escribirCeldaSubtitulo(hoja, fila++, 0, 'DAÑOS A LA ESTRUCTURA');
-
-      for (var estructuraEntry in evaluacion.danosEstructura.entries) {
-        String estructura = estructuraEntry.key;
-        Map<String, bool> danos = estructuraEntry.value;
-
-        // Verificar si hay algún daño para esta estructura
-        bool hayDanos = danos.values.any((v) => v);
-
-        if (hayDanos) {
-          _escribirCelda(hoja, fila++, 0, estructura + ':');
-
-          // Escribir los daños para esta estructura
-          danos.forEach((tipoDano, seleccionado) {
-            if (seleccionado) {
-              _escribirCelda(hoja, fila, 0, '   ' + tipoDano);
-              _escribirCelda(hoja, fila++, 1, 'Sí');
-            }
-          });
-        }
-      }
-
-      // Mediciones
-      fila++;
-      _escribirCeldaSubtitulo(hoja, fila++, 0, 'MEDICIONES');
-
-      for (var estructuraEntry in evaluacion.mediciones.entries) {
-        String estructura = estructuraEntry.key;
-        Map<String, double> mediciones = estructuraEntry.value;
-
-        // Verificar si hay mediciones para esta estructura
-        bool hayMediciones = mediciones.values.any((v) => v > 0);
-
-        if (hayMediciones) {
-          _escribirCelda(hoja, fila++, 0, estructura + ':');
-
-          // Escribir las mediciones para esta estructura
-          mediciones.forEach((tipoMedicion, valor) {
-            if (valor > 0) {
-              _escribirCelda(hoja, fila, 0, '   ' + tipoMedicion);
-              _escribirCelda(hoja, fila++, 1, valor.toString());
-            }
-          });
-        }
-      }
-
-      // Entrepiso crítico
-      fila++;
-      _escribirCeldaSubtitulo(hoja, fila++, 0, 'ENTREPISO CRÍTICO');
-      _escribirCelda(hoja, fila, 0, 'Columnas con daño severo:');
-      _escribirCelda(
-          hoja, fila++, 1, evaluacion.columnasConDanoSevero.toString());
-      _escribirCelda(hoja, fila, 0, 'Total columnas en entrepiso:');
-      _escribirCelda(
-          hoja, fila++, 1, evaluacion.totalColumnasEntrepiso.toString());
-
-      // Nivel de daño
-      fila++;
-      _escribirCeldaSubtitulo(hoja, fila++, 0, 'NIVEL DE DAÑO');
-      for (var entry in evaluacion.nivelDano.entries) {
-        if (entry.value) {
-          _escribirCelda(hoja, fila, 0, entry.key);
-          _escribirCelda(hoja, fila++, 1, 'Sí');
-        }
-      }
-
-      // Otros daños
-      fila++;
-      _escribirCeldaSubtitulo(hoja, fila++, 0, 'OTROS DAÑOS');
-      for (var entry in evaluacion.otrosDanos.entries) {
-        if (entry.value) {
-          _escribirCelda(hoja, fila, 0, entry.key);
-          _escribirCelda(hoja, fila++, 1, 'Sí');
-        }
-      }
-
-      return fila; // Retornar la siguiente fila disponible
-    } catch (e) {
-      print('Error en _escribirSeccionEvaluacionDanos: $e');
-      return filaInicial + 50; // Avanzar algunas filas en caso de error
-    }
-  }
-
-  int _escribirSeccionUbicacion(
-      Sheet hoja, int filaInicial, UbicacionGeorreferencial ubicacion) {
-    try {
-      int fila = filaInicial;
-
-      // Encabezado de sección
-      _escribirCeldaResaltada(hoja, fila++, 0, 'UBICACIÓN GEORREFERENCIAL');
-
-      // Formatear coordenadas para mostrarlas en formato amigable
-      String coordenadasFormateadas = _formatearCoordenadas(
-          ubicacion.latitud, ubicacion.longitud, ubicacion.altitud);
-
-      // Datos básicos
-      _escribirCelda(hoja, fila, 0, 'Existen planos:');
-      _escribirCelda(
-          hoja, fila++, 1, ubicacion.existenPlanos ?? 'No especificado');
-
-      _escribirCelda(hoja, fila, 0, 'Dirección:');
-      _escribirCelda(hoja, fila++, 1, ubicacion.direccion);
-
-      _escribirCelda(hoja, fila, 0, 'Coordenadas:');
-      _escribirCelda(hoja, fila++, 1, coordenadasFormateadas);
-
-      // ... resto del código ...
-
-      return fila; // Retornar la siguiente fila disponible
-    } catch (e) {
-      print('Error en _escribirSeccionUbicacion: $e');
-      return filaInicial + 20; // Avanzar algunas filas en caso de error
-    }
-  }
-
-  // Métodos auxiliares optimizados
-
-  // Agregar método para formatear coordenadas
-  String _formatearCoordenadas(
-      double latitud, double longitud, double altitud) {
-    // Redondear a 4 decimales para mayor precisión
+  /// Formatea coordenadas
+  String _formatearCoordenadas(double latitud, double longitud, double altitud) {
     double lat = double.parse(latitud.toStringAsFixed(4));
     double lng = double.parse(longitud.toStringAsFixed(4));
-    int alt = altitud.round(); // Redondear la altitud a entero
-
+    int alt = altitud.round();
+    
     String latDir = lat >= 0 ? "N" : "S";
     String lngDir = lng >= 0 ? "E" : "O";
-
-    // Formato: "19.4326 N, 99.1332 O, 2240 msnm"
+    
     return "${lat.abs()} $latDir, ${lng.abs()} $lngDir, ${alt.abs()} msnm";
   }
 
-  void _escribirCelda(Sheet hoja, int fila, int columna, String valor) {
-    try {
-      final celda =
-          CellIndex.indexByColumnRow(columnIndex: columna, rowIndex: fila);
-      hoja.cell(celda).value = TextCellValue(valor);
-    } catch (e) {
-      print('Error al escribir celda ($fila,$columna): $e');
-    }
-  }
-
-  void _escribirCeldaResaltada(
-      Sheet hoja, int fila, int columna, String valor) {
-    try {
-      final celda =
-          CellIndex.indexByColumnRow(columnIndex: columna, rowIndex: fila);
-      hoja.cell(celda).value = TextCellValue(valor);
-
-      // Intentar aplicar estilo
-      try {
-        hoja.cell(celda).cellStyle = CellStyle(
-          bold: true,
-          fontSize: 14,
-        );
-      } catch (_) {
-        // Ignorar errores de estilo
-      }
-    } catch (e) {
-      print('Error al escribir celda resaltada ($fila,$columna): $e');
-    }
-  }
-
-  void _escribirCeldaSubtitulo(
-      Sheet hoja, int fila, int columna, String valor) {
-    try {
-      final celda =
-          CellIndex.indexByColumnRow(columnIndex: columna, rowIndex: fila);
-      hoja.cell(celda).value = TextCellValue(valor);
-
-      // Intentar aplicar estilo
-      try {
-        hoja.cell(celda).cellStyle = CellStyle(
-          bold: true,
-          fontSize: 12,
-        );
-      } catch (_) {
-        // Ignorar errores de estilo
-      }
-    } catch (e) {
-      print('Error al escribir celda subtítulo ($fila,$columna): $e');
-    }
-  }
-
+  /// Formatea fecha
   String _formatearFecha(DateTime fecha) {
     return '${fecha.day.toString().padLeft(2, '0')}/${fecha.month.toString().padLeft(2, '0')}/${fecha.year}';
   }
 
-  /// Método para exportación a CSV (mantenido como alternativa)
-  Future<String> exportarFormatoCSV(FormatoEvaluacion formato,
-      {Directory? directorio}) async {
-    // Obtener directorio
-    final directorioFinal =
-        directorio ?? await _fileService.obtenerDirectorioDocumentos();
+  /// Exporta a formato CSV como alternativa
+  Future<String> exportarFormatoCSV(FormatoEvaluacion formato, {Directory? directorio}) async {
+    final directorioFinal = directorio ?? await _fileService.obtenerDirectorioDocumentos();
     final nombreArchivo = 'Cenapp${formato.id}.csv';
     final rutaArchivo = '${directorioFinal.path}/$nombreArchivo';
-    final buffer = StringBuffer();
-
+    
+    final StringBuffer buffer = StringBuffer();
+    
+    // Encabezado CSV
     buffer.writeln('Sección,Campo,Valor');
-
-    // Información General
+    
+    // Información general
     buffer.writeln('Información General,ID,${_escaparCSV(formato.id)}');
-    buffer.writeln(
-        'Información General,Nombre del inmueble,${_escaparCSV(formato.informacionGeneral.nombreInmueble)}');
-    buffer.writeln(
-        'Información General,Calle,${_escaparCSV(formato.informacionGeneral.calle)}');
-    buffer.writeln(
-        'Información General,Colonia,${_escaparCSV(formato.informacionGeneral.colonia)}');
-
-    // Y así sucesivamente con los demás datos...
-
-    final archivo = File(rutaArchivo);
-    await archivo.writeAsString(buffer.toString());
-
+    buffer.writeln('Información General,Fecha Creación,${_formatearFecha(formato.fechaCreacion)}');
+    buffer.writeln('Información General,Evaluador,${_escaparCSV(formato.usuarioCreador)}');
+    buffer.writeln('Información General,Nombre Inmueble,${_escaparCSV(formato.informacionGeneral.nombreInmueble)}');
+    
+    // Agregar más campos según necesidad...
+    
+    // Guardar archivo
+    final File file = File(rutaArchivo);
+    await file.writeAsString(buffer.toString());
+    
     return rutaArchivo;
   }
 
+  /// Escapa valores para CSV
   String _escaparCSV(String valor) {
     if (valor.contains(',') || valor.contains('"') || valor.contains('\n')) {
       return '"${valor.replaceAll('"', '""')}"';

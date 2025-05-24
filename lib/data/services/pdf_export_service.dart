@@ -4,16 +4,38 @@ import 'dart:io';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:path/path.dart' as path;
+import 'package:flutter/services.dart' show rootBundle;
 import '../../logica/formato_evaluacion.dart';
 import './file_storage_service.dart';
 
 /// Servicio para la exportación de documentos a PDF
 class PdfExportService {
   final FileStorageService _fileService = FileStorageService();
+   // Cache para el logo para evitar cargarlo múltiples veces
+  static pw.MemoryImage? _logoImage;
+  
+  /// Carga el logo desde assets una sola vez y lo mantiene en cache
+  Future<pw.MemoryImage> _cargarLogo() async {
+    if (_logoImage == null) {
+      try {
+        // Cargar el logo desde assets
+        final logoBytes = await rootBundle.load('assets/logoCenapp.png');
+        _logoImage = pw.MemoryImage(logoBytes.buffer.asUint8List());
+      } catch (e) {
+        print('Error al cargar el logo: $e');
+        // Si no se puede cargar el logo, creamos una imagen placeholder
+        throw Exception('No se pudo cargar el logo de la aplicación');
+      }
+    }
+    return _logoImage!;
+  }
   
   /// Exporta el formato de evaluación a un archivo PDF
   Future<String> exportarFormatoPDF(FormatoEvaluacion formato, {Directory? directorio}) async {
     try {
+       // Cargar el logo antes de crear el PDF
+      final logo = await _cargarLogo();
+
        // Obtener directorio de documentos o usar el proporcionado
     final directorioFinal = directorio ?? await _fileService.obtenerDirectorioDocumentos();
 
@@ -32,7 +54,7 @@ class PdfExportService {
         pw.MultiPage(
           pageFormat: PdfPageFormat.a4,
           margin: pw.EdgeInsets.all(20),
-          header: (context) => _construirEncabezadoPDF(formato),
+          header: (context) => _construirEncabezadoPDF(formato,logo),
           build: (context) => [
             _construirInformacionGeneralPDF(formato.informacionGeneral),
             pw.SizedBox(height: 20),
@@ -64,7 +86,7 @@ class PdfExportService {
   }
 
   // Widgets para construir las diferentes secciones del PDF
- pw.Widget _construirEncabezadoPDF(FormatoEvaluacion formato) {
+ pw.Widget _construirEncabezadoPDF(FormatoEvaluacion formato, pw.MemoryImage logo) {
   // Formatear las coordenadas
   String coordenadasFormateadas = _formatearCoordenadas(
     formato.ubicacionGeorreferencial.latitud,
@@ -72,38 +94,78 @@ class PdfExportService {
     formato.ubicacionGeorreferencial.altitud
   );
   
-  return pw.Container(
-    alignment: pw.Alignment.center,
-    margin: const pw.EdgeInsets.only(bottom: 10),
-    child: pw.Column(
-      children: [
-        pw.Text(
-          'FORMATO DE EVALUACIÓN DE INMUEBLE',
-          style: pw.TextStyle(
-            fontSize: 16,
-            fontWeight: pw.FontWeight.bold,
+   return pw.Container(
+      margin: const pw.EdgeInsets.only(bottom: 10),
+      child: pw.Column(
+        children: [
+          // Fila superior con logos en las esquinas
+          pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              // Logo izquierdo
+              pw.Container(
+                width: 60,
+                height: 40,
+                child: pw.Image(
+                  logo,
+                  fit: pw.BoxFit.contain,
+                ),
+              ),
+              
+              // Título central
+              pw.Expanded(
+                child: pw.Container(
+                  alignment: pw.Alignment.center,
+                  child: pw.Text(
+                    'FORMATO DE EVALUACIÓN DE INMUEBLE',
+                    style: pw.TextStyle(
+                      fontSize: 16,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                    textAlign: pw.TextAlign.center,
+                  ),
+                ),
+              ),
+              
+              // Logo derecho
+              pw.Container(
+                width: 60,
+                height: 40,
+                child: pw.Image(
+                  logo,
+                  fit: pw.BoxFit.contain,
+                ),
+              ),
+            ],
           ),
-        ),
-        pw.SizedBox(height: 5),
-        pw.Text(
-          'ID: ${formato.id}',
-          style: pw.TextStyle(fontSize: 10),
-        ),
-        pw.Text(
-          'Fecha de creación: ${_formatearFecha(formato.fechaCreacion)}',
-          style: pw.TextStyle(fontSize: 10),
-        ),
-        pw.Text(
-          'Evaluador: ${formato.gradoUsuario ?? ""} ${formato.usuarioCreador}',
-          style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
-        ),
-        pw.Text(
-          'Ubicación: $coordenadasFormateadas',
-          style: pw.TextStyle(fontSize: 10),
-        ),
-      ],
-    ),
-  );
+          
+          pw.SizedBox(height: 8),
+          
+          // Información del formato centrada
+          pw.Column(
+            children: [
+              pw.Text(
+                'ID: ${formato.id}',
+                style: pw.TextStyle(fontSize: 10),
+              ),
+              pw.Text(
+                'Fecha de creación: ${_formatearFecha(formato.fechaCreacion)}',
+                style: pw.TextStyle(fontSize: 10),
+              ),
+              pw.Text(
+                'Evaluador: ${formato.gradoUsuario ?? ""} ${formato.usuarioCreador}',
+                style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
+              ),
+              pw.Text(
+                'Ubicación: $coordenadasFormateadas',
+                style: pw.TextStyle(fontSize: 10),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
 }
 
 // Añadir método para formatear coordenadas

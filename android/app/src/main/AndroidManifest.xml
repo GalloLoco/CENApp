@@ -1,3 +1,4 @@
+<!-- android/app/src/main/AndroidManifest.xml - VERSIÓN SIMPLIFICADA -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
     
@@ -13,17 +14,24 @@
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
     
-    <!-- Permisos de almacenamiento para compatibilidad con versiones anteriores -->
+    <!-- Permisos de almacenamiento para compatibilidad -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29" />
-    <!-- Para Android 11+ (API 30+) -->
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
     
+    <!-- Características opcionales -->
+    <uses-feature 
+        android:name="android.hardware.camera" 
+        android:required="false" />
+    <uses-feature 
+        android:name="android.hardware.location" 
+        android:required="false" />
+    
     <application
-        android:label="Geosismica Estructural App"
+        android:label="Geosísmica Estructural"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
-        
+        android:allowBackup="true"
         android:requestLegacyExternalStorage="false">
         
         <activity
@@ -35,26 +43,32 @@
             android:hardwareAccelerated="true"
             android:windowSoftInputMode="adjustResize">
             
-            <!-- Especificar el tema a aplicar a esta Activity -->
             <meta-data
                 android:name="io.flutter.embedding.android.NormalTheme"
-                android:resource="@style/NormalTheme"
-            />
+                android:resource="@style/NormalTheme" />
             
+            <!-- Intent filter principal -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+            
+            <!-- Intent filter para archivos JSON (separado) -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
                 <data android:mimeType="application/json" />
                 <data android:pathPattern=".*\\.json" />
             </intent-filter>
         </activity>
         
-        <!-- No borres esta línea - es crucial para el embedding v2 -->
+        <!-- Embedding v2 de Flutter -->
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
             
-        <!-- Proveedor de archivos para compartir imágenes -->
+        <!-- Proveedor de archivos -->
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"

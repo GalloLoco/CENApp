@@ -14,7 +14,7 @@ import '../logica/formato_evaluacion.dart';
 
 class UbicacionGeorreferencialScreen extends StatefulWidget {
   final UbicacionGeorreferencial? ubicacionExistente;
-  
+
   UbicacionGeorreferencialScreen({this.ubicacionExistente});
 
   @override
@@ -28,12 +28,10 @@ class _UbicacionGeorreferencialScreenState
   String? selectedPlano;
 
   // Variables para el mapa
-   final MapController mapController = MapController();
+  final MapController mapController = MapController();
   LatLng posicionActual = LatLng(24.1426, -110.3128); // La Paz, BCS por defecto
   double altitudActual = 0.0; // Nueva variable para almacenar la altitud
   bool isLoadingLocation = false;
-
-  
 
   // Variables para imágenes
   final ImagePicker _picker = ImagePicker();
@@ -44,26 +42,26 @@ class _UbicacionGeorreferencialScreenState
   // Controladores
   TextEditingController direccionController = TextEditingController();
 
+
   @override
   void initState() {
     super.initState();
-    
+
     // Cargar datos existentes si los hay
     if (widget.ubicacionExistente != null) {
       selectedPlano = widget.ubicacionExistente!.existenPlanos;
       direccionController.text = widget.ubicacionExistente!.direccion;
-      posicionActual = LatLng(
-        widget.ubicacionExistente!.latitud,
-        widget.ubicacionExistente!.longitud
-      );
-      
+      posicionActual = LatLng(widget.ubicacionExistente!.latitud,
+          widget.ubicacionExistente!.longitud);
+
       // Cargar imágenes existentes
       imagenesAdjuntas = List.from(widget.ubicacionExistente!.rutasFotos);
-      
+
       // No solicitamos permisos inmediatamente si ya tenemos una ubicación
     } else {
       _checkPermisos();
     }
+    
   }
 
   // Verificar y solicitar permisos
@@ -99,35 +97,36 @@ class _UbicacionGeorreferencialScreenState
 
   // Obtener ubicación actual
   Future<void> _obtenerUbicacionActual() async {
-  try {
-    setState(() {
-      isLoadingLocation = true;
-    });
+    try {
+      setState(() {
+        isLoadingLocation = true;
+      });
 
-    Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high);
+      Position position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high);
 
-    LatLng nuevaPosicion = LatLng(position.latitude, position.longitude);
-    double altitud = position.altitude; // Obtener la altitud
+      LatLng nuevaPosicion = LatLng(position.latitude, position.longitude);
+      double altitud = position.altitude; // Obtener la altitud
 
-    setState(() {
-      posicionActual = nuevaPosicion;
-      altitudActual = altitud; // Almacenar la altitud en una variable de la clase
-      isLoadingLocation = false;
-    });
+      setState(() {
+        posicionActual = nuevaPosicion;
+        altitudActual =
+            altitud; // Almacenar la altitud en una variable de la clase
+        isLoadingLocation = false;
+      });
 
-    // Centrar mapa en la ubicación actual
-    mapController.move(posicionActual, 15.0);
+      // Centrar mapa en la ubicación actual
+      mapController.move(posicionActual, 15.0);
 
-    // Obtener dirección a partir de coordenadas
-    _obtenerDireccion(posicionActual);
-  } catch (e) {
-    setState(() {
-      isLoadingLocation = false;
-    });
-    _mostrarError('Error al obtener ubicación: $e');
+      // Obtener dirección a partir de coordenadas
+      _obtenerDireccion(posicionActual);
+    } catch (e) {
+      setState(() {
+        isLoadingLocation = false;
+      });
+      _mostrarError('Error al obtener ubicación: $e');
+    }
   }
-}
 
   // Obtener dirección a partir de coordenadas (geocodificación inversa)
   Future<void> _obtenerDireccion(LatLng coordenadas) async {
@@ -212,6 +211,16 @@ class _UbicacionGeorreferencialScreenState
         RadioListTile<String>(
           title: Text('Estructural'),
           value: 'Estructural',
+          groupValue: selectedPlano,
+          onChanged: (String? value) {
+            setState(() {
+              selectedPlano = value;
+            });
+          },
+        ),
+        RadioListTile<String>(
+          title: Text('Hidrosanitario'),
+          value: 'Hidrosanitario',
           groupValue: selectedPlano,
           onChanged: (String? value) {
             setState(() {
@@ -323,7 +332,7 @@ class _UbicacionGeorreferencialScreenState
   }
 
   /// Construir sección de fotografías
-    Widget _buildSeccionFotografias() {
+  Widget _buildSeccionFotografias() {
     return Column(
       children: [
         Divider(),
@@ -346,7 +355,7 @@ class _UbicacionGeorreferencialScreenState
               itemBuilder: (context, index) {
                 final imagePath = imagenesAdjuntas[index];
                 final File imageFile = File(imagePath);
-                
+
                 return Padding(
                   padding: const EdgeInsets.only(right: 8.0),
                   child: Stack(
@@ -362,23 +371,24 @@ class _UbicacionGeorreferencialScreenState
                           ),
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(8),
-                            child: imageFile.existsSync() 
-                              ? Image.file(
-                                  imageFile,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) {
-                                    return Container(
-                                      color: Colors.grey[300],
-                                      child: Icon(Icons.broken_image, size: 32),
-                                      alignment: Alignment.center,
-                                    );
-                                  },
-                                )
-                              : Container(
-                                  color: Colors.grey[300],
-                                  child: Icon(Icons.broken_image, size: 32),
-                                  alignment: Alignment.center,
-                                ),
+                            child: imageFile.existsSync()
+                                ? Image.file(
+                                    imageFile,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (context, error, stackTrace) {
+                                      return Container(
+                                        color: Colors.grey[300],
+                                        child:
+                                            Icon(Icons.broken_image, size: 32),
+                                        alignment: Alignment.center,
+                                      );
+                                    },
+                                  )
+                                : Container(
+                                    color: Colors.grey[300],
+                                    child: Icon(Icons.broken_image, size: 32),
+                                    alignment: Alignment.center,
+                                  ),
                           ),
                         ),
                       ),
@@ -461,7 +471,6 @@ class _UbicacionGeorreferencialScreenState
     );
   }
 
-
   // Función para ver imagen completa
   void _verImagenCompleta(String imagePath) {
     Navigator.of(context).push(
@@ -470,7 +479,8 @@ class _UbicacionGeorreferencialScreenState
           appBar: AppBar(
             backgroundColor: Colors.black,
             iconTheme: IconThemeData(color: Colors.white),
-            title: Text('Previsualización', style: TextStyle(color: Colors.white)),
+            title:
+                Text('Previsualización', style: TextStyle(color: Colors.white)),
           ),
           backgroundColor: Colors.black,
           body: Center(
@@ -487,7 +497,8 @@ class _UbicacionGeorreferencialScreenState
                     children: [
                       Icon(Icons.broken_image, size: 64, color: Colors.white70),
                       SizedBox(height: 16),
-                      Text('No se pudo cargar la imagen', style: TextStyle(color: Colors.white70)),
+                      Text('No se pudo cargar la imagen',
+                          style: TextStyle(color: Colors.white70)),
                     ],
                   );
                 },
@@ -551,11 +562,10 @@ class _UbicacionGeorreferencialScreenState
         // Liberar memoria inmediatamente
         final compressedFile = File(photo.path);
         if (await compressedFile.exists() && photo.path != rutaGuardada) {
-          await compressedFile.delete().catchError(
-              (e) {
-                print('Error eliminando archivo temporal: $e');
-                return compressedFile;
-              });
+          await compressedFile.delete().catchError((e) {
+            print('Error eliminando archivo temporal: $e');
+            return compressedFile;
+          });
         }
 
         setState(() {
@@ -653,7 +663,7 @@ class _UbicacionGeorreferencialScreenState
   }
 
   /// Guardar y regresar a la pantalla anterior
-   void _guardarYRegresar() {
+  void _guardarYRegresar() {
     // Validar datos mínimos
     if (direccionController.text.isEmpty) {
       _mostrarError('Por favor ingresa una dirección');
@@ -676,7 +686,6 @@ class _UbicacionGeorreferencialScreenState
     // Regresar con los datos
     Navigator.pop(context, ubicacion);
   }
-
 
   @override
   void dispose() {

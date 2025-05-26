@@ -13,8 +13,7 @@ class ExcelExportService {
   
   // Constantes para el formato
   static const String SHEET_NAME = 'Formato Completo';
-  static const double LOGO_WIDTH = 80;
-  static const double LOGO_HEIGHT = 60;
+
   
   /// Exporta el formato de evaluación a Excel con logos
   Future<String> exportarFormatoExcel(FormatoEvaluacion formato, {Directory? directorio}) async {
@@ -105,16 +104,18 @@ class ExcelExportService {
       // Cargar imagen del logo desde assets
       final ByteData imageData = await rootBundle.load('assets/logoCenapp.png');
       final Uint8List imageBytes = imageData.buffer.asUint8List();
+      final ByteData imageDataTec = await rootBundle.load('assets/logotec.png');
+      final Uint8List imageBytesTec = imageDataTec.buffer.asUint8List();
       
       // Logo superior izquierdo
       final Picture logoIzquierdo = sheet.pictures.addStream(1, 1, imageBytes);
-      logoIzquierdo.width = LOGO_WIDTH.toInt();
-      logoIzquierdo.height = LOGO_HEIGHT.toInt();
+      logoIzquierdo.width = 200;
+      logoIzquierdo.height = 200;
       
-      // Logo superior derecho (columna H)
-      final Picture logoDerecho = sheet.pictures.addStream(1, 8, imageBytes);
-      logoDerecho.width = LOGO_WIDTH.toInt();
-      logoDerecho.height = LOGO_HEIGHT.toInt();
+      // Logo superior derecho (columna D)
+      final Picture logoDerecho = sheet.pictures.addStream(1, 4, imageBytesTec);
+      logoDerecho.width = 200;
+      logoDerecho.height = 150;
       
       // Ajustar altura de las primeras filas para acomodar logos
       for (int i = 1; i <= 5; i++) {
@@ -131,7 +132,7 @@ class ExcelExportService {
     int fila = filaInicial;
     
     // Título principal centrado
-    final Range tituloRange = sheet.getRangeByIndex(fila, 2, fila, 7);
+    final Range tituloRange = sheet.getRangeByIndex(fila, 2);
     tituloRange.merge();
     tituloRange.setText('FORMATO DE EVALUACIÓN DE INMUEBLE');
     tituloRange.cellStyle.name = 'TituloPrincipal';
@@ -139,11 +140,11 @@ class ExcelExportService {
     fila += 2;
     
     // Información del formato
-    _escribirFilaCentrada(sheet, fila++, 'ID: ${formato.id}', 2, 7);
+    _escribirFilaCentrada(sheet, fila++, 'ID: ${formato.id}', 2, 3);
     _escribirFilaCentrada(sheet, fila++, 
-      'Fecha de evaluación: ${_formatearFecha(formato.fechaCreacion)}', 2, 7);
+      'Fecha de evaluación: ${_formatearFecha(formato.fechaCreacion)}', 2, 3);
     _escribirFilaCentrada(sheet, fila++, 
-      'Evaluador: ${formato.gradoUsuario ?? ""} ${formato.usuarioCreador}', 2, 7);
+      'Evaluador: ${formato.gradoUsuario ?? ""} ${formato.usuarioCreador}', 2, 3);
     
     // Coordenadas
     String coordenadas = _formatearCoordenadas(
@@ -151,7 +152,7 @@ class ExcelExportService {
       formato.ubicacionGeorreferencial.longitud,
       formato.ubicacionGeorreferencial.altitud
     );
-    _escribirFilaCentrada(sheet, fila++, 'Ubicación: $coordenadas', 2, 7);
+    _escribirFilaCentrada(sheet, fila++, 'Ubicación: $coordenadas', 2, 3);
     
     return fila;
   }
@@ -287,7 +288,7 @@ class ExcelExportService {
         _escribirCampo(sheet, fila++, estructura + ':', '');
         danos.forEach((tipoDano, seleccionado) {
           if (seleccionado) {
-            sheet.getRangeByIndex(fila, 3).setText('• $tipoDano');
+            sheet.getRangeByIndex(fila, 2).setText('• $tipoDano');
             fila++;
           }
         });
@@ -387,7 +388,7 @@ class ExcelExportService {
     sheet.getRangeByIndex(fila, 1).setText(etiqueta);
     sheet.getRangeByIndex(fila, 1).cellStyle.name = 'Etiqueta';
     
-    final Range valorRange = sheet.getRangeByIndex(fila, 3, fila, 6);
+    final Range valorRange = sheet.getRangeByIndex(fila, 2, fila, 6);
     valorRange.merge();
     valorRange.setText(valor);
     valorRange.cellStyle.name = 'Valor';

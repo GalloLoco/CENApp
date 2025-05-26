@@ -17,44 +17,47 @@ class MaterialDominanteReport {
       'Ladrillo': {
         'murosMamposteria': [
           'Tabique arcilla (ladrillo)',
-          'Tabique hueco de arcilla'
+          'Tabique hueco de arcilla',
+          'Simple',
+          'Muros confinados',
+          'Refuerzo interior'
         ],
         'direccionX': [
-          'Muros de carga de mampostería',
-          'Muros confinados',
-          'Refuerzo interior',
-          'Simple'
+          'Muros de carga mampostería X',
+          
         ],
         'direccionY': [
-          'Muros de carga de mampostería',
-          'Muros confinados',
-          'Refuerzo interior',
-          'Simple'
+          'Muros de carga mampostería Y',
+          
         ]
       },
       'Concreto': {
         'murosMamposteria': [
-          'Bloque concreto 20x40 cm',
+          'Bloque concreto 20x40cm',
           'Tabicón de concreto'
         ],
         'direccionX': [
-          'Muros de concreto',
-          'Marcos de concreto',
-          'Columnas y losa plana (sin vigas)'
+          'Muros de concreto X',
+          'Marcos de concreto X',
+          'Columnas y losa plana X'
         ],
         'direccionY': [
-          'Muros de concreto',
-          'Marcos de concreto',
-          'Columnas y losa plana (sin vigas)'
+          'Muros de concreto Y',
+          'Marcos de concreto Y',
+          'Columnas y losa plana Y'
         ]
       },
       'Adobe': {
-        'direccionX': ['Muros de adobe o bahareque'],
-        'direccionY': ['Muros de adobe o bahareque']
+        'direccionX': ['Muros de adobe o bahareque X'],
+        'direccionY': ['Muros de adobe o bahareque Y']
       },
       'Madera/Lámina/Otros': {
-        'direccionX': ['Muros de madera, lámina, otros'],
-        'direccionY': ['Muros de madera, lámina, otros']
+        'direccionX': ['Muros de madera, lámina, otros X'],
+        'direccionY': ['Muros de madera, lámina, otros Y']
+      },
+      'Acero': {
+        'direccionX': ['Marcos de acero X'],
+        'direccionY': ['Marcos de acero Y']
       }
     };
     
@@ -64,6 +67,7 @@ class MaterialDominanteReport {
       'Concreto': 0,
       'Adobe': 0,
       'Madera/Lámina/Otros': 0,
+      'Acero': 0,
       'No determinado': 0 // Para inmuebles sin material claramente identificado
     };
     
@@ -74,7 +78,7 @@ class MaterialDominanteReport {
       // Verificar cada categoría de material
       categoriasMateriales.forEach((material, categorias) {
         // Buscar coincidencias en muros de mampostería si aplica
-        if (categorias.containsKey('murosMamposteria')) {
+        if (categorias.containsKey('murosMamposteria') && materialIdentificado == false) {
           for (var opcion in categorias['murosMamposteria']!) {
             if (formato.sistemaEstructural.murosMamposteria.containsKey(opcion) && 
                 formato.sistemaEstructural.murosMamposteria[opcion] == true) {
@@ -114,6 +118,8 @@ class MaterialDominanteReport {
             }
           }
         }
+        // Si ya se identificó material, no seguir buscando
+        if (materialIdentificado) return;
       });
       
       // Si no se identificó ningún material, incrementar contador de "No determinado"

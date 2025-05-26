@@ -13,6 +13,7 @@ class PdfExportService {
   final FileStorageService _fileService = FileStorageService();
    // Cache para el logo para evitar cargarlo múltiples veces
   static pw.MemoryImage? _logoImage;
+  static pw.MemoryImage? _logoImageTec;
   
   /// Carga el logo desde assets una sola vez y lo mantiene en cache
   Future<pw.MemoryImage> _cargarLogo() async {
@@ -29,12 +30,28 @@ class PdfExportService {
     }
     return _logoImage!;
   }
+  Future<pw.MemoryImage> _cargarLogoTec() async {
+    if (_logoImageTec == null) {
+      try {
+        // Cargar el logo desde assets
+        final logoBytes = await rootBundle.load('assets/logotec.png');
+        _logoImageTec = pw.MemoryImage(logoBytes.buffer.asUint8List());
+      } catch (e) {
+        print('Error al cargar el logo: $e');
+        // Si no se puede cargar el logo, creamos una imagen placeholder
+        throw Exception('No se pudo cargar el logo de la aplicación');
+      }
+    }
+    return _logoImageTec!;
+  }
   
   /// Exporta el formato de evaluación a un archivo PDF
   Future<String> exportarFormatoPDF(FormatoEvaluacion formato, {Directory? directorio}) async {
     try {
        // Cargar el logo antes de crear el PDF
       final logo = await _cargarLogo();
+      // Cargar el logo antes de crear el PDF
+      final logoTec = await _cargarLogoTec();
 
        // Obtener directorio de documentos o usar el proporcionado
     final directorioFinal = directorio ?? await _fileService.obtenerDirectorioDocumentos();
@@ -54,7 +71,7 @@ class PdfExportService {
         pw.MultiPage(
           pageFormat: PdfPageFormat.a4,
           margin: pw.EdgeInsets.all(20),
-          header: (context) => _construirEncabezadoPDF(formato,logo),
+          header: (context) => _construirEncabezadoPDF(formato,logo,logoTec),
           build: (context) => [
             _construirInformacionGeneralPDF(formato.informacionGeneral),
             pw.SizedBox(height: 20),
@@ -86,7 +103,7 @@ class PdfExportService {
   }
 
   // Widgets para construir las diferentes secciones del PDF
- pw.Widget _construirEncabezadoPDF(FormatoEvaluacion formato, pw.MemoryImage logo) {
+ pw.Widget _construirEncabezadoPDF(FormatoEvaluacion formato, pw.MemoryImage logo, pw.MemoryImage logoTec) {
   // Formatear las coordenadas
   String coordenadasFormateadas = _formatearCoordenadas(
     formato.ubicacionGeorreferencial.latitud,
@@ -105,8 +122,8 @@ class PdfExportService {
             children: [
               // Logo izquierdo
               pw.Container(
-                width: 60,
-                height: 40,
+                width: 100,
+                height: 90,
                 child: pw.Image(
                   logo,
                   fit: pw.BoxFit.contain,
@@ -117,6 +134,7 @@ class PdfExportService {
               pw.Expanded(
                 child: pw.Container(
                   alignment: pw.Alignment.center,
+                  //margin: const pw.EdgeInsets.only(top: 50),
                   child: pw.Text(
                     'FORMATO DE EVALUACIÓN DE INMUEBLE',
                     style: pw.TextStyle(
@@ -130,17 +148,17 @@ class PdfExportService {
               
               // Logo derecho
               pw.Container(
-                width: 60,
-                height: 40,
+                width: 100,
+                height: 80,
                 child: pw.Image(
-                  logo,
+                  logoTec,
                   fit: pw.BoxFit.contain,
                 ),
               ),
             ],
           ),
           
-          pw.SizedBox(height: 8),
+          //pw.SizedBox(height: 8),
           
           // Información del formato centrada
           pw.Column(

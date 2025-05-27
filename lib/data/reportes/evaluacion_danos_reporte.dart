@@ -503,16 +503,7 @@ class EvaluacionDanosReport {
         );
         
         // Crear el gráfico según el tipo especificado
-        if (tipo == 'circular') {
-          widgets.add(
-            GraficasService.crearGraficoCircularPDF(
-              datos: datosGrafico,
-              titulo: 'Distribución de $titulo',
-              ancho: 500,
-              alto: 300,
-            ),
-          );
-        } else {
+        
           widgets.add(
             GraficasService.crearGraficoBarrasHorizontalesPDF(
               datos: datosGrafico,
@@ -521,7 +512,7 @@ class EvaluacionDanosReport {
               alto: 300,
             ),
           );
-        }
+        
         
         widgets.add(pw.SizedBox(height: 20));
       }
@@ -549,7 +540,7 @@ class EvaluacionDanosReport {
         );
         
         widgets.add(
-          GraficasService.crearGraficoCircularPDF(
+          GraficasService.crearGraficoBarrasPDF(
             datos: datosRiesgo,
             titulo: 'Distribución General de Niveles de Riesgo',
             ancho: 500,

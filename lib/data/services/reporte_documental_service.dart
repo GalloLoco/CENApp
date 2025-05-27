@@ -615,7 +615,7 @@ List<pw.Widget> _generarGraficosReporteCompleto(
     
     if (datosUsos.isNotEmpty) {
       widgets.add(
-        GraficasService.crearGraficoCircularPDF(
+        GraficasService.crearGraficoBarrasPDF(
           datos: datosUsos,
           titulo: 'Distribución de Uso de Vivienda',
           ancho: 500,
@@ -679,7 +679,7 @@ List<pw.Widget> _generarGraficosReporteCompleto(
       );
       
       widgets.add(
-        GraficasService.crearGraficoCircularPDF(
+        GraficasService.crearGraficoBarrasPDF(
           datos: datosMateriales,
           titulo: 'Distribución por Material Predominante',
           ancho: 500,
@@ -793,7 +793,7 @@ List<pw.Widget> _generarGraficosReporteCompleto(
         
         if (tipo == 'circular') {
           widgets.add(
-            GraficasService.crearGraficoCircularPDF(
+            GraficasService.crearGraficoBarrasPDF(
               datos: datosRubro,
               titulo: 'Distribución de $titulo',
               ancho: 500,
@@ -839,7 +839,7 @@ List<pw.Widget> _generarGraficosReporteCompleto(
       );
       
       widgets.add(
-        GraficasService.crearGraficoCircularPDF(
+        GraficasService.crearGraficoBarrasPDF(
           datos: datosRiesgo,
           titulo: 'Distribución General de Niveles de Riesgo',
           ancho: 500,
@@ -980,7 +980,7 @@ List<pw.Widget> _generarGraficosEvaluacionDanos(
         // Crear el gráfico según el tipo especificado
         if (tipo == 'circular') {
           widgets.add(
-            GraficasService.crearGraficoCircularPDF(
+            GraficasService.crearGraficoBarrasPDF(
               datos: datosGrafico,
               titulo: 'Distribución de $titulo',
               ancho: 500,
@@ -1046,7 +1046,7 @@ List<pw.Widget> _generarGraficosEvaluacionDanos(
       widgets.add(pw.SizedBox(height: 10));
       
       widgets.add(
-        GraficasService.crearGraficoCircularPDF(
+        GraficasService.crearGraficoBarrasPDF(
           datos: datosRiesgo,
           titulo: 'Distribución General de Niveles de Riesgo',
           ancho: 500,
@@ -1271,7 +1271,7 @@ List<pw.Widget> _generarGraficosMaterialDominante(
     
     if (datosMateriales.isNotEmpty) {
       widgets.add(
-        GraficasService.crearGraficoCircularPDF(
+        GraficasService.crearGraficoBarrasPDF(
           datos: datosMateriales,
           titulo: 'Distribución por Material Predominante',
           ancho: 500,
@@ -1465,7 +1465,7 @@ List<pw.Widget> _generarGraficosUsoViviendaTopografia(
     
     if (datosUsos.isNotEmpty) {
       widgets.add(
-        GraficasService.crearGraficoCircularPDF(
+        GraficasService.crearGraficoBarrasPDF(
           datos: datosUsos,
           titulo: 'Distribución de Uso de Vivienda',
           ancho: 500,

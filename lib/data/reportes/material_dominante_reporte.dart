@@ -221,7 +221,7 @@ class MaterialDominanteReport {
       
       // Añadir gráfico circular
       widgets.add(
-        GraficasService.crearGraficoCircularPDF(
+        GraficasService.crearGraficoBarrasPDF(
           datos: datosGrafico,
           titulo: 'Distribución por Material Predominante',
           ancho: 500,

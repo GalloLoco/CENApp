@@ -745,8 +745,16 @@ class GraficasService {
 
                     // Barra principal
                     canvas
-                      ..setFillColor(coloresPredeterminados[
-                          i % coloresPredeterminados.length])
+                      ..setFillColor(
+                        punto['etiqueta'] == 'Riesgo Alto'
+                            ? coloresPredeterminados[0]
+                            : punto['etiqueta'] == 'Riesgo Medio'
+                                ? coloresPredeterminados[1]
+                                : punto['etiqueta'] == 'Riesgo Bajo'
+                                    ? coloresPredeterminados[2]:
+                                    coloresPredeterminados[i % coloresPredeterminados.length],
+                                    
+                      )
                       ..drawRect(x, y, anchoBarra, alturaBarra)
                       ..fillPath();
 

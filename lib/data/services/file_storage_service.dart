@@ -3,6 +3,7 @@
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
+import '../utils/permisos_modernos.dart' as permisosModernos;
 import 'package:path/path.dart' as path;
 
 
@@ -255,4 +256,92 @@ class FileStorageService {
     final timestamp = DateTime.now().millisecondsSinceEpoch;
     return '$baseNombre-$timestamp.$extension';
   }
+  /// Guarda una imagen en el dispositivo de forma optimizada
+Future<String> guardarImagenEnDispositivo(
+  String rutaImagenOriginal, {
+  String? nombrePersonalizado,
+  Directory? directorioDestino,
+}) async {
+  try {
+    print('📸 [FILE_SERVICE] Guardando imagen: $rutaImagenOriginal');
+
+    // Verificar permisos usando tu método existente
+   
+
+    // Usar tu directorio de descargas existente
+    final directorio = directorioDestino ?? await obtenerDirectorioDescargas();
+    
+    // Crear subdirectorio para imágenes si no existe
+    final directorioImagenes = Directory('${directorio.path}/cenapp/imagenes');
+    if (!await directorioImagenes.exists()) {
+      await directorioImagenes.create(recursive: true);
+    }
+
+    // Generar nombre único para evitar sobrescrituras
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    final extension = rutaImagenOriginal.split('.').last.toLowerCase();
+    final nombreFinal = nombrePersonalizado != null 
+        ? '${nombrePersonalizado}_$timestamp.$extension'
+        : 'cenapp_imagen_$timestamp.$extension';
+
+    // Ruta de destino
+    final rutaDestino = '${directorioImagenes.path}/$nombreFinal';
+
+    // Copiar archivo de forma eficiente
+    final archivoOriginal = File(rutaImagenOriginal);
+    if (!await archivoOriginal.exists()) {
+      throw Exception('Archivo de imagen no encontrado: $rutaImagenOriginal');
+    }
+
+    final archivoDestino = File(rutaDestino);
+    await archivoOriginal.copy(rutaDestino);
+
+    // Verificar que se copió correctamente
+    if (await archivoDestino.exists() && await archivoDestino.length() > 0) {
+      print('✅ [FILE_SERVICE] Imagen guardada exitosamente: $rutaDestino');
+      return rutaDestino;
+    } else {
+      throw Exception('Error al verificar la copia de la imagen');
+    }
+
+  } catch (e) {
+    print('❌ [FILE_SERVICE] Error al guardar imagen: $e');
+    throw Exception('Error al guardar imagen: $e');
+  }
+}
+
+/// Guarda múltiples imágenes de forma eficiente (por lotes)
+Future<List<String>> guardarMultiplesImagenes(
+  List<String> rutasImagenes, {
+  String? prefijoNombre,
+  Directory? directorioDestino,
+  Function(int, int)? onProgress, // Callback para mostrar progreso
+}) async {
+  List<String> rutasGuardadas = [];
+  
+  for (int i = 0; i < rutasImagenes.length; i++) {
+    try {
+      final nombrePersonalizado = prefijoNombre != null 
+          ? '${prefijoNombre}_${i + 1}'
+          : null;
+      
+      final rutaGuardada = await guardarImagenEnDispositivo(
+        rutasImagenes[i],
+        nombrePersonalizado: nombrePersonalizado,
+        directorioDestino: directorioDestino,
+      );
+      
+      rutasGuardadas.add(rutaGuardada);
+      
+      // Notificar progreso si se proporciona callback
+      onProgress?.call(i + 1, rutasImagenes.length);
+      
+    } catch (e) {
+      print('⚠️ [FILE_SERVICE] Error al guardar imagen ${i + 1}: $e');
+      // Continuar con las siguientes imágenes
+    }
+  }
+  
+  return rutasGuardadas;
+}
 }

@@ -7,6 +7,7 @@ import 'package:share_plus/share_plus.dart';
 import '../logica/formato_evaluacion.dart';
 import '../data/services/documento_service.dart';
 import '../data/services/image_conversion_service.dart';
+import '../data/utils/guardar_imagenes.dart';
 
 class DocumentoGuardadoScreen extends StatefulWidget {
   final FormatoEvaluacion formato;
@@ -17,7 +18,8 @@ class DocumentoGuardadoScreen extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  _DocumentoGuardadoScreenState createState() => _DocumentoGuardadoScreenState();
+  _DocumentoGuardadoScreenState createState() =>
+      _DocumentoGuardadoScreenState();
 }
 
 class _DocumentoGuardadoScreenState extends State<DocumentoGuardadoScreen> {
@@ -26,13 +28,178 @@ class _DocumentoGuardadoScreenState extends State<DocumentoGuardadoScreen> {
   String? _errorMessage;
   String? _jsonFilePath;
   bool _documentoGuardado = false;
+  bool _imagenesGuardadasEnGaleria = false;
+  Map<String, bool>? _resultadosGuardadoImagenes;
 
   @override
   void initState() {
     super.initState();
     // Guardar el archivo JSON automáticamente al abrir la pantalla
-    _guardarDocumentoJSON();
+    _procesarFormatoCompleto();
   }
+
+  Future<void> _procesarFormatoCompleto() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      // PASO 1: Guardar imágenes en galería
+      //await _guardarImagenesEnGaleria();
+
+      // PASO 2: Guardar documento JSON
+      await _guardarDocumentoJSON();
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Error al procesar el formato: $e';
+        _isLoading = false;
+      });
+    }
+  }
+
+  /* 🆕 NUEVO: Guardar imágenes en galería
+  Future<void> _guardarImagenesEnGaleria() async {
+    List<String> rutasFotos =
+        widget.formato.ubicacionGeorreferencial.rutasFotos;
+
+    if (rutasFotos.isEmpty) {
+      setState(() {
+        _imagenesGuardadasEnGaleria = true;
+      });
+      return;
+    }
+
+    try {
+      // Mostrar progreso
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => Dialog(
+          child: Padding(
+            padding: EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(color: Colors.green),
+                SizedBox(height: 15),
+                Text('Guardando imágenes en galería...'),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      // Guardar imágenes
+      Map<String, bool> resultados =
+          await ImageGalleryService.guardarImagenesEnGaleria(
+        rutasImagenes: rutasFotos,
+        albumName: 'CENApp_Evaluaciones',
+        context: context,
+      );
+
+      // Cerrar diálogo
+      Navigator.of(context, rootNavigator: true).pop();
+
+      setState(() {
+        _resultadosGuardadoImagenes = resultados;
+        _imagenesGuardadasEnGaleria = true;
+      });
+    } catch (e) {
+      Navigator.of(context, rootNavigator: true).pop();
+      setState(() {
+        _imagenesGuardadasEnGaleria = true;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Advertencia: Error al guardar imágenes en galería'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+    }
+  }
+
+  /// 🆕 NUEVO: Widget para mostrar estado de imágenes
+  Widget _buildEstadoImagenes() {
+    if (!_imagenesGuardadasEnGaleria) return SizedBox.shrink();
+
+    List<String> rutasFotos =
+        widget.formato.ubicacionGeorreferencial.rutasFotos;
+
+    if (rutasFotos.isEmpty) {
+      return Container(
+        margin: EdgeInsets.symmetric(vertical: 8),
+        padding: EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.blue[50],
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.blue[200]!),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.info_outline, color: Colors.blue[700], size: 20),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Este formato no incluye imágenes',
+                style: TextStyle(color: Colors.blue[700], fontSize: 12),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_resultadosGuardadoImagenes == null) {
+      return Container(
+        margin: EdgeInsets.symmetric(vertical: 8),
+        padding: EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.orange[50],
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.orange[200]!),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.warning_outlined, color: Colors.orange[700], size: 20),
+            SizedBox(width: 8),
+            Text('Error al procesar imágenes',
+                style: TextStyle(color: Colors.orange[700], fontSize: 12)),
+          ],
+        ),
+      );
+    }
+
+    int exitosas =
+        _resultadosGuardadoImagenes!.values.where((v) => v == true).length;
+    int total = _resultadosGuardadoImagenes!.length;
+
+    return Container(
+      margin: EdgeInsets.symmetric(vertical: 8),
+      padding: EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.green[50],
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.green[200]!),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.check_circle_outline, color: Colors.green[700], size: 20),
+          SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              '$exitosas de $total imágenes guardadas en galería',
+              style: TextStyle(
+                  color: Colors.green[700],
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500),
+            ),
+          ),
+        ],
+      ),
+    );
+  }*/
 
   /// Guarda el documento en formato JSON
   Future<void> _guardarDocumentoJSON() async {
@@ -42,7 +209,8 @@ class _DocumentoGuardadoScreenState extends State<DocumentoGuardadoScreen> {
     });
 
     try {
-      final filePath = await _documentoService.guardarFormatoJSON(widget.formato);
+      final filePath =
+          await _documentoService.guardarFormatoJSON(widget.formato);
       setState(() {
         _jsonFilePath = filePath;
         _isLoading = false;
@@ -75,16 +243,17 @@ class _DocumentoGuardadoScreenState extends State<DocumentoGuardadoScreen> {
     try {
       // Mostrar diálogo de progreso
       _mostrarIndicadorGuardando(context);
-      
+
       // Crear una instancia del servicio CloudStorage
       final CloudStorageService cloudService = CloudStorageService();
-      
+
       // Verificar si el formato ya existe
-      bool existiaPreviamente = await cloudService.verificarExistenciaFormato(widget.formato.id);
-      
+      bool existiaPreviamente =
+          await cloudService.verificarExistenciaFormato(widget.formato.id);
+
       // Subir el formato al servidor
       String documentId = await cloudService.subirFormato(widget.formato);
-      
+
       // Cerrar el diálogo de progreso
       Navigator.of(context, rootNavigator: true).pop();
 
@@ -96,17 +265,18 @@ class _DocumentoGuardadoScreenState extends State<DocumentoGuardadoScreen> {
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
-          title: Text(existiaPreviamente ? 'Formato Actualizado' : 'Formato Guardado'),
+          title: Text(
+              existiaPreviamente ? 'Formato Actualizado' : 'Formato Guardado'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(existiaPreviamente 
-                ? 'El formato con ID "${widget.formato.id}" ha sido actualizado exitosamente en el servidor.'
-                : 'El formato ha sido guardado exitosamente en el servidor.'),
+              Text(existiaPreviamente
+                  ? 'El formato con ID "${widget.formato.id}" ha sido actualizado exitosamente en el servidor.'
+                  : 'El formato ha sido guardado exitosamente en el servidor.'),
               SizedBox(height: 15),
-              Text('ID de documento en Firestore:', 
-                   style: TextStyle(fontWeight: FontWeight.bold)),
+              Text('ID de documento en Firestore:',
+                  style: TextStyle(fontWeight: FontWeight.bold)),
               SizedBox(height: 5),
               Container(
                 padding: EdgeInsets.all(8),
@@ -133,12 +303,12 @@ class _DocumentoGuardadoScreenState extends State<DocumentoGuardadoScreen> {
     } catch (e) {
       // Cerrar el diálogo de progreso si está abierto
       Navigator.of(context, rootNavigator: true).pop();
-      
+
       setState(() {
         _errorMessage = 'Error al guardar en servidor: $e';
         _isLoading = false;
       });
-      
+
       // Mostrar error
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -716,9 +886,11 @@ class _DocumentoGuardadoScreenState extends State<DocumentoGuardadoScreen> {
   }
 
   /// Construye la pantalla de éxito con mejor adaptabilidad
-  Widget _buildSuccessScreen(Size screenSize, double buttonHeight, double screenPadding) {
+  Widget _buildSuccessScreen(
+      Size screenSize, double buttonHeight, double screenPadding) {
     return SingleChildScrollView(
-      padding: EdgeInsets.symmetric(horizontal: screenPadding, vertical: screenPadding * 0.5),
+      padding: EdgeInsets.symmetric(
+          horizontal: screenPadding, vertical: screenPadding * 0.5),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
@@ -732,7 +904,8 @@ class _DocumentoGuardadoScreenState extends State<DocumentoGuardadoScreen> {
           Text(
             'Archivo "${_getNombreArchivo()}" creado con éxito.',
             style: TextStyle(
-              fontSize: screenSize.width * 0.055, // Tamaño proporcional al ancho
+              fontSize:
+                  screenSize.width * 0.055, // Tamaño proporcional al ancho
               fontWeight: FontWeight.w900,
             ),
             textAlign: TextAlign.center,
@@ -746,8 +919,9 @@ class _DocumentoGuardadoScreenState extends State<DocumentoGuardadoScreen> {
             ),
             textAlign: TextAlign.center,
           ),
+          //_buildEstadoImagenes(),
           SizedBox(height: screenSize.height * 0.04),
-          
+
           // Botones de acción - Con tamaños proporcionales a la pantalla
           _buildExportButton(
             Icons.picture_as_pdf,

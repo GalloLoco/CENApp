@@ -2180,9 +2180,83 @@ void _crearRecomendacionesTecnicas(
   _aplicarEstilo(sheet, fila, 0, backgroundColor: '#F2F7FF');
 }
 
- 
+ Future<String> generarReporteUsoTopografiaExcel({
+  required String titulo,
+  required String subtitulo,
+  required Map<String, dynamic> datos,
+  required List<Map<String, dynamic>> tablas,
+  required Map<String, dynamic> metadatos,
+  Directory? directorio,
+}) async {
+  try {
+    print('📊 [EXCEL-USO] Iniciando generación de reporte Excel: $titulo');
 
+    // Crear nuevo libro de Excel usando la librería excel
+    var excel = Excel.createExcel();
+    
+    // Eliminar hoja por defecto
+    excel.delete('Sheet1');
+    
+    // Crear hoja única con todo el contenido
+    String nombreHoja = 'Uso de Vivienda y Topografía';
+    excel.copy('Sheet1', nombreHoja);
+    excel.delete('Sheet1');
+    
+    Sheet sheet = excel[nombreHoja];
+    
+    // Crear contenido completo en una sola hoja
+    await _crearContenidoUsoTopografiaCompleto(sheet, titulo, subtitulo, datos, tablas, metadatos);
 
+    // Guardar archivo
+    final String rutaArchivo = await _guardarArchivoExcelEstandar(
+      excel, 
+      titulo, 
+      directorio
+    );
+    
+    print('✅ [EXCEL-USO] Reporte Excel generado exitosamente: $rutaArchivo');
+    return rutaArchivo;
+
+  } catch (e) {
+    print('❌ [EXCEL-USO] Error al generar reporte Excel: $e');
+    throw Exception('Error al generar reporte Excel de uso y topografía: $e');
+  }
+}
+
+/// Crea todo el contenido del reporte en una sola hoja usando la librería excel estándar
+Future<void> _crearContenidoUsoTopografiaCompleto(
+  Sheet sheet,
+  String titulo,
+  String subtitulo,
+  Map<String, dynamic> datos,
+  List<Map<String, dynamic>> tablas,
+  Map<String, dynamic> metadatos,
+) async {
+  int filaActual = 0; // Empezar desde fila 0 (excel package usa base 0)
+
+  // === SECCIÓN 1: ENCABEZADO ===
+  filaActual = _crearEncabezadoUsoTopografia(sheet, titulo, subtitulo, metadatos, filaActual);
+  filaActual += 2;
+
+  // === SECCIÓN 2: FILTROS APLICADOS ===
+  filaActual = _crearSeccionFiltrosUsoTopografia(sheet, metadatos, filaActual);
+  filaActual += 2;
+
+  // === SECCIÓN 3: RESUMEN ESTADÍSTICO ===
+  filaActual = _crearResumenEstadisticoUsoTopografia(sheet, datos, metadatos, filaActual);
+  filaActual += 2;
+
+  // === SECCIÓN 4: ANÁLISIS DE USO DE VIVIENDA ===
+  filaActual = _crearAnalisisUsoVivienda(sheet, datos, filaActual);
+  filaActual += 2;
+
+  // === SECCIÓN 5: ANÁLISIS DE TOPOGRAFÍA ===
+  filaActual = _crearAnalisisTopografia(sheet, datos, filaActual);
+  filaActual += 2;
+
+  // === SECCIÓN 6: COMPARATIVA Y CONCLUSIONES ===
+  _crearSeccionComparativaYConclusiones(sheet, datos, metadatos, filaActual);
+}
 
 /// Crea encabezado principal del reporte
 int _crearEncabezadoUsoTopografia(
@@ -2259,6 +2333,291 @@ int _crearSeccionFiltrosUsoTopografia(
   }
 
   return fila;
+}
+
+/// Crea resumen estadístico general
+int _crearResumenEstadisticoUsoTopografia(
+  Sheet sheet,
+  Map<String, dynamic> datos,
+  Map<String, dynamic> metadatos,
+  int filaInicial,
+) {
+  int fila = filaInicial;
+
+  // Título de sección
+  _setCellValue(sheet, fila, 0, 'RESUMEN ESTADÍSTICO GENERAL');
+  _aplicarEstiloSeccion(sheet, fila, 0);
+  fila++;
+
+  final int totalFormatos = metadatos['totalFormatos'] ?? 0;
+
+  // Calcular estadísticas de uso
+  int totalUsosRegistrados = 0;
+  int tiposUsoDistintos = 0;
+  if (datos.containsKey('usosVivienda') && datos['usosVivienda']['estadisticas'] != null) {
+    Map<String, dynamic> estadisticasUsos = datos['usosVivienda']['estadisticas'];
+    totalUsosRegistrados = estadisticasUsos.values.fold(0, (sum, stats) => sum + (stats['conteo'] as int? ?? 0));
+    tiposUsoDistintos = estadisticasUsos.values.where((stats) => (stats['conteo'] as int? ?? 0) > 0).length;
+  }
+
+  // Calcular estadísticas de topografía
+  int totalTopografiaRegistrada = 0;
+  int tiposTopografiaDistintos = 0;
+  if (datos.containsKey('topografia') && datos['topografia']['estadisticas'] != null) {
+    Map<String, dynamic> estadisticasTopografia = datos['topografia']['estadisticas'];
+    totalTopografiaRegistrada = estadisticasTopografia.values.fold(0, (sum, stats) => sum + (stats['conteo'] as int? ?? 0));
+    tiposTopografiaDistintos = estadisticasTopografia.values.where((stats) => (stats['conteo'] as int? ?? 0) > 0).length;
+  }
+
+  // Encabezados
+  _setCellValue(sheet, fila, 0, 'Concepto');
+  _setCellValue(sheet, fila, 1, 'Valor');
+  _setCellValue(sheet, fila, 2, 'Observación');
+  _aplicarEstiloTablaHeader(sheet, fila, 0, 3, '#70AD47');
+  fila++;
+
+  // Datos estadísticos
+  final List<List<String>> estadisticas = [
+    ['Total de inmuebles evaluados', '$totalFormatos', '100% de la muestra'],
+    ['Tipos de uso identificados', '$tiposUsoDistintos', 'Diversidad de uso'],
+    ['Total registros de uso', '$totalUsosRegistrados', 'Algunos inmuebles pueden tener múltiples usos'],
+    ['Tipos de topografía identificados', '$tiposTopografiaDistintos', 'Variedad topográfica'],
+    ['Total registros de topografía', '$totalTopografiaRegistrada', 'Características del terreno'],
+  ];
+
+  for (int i = 0; i < estadisticas.length; i++) {
+    var stat = estadisticas[i];
+    _setCellValue(sheet, fila, 0, stat[0]);
+    _setCellValue(sheet, fila, 1, stat[1]);
+    _setCellValue(sheet, fila, 2, stat[2]);
+    
+    // Alternar colores
+    String bgColor = fila % 2 == 0 ? '#F2F2F2' : '#FFFFFF';
+    _aplicarEstiloFila(sheet, fila, 0, 3, bgColor);
+    fila++;
+  }
+
+  return fila;
+}
+
+/// Crea análisis detallado de uso de vivienda
+int _crearAnalisisUsoVivienda(
+  Sheet sheet,
+  Map<String, dynamic> datos,
+  int filaInicial,
+) {
+  int fila = filaInicial;
+
+  // Título de sección
+  _setCellValue(sheet, fila, 0, 'ANÁLISIS DETALLADO DE USO DE VIVIENDA');
+  _aplicarEstiloSeccion(sheet, fila, 0);
+  fila++;
+
+  // Verificar si hay datos
+  if (!datos.containsKey('usosVivienda') || 
+      !datos['usosVivienda'].containsKey('estadisticas')) {
+    _setCellValue(sheet, fila, 0, 'No hay datos de uso de vivienda disponibles');
+    return fila + 1;
+  }
+
+  Map<String, dynamic> estadisticasUsos = datos['usosVivienda']['estadisticas'];
+  
+  // Encabezados de tabla
+  _setCellValue(sheet, fila, 0, 'Tipo de Uso');
+  _setCellValue(sheet, fila, 1, 'Cantidad');
+  _setCellValue(sheet, fila, 2, 'Porcentaje');
+  _setCellValue(sheet, fila, 3, 'Observaciones');
+  _aplicarEstiloTablaHeader(sheet, fila, 0, 4, '#9BC2E6');
+  fila++;
+
+  // Ordenar datos por cantidad
+  var usosOrdenados = estadisticasUsos.entries
+      .where((entry) => entry.value['conteo'] > 0)
+      .toList()
+    ..sort((a, b) => b.value['conteo'].compareTo(a.value['conteo']));
+
+  int totalUsos = usosOrdenados.fold(0, (sum, entry) => sum + entry.value['conteo'] as int);
+
+  // Datos de uso
+  for (int i = 0; i < usosOrdenados.length; i++) {
+    var entry = usosOrdenados[i];
+    String uso = entry.key;
+    int conteo = entry.value['conteo'];
+    double porcentaje = totalUsos > 0 ? (conteo / totalUsos) * 100 : 0;
+    
+    String observacion = '';
+    if (i == 0) observacion = 'Uso predominante';
+    else if (porcentaje > 20) observacion = 'Uso significativo';
+    else if (porcentaje > 10) observacion = 'Uso moderado';
+    else observacion = 'Uso menor';
+
+    _setCellValue(sheet, fila, 0, uso);
+    _setCellValue(sheet, fila, 1, conteo.toString());
+    _setCellValue(sheet, fila, 2, '${porcentaje.toStringAsFixed(1)}%');
+    _setCellValue(sheet, fila, 3, observacion);
+    
+    // Alternar colores
+    String bgColor = fila % 2 == 0 ? '#F2F2F2' : '#FFFFFF';
+    _aplicarEstiloFila(sheet, fila, 0, 4, bgColor);
+    fila++;
+  }
+
+  // Fila de total
+  _setCellValue(sheet, fila, 0, 'TOTAL');
+  _setCellValue(sheet, fila, 1, totalUsos.toString());
+  _setCellValue(sheet, fila, 2, '100%');
+  _setCellValue(sheet, fila, 3, 'Suma de todos los usos');
+  _aplicarEstiloTablaHeader(sheet, fila, 0, 4, '#D9E2F3');
+  fila++;
+
+  return fila;
+}
+
+/// Crea análisis detallado de topografía
+int _crearAnalisisTopografia(
+  Sheet sheet,
+  Map<String, dynamic> datos,
+  int filaInicial,
+) {
+  int fila = filaInicial;
+
+  // Título de sección
+  _setCellValue(sheet, fila, 0, 'ANÁLISIS DETALLADO DE TOPOGRAFÍA');
+  _aplicarEstiloSeccion(sheet, fila, 0);
+  fila++;
+
+  // Verificar si hay datos
+  if (!datos.containsKey('topografia') || 
+      !datos['topografia'].containsKey('estadisticas')) {
+    _setCellValue(sheet, fila, 0, 'No hay datos de topografía disponibles');
+    return fila + 1;
+  }
+
+  Map<String, dynamic> estadisticasTopografia = datos['topografia']['estadisticas'];
+  
+  // Encabezados de tabla
+  _setCellValue(sheet, fila, 0, 'Tipo de Topografía');
+  _setCellValue(sheet, fila, 1, 'Cantidad');
+  _setCellValue(sheet, fila, 2, 'Porcentaje');
+  _setCellValue(sheet, fila, 3, 'Características');
+  _aplicarEstiloTablaHeader(sheet, fila, 0, 4, '#A9D18E');
+  fila++;
+
+  // Ordenar datos por cantidad
+  var topografiaOrdenada = estadisticasTopografia.entries
+      .where((entry) => entry.value['conteo'] > 0)
+      .toList()
+    ..sort((a, b) => b.value['conteo'].compareTo(a.value['conteo']));
+
+  int totalTopografia = topografiaOrdenada.fold(0, (sum, entry) => sum + entry.value['conteo'] as int);
+
+  // Datos de topografía con características
+  Map<String, String> caracteristicasTopografia = {
+    'Planicie': 'Terreno plano, estable para construcción',
+    'Fondo de valle': 'Zona baja, posible riesgo de inundación',
+    'Ladera de cerro': 'Pendiente, riesgo de deslizamiento',
+    'Depósitos lacustres': 'Suelo blando, requiere cimentación especial',
+    'Rivera río/lago': 'Zona húmeda, considerar nivel freático',
+    'Costa': 'Ambiente salino, requiere materiales resistentes',
+  };
+
+  for (int i = 0; i < topografiaOrdenada.length; i++) {
+    var entry = topografiaOrdenada[i];
+    String tipo = entry.key;
+    int conteo = entry.value['conteo'];
+    double porcentaje = totalTopografia > 0 ? (conteo / totalTopografia) * 100 : 0;
+    String caracteristica = caracteristicasTopografia[tipo] ?? 'Consultar especificaciones técnicas';
+
+    _setCellValue(sheet, fila, 0, tipo);
+    _setCellValue(sheet, fila, 1, conteo.toString());
+    _setCellValue(sheet, fila, 2, '${porcentaje.toStringAsFixed(1)}%');
+    _setCellValue(sheet, fila, 3, caracteristica);
+    
+    // Alternar colores
+    String bgColor = fila % 2 == 0 ? '#F2F2F2' : '#FFFFFF';
+    _aplicarEstiloFila(sheet, fila, 0, 4, bgColor);
+    fila++;
+  }
+
+  // Fila de total
+  _setCellValue(sheet, fila, 0, 'TOTAL');
+  _setCellValue(sheet, fila, 1, totalTopografia.toString());
+  _setCellValue(sheet, fila, 2, '100%');
+  _setCellValue(sheet, fila, 3, 'Todas las características identificadas');
+  _aplicarEstiloTablaHeader(sheet, fila, 0, 4, '#E2EFDA');
+  fila++;
+
+  return fila;
+}
+
+/// Crea sección de comparativa y conclusiones
+void _crearSeccionComparativaYConclusiones(
+  Sheet sheet,
+  Map<String, dynamic> datos,
+  Map<String, dynamic> metadatos,
+  int filaInicial,
+) {
+  int fila = filaInicial;
+
+  // Título de sección
+  _setCellValue(sheet, fila, 0, 'COMPARATIVA Y CONCLUSIONES');
+  _aplicarEstiloSeccion(sheet, fila, 0);
+  fila++;
+
+  // Análisis comparativo
+  _setCellValue(sheet, fila, 0, 'ANÁLISIS COMPARATIVO');
+  _aplicarEstilo(sheet, fila, 0, bold: true, backgroundColor: '#FFE2CC');
+  fila++;
+
+  // Encontrar uso y topografía predominantes
+  String usoPredominante = 'No determinado';
+  String topografiaPredominante = 'No determinado';
+
+  // Buscar uso más común
+  if (datos.containsKey('usosVivienda') && datos['usosVivienda']['estadisticas'] != null) {
+    Map<String, dynamic> estadisticasUsos = datos['usosVivienda']['estadisticas'];
+    var usoMax = estadisticasUsos.entries
+        .where((entry) => entry.value['conteo'] > 0)
+        .fold<MapEntry<String, dynamic>?>(null, (prev, curr) => prev == null || curr.value['conteo'] > prev.value['conteo'] ? curr : prev);
+    if (usoMax != null) usoPredominante = usoMax.key;
+  }
+
+  // Buscar topografía más común
+  if (datos.containsKey('topografia') && datos['topografia']['estadisticas'] != null) {
+    Map<String, dynamic> estadisticasTopografia = datos['topografia']['estadisticas'];
+    var topoMax = estadisticasTopografia.entries
+        .where((entry) => entry.value['conteo'] > 0)
+        .fold<MapEntry<String, dynamic>?>(null, (prev, curr) => prev == null || (curr as MapEntry<String, dynamic>).value['conteo'] > prev.value['conteo'] ? curr : prev);
+    if (topoMax != null) topografiaPredominante = topoMax.key;
+  }
+
+  // Comparativa
+  _setCellValue(sheet, fila, 0, 'Uso predominante:');
+  _setCellValue(sheet, fila, 1, usoPredominante);
+  _aplicarEstilo(sheet, fila, 0, bold: true);
+  fila++;
+
+  _setCellValue(sheet, fila, 0, 'Topografía predominante:');
+  _setCellValue(sheet, fila, 1, topografiaPredominante);
+  _aplicarEstilo(sheet, fila, 0, bold: true);
+  fila++;
+
+  fila++;
+
+  // Conclusiones
+  String conclusiones = metadatos['conclusiones'] ?? 'No hay conclusiones disponibles.';
+  _setCellValue(sheet, fila, 0, 'CONCLUSIONES:');
+  _aplicarEstilo(sheet, fila, 0, bold: true, backgroundColor: '#FFF2CC');
+  fila++;
+
+  // Dividir conclusiones en líneas más manejables
+  List<String> lineasConclusiones = conclusiones.split('\n').where((linea) => linea.trim().isNotEmpty).toList();
+  
+  for (String linea in lineasConclusiones) {
+    _setCellValue(sheet, fila, 0, linea.trim());
+    _aplicarEstilo(sheet, fila, 0, backgroundColor: '#FFF9E6');
+    fila++;
+  }
 }
 
 /// Guarda el archivo Excel usando la librería excel estándar

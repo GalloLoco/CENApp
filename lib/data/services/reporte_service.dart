@@ -9,6 +9,7 @@ import '../reportes/sistema_estructural_reporte.dart';
 import '../reportes/material_dominante_reporte.dart';
 import '../reportes/evaluacion_danos_reporte.dart';
 import '../../data/services/reporte_documental_service.dart';
+import '../reportes/usovivienda_topografico_Excel.dart';
 import '../reportes/reporte_completo.dart';
 import '../../data/services/excel_reporte_service.dart'; // Nuevo import
 
@@ -409,7 +410,7 @@ Future<Map<String, String>> generarReporteEvaluacionDanos({
       print('📊 [REPORTE] Iniciando generación de documentos...');
 
       // 🆕 Paso 5: Generar reporte Excel usando nuestro servicio
-      String rutaExcel = await _excelService.generarReporteUsoTopografiaExcel(
+      String rutaExcel = await ExcelReporteServiceUsoViviendaV2().generarReporteUsoTopografia (
         titulo: metadatos['titulo']!,
         subtitulo: metadatos['subtitulo']!,
         datos: datosEstadisticos,

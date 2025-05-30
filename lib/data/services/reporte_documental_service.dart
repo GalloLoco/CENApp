@@ -1044,13 +1044,20 @@ List<pw.Widget> _generarGraficosEvaluacionDanos(
       );
       
       widgets.add(pw.SizedBox(height: 10));
-      
+       List<PdfColor> coloresSemaforo =
+        [
+          PdfColors.red600,
+          PdfColors.orange600,
+          PdfColors.green600,
+        
+        ];     
       widgets.add(
         GraficasService.crearGraficoBarrasPDF(
           datos: datosRiesgo,
           titulo: 'Distribución General de Niveles de Riesgo',
           ancho: 500,
           alto: 300,
+          colores: coloresSemaforo
         ),
       );
       

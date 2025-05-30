@@ -10,6 +10,10 @@ import '../reportes/material_dominante_reporte.dart';
 import '../reportes/evaluacion_danos_reporte.dart';
 import '../../data/services/reporte_documental_service.dart';
 import '../reportes/usovivienda_topografico_Excel.dart';
+import '../reportes/sistema_estructural_reporte_excel.dart';  //reporte Excel
+import '../reportes/material_dominante_excel.dart'; // Nuevo import
+import '../reportes/resumen_general_excel.dart';
+import '../reportes/evaluacion_danos_excel.dart';
 import '../reportes/reporte_completo.dart';
 import '../../data/services/excel_reporte_service.dart'; // Nuevo import
 
@@ -162,7 +166,7 @@ Future<Map<String, String>> generarReporteEvaluacionDanos({
     };
 
     // 🆕 Paso 5: Generar Excel usando nuestro servicio especializado
-    String rutaExcel = await _excelService.generarReporteEvaluacionDanosExcel(
+    String rutaExcel = await ExcelReporteServiceEvaluacionDanosV2().generarReporteEvaluacionDanos(
       titulo: metadatos['titulo']!,
       subtitulo: metadatos['subtitulo']!,
       datos: datosEstadisticos,
@@ -249,7 +253,7 @@ Future<Map<String, String>> generarReporteEvaluacionDanos({
     };
 
     // 🆕 Paso 6: Generar Excel usando nuestro servicio especializado
-    String rutaExcel = await _excelService.generarReporteMaterialDominanteExcel(
+    String rutaExcel = await ExcelReporteMaterialDominanteV2().generarReporteMaterialDominante(
       titulo: metadatos['titulo']!,
       subtitulo: metadatos['subtitulo']!,
       datos: datosEstadisticos,
@@ -337,7 +341,7 @@ Future<Map<String, String>> generarReporteEvaluacionDanos({
 
 // 🆕 Paso 7: Generar Excel usando nuestro servicio especializado
     String rutaExcel =
-        await _excelService.generarReporteSistemaEstructuralExcel(
+        await ExcelReporteServiceSistemaEstructuralV2().generarReporteSistemaEstructural(
       titulo: metadatos['titulo']!,
       subtitulo: metadatos['subtitulo']!,
       datos: datosEstadisticos,
@@ -516,7 +520,7 @@ Future<Map<String, String>> generarReporteEvaluacionDanos({
 
       // **PASO 7: GENERAR EXCEL** (NUEVA FUNCIONALIDAD)
       print('📊 [RESUMEN GENERAL] Generando Excel...');
-      String rutaExcel = await _excelService.generarReporteResumenGeneralExcel(
+      String rutaExcel = await ExcelReporteServiceResumenGeneralV2().generarReporteResumenGeneral(
         titulo: 'Resumen General de Evaluaciones',
         subtitulo: 'Período: ${metadatos['periodoEvaluacion']}',
         datos: datosEstadisticos,

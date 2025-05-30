@@ -13,14 +13,14 @@ import '../reportes/usovivienda_topografico_Excel.dart';
 import '../reportes/sistema_estructural_reporte_excel.dart';  //reporte Excel
 import '../reportes/material_dominante_excel.dart'; // Nuevo import
 import '../reportes/resumen_general_excel.dart';
+import '../reportes/resumen_completo_excel.dart';
 import '../reportes/evaluacion_danos_excel.dart';
 import '../reportes/reporte_completo.dart';
-import '../../data/services/excel_reporte_service.dart'; // Nuevo import
+
 
 class ReporteService {
   final CloudStorageService _cloudService = CloudStorageService();
-  final ExcelReporteService _excelService =
-      ExcelReporteService(); // Nueva instancia
+
 
 
 
@@ -76,10 +76,10 @@ class ReporteService {
     List<Map<String, dynamic>> tablasCompletas = ReporteCompletoService.prepararTablasCompletas(datosCompletos);
 
     // 🆕 Paso 4: Generar Excel usando nuestro nuevo servicio
-    String rutaExcel = await _excelService.generarReporteCompletoExcel(
+    String rutaExcel = await ExcelReporteCompletoConsolidadoV2().generarReporteCompletoConsolidado(
       titulo: 'Reporte Completo de Evaluación Estructural',
       subtitulo: 'Análisis Integral Multidimensional - ${datosCompletos['metadatos']['periodoEvaluacion']}',
-      datos: datosCompletos,
+      datosCompletos: datosCompletos,
       tablas: tablasCompletas,
       metadatos: datosCompletos['metadatos'],
     );

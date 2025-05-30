@@ -88,6 +88,8 @@ class ExcelReporteServiceEvaluacionDanosV2 {
       throw Exception('Error al generar reporte Excel: $e');
     }
   }
+  
+
 
   /// Configura los anchos de columna óptimos para el reporte (igual que uso/topografía)
   void _configurarAnchoColumnas(xlsio.Worksheet sheet) {

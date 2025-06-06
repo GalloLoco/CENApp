@@ -5,6 +5,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../utils/permisos_modernos.dart' as permisosModernos;
 import 'package:path/path.dart' as path;
+import 'package:flutter/services.dart';
 
 
 /// Servicio para gestionar el almacenamiento de archivos
@@ -256,92 +257,287 @@ class FileStorageService {
     final timestamp = DateTime.now().millisecondsSinceEpoch;
     return '$baseNombre-$timestamp.$extension';
   }
-  /// Guarda una imagen en el dispositivo de forma optimizada
-Future<String> guardarImagenEnDispositivo(
-  String rutaImagenOriginal, {
-  String? nombrePersonalizado,
-  Directory? directorioDestino,
-}) async {
-  try {
-    print('📸 [FILE_SERVICE] Guardando imagen: $rutaImagenOriginal');
+// 🎯 CANAL PARA COMUNICACIÓN CON CÓDIGO NATIVO ANDROID
+  static const MethodChannel _channel = MethodChannel('cenapp/media_scanner');
 
-    // Verificar permisos usando tu método existente
-   
-
-    // Usar tu directorio de descargas existente
-    final directorio = directorioDestino ?? await obtenerDirectorioDescargas();
+  /// 🆕 SOLUCIÓN ANDROID: Guarda imágenes VISIBLES en la galería
+  Future<Map<String, bool>> guardarImagenesSilenciosamente(
+    List<String> rutasImagenes, {
+    String? carpetaDestino = 'CENApp_Evaluaciones',
+  }) async {
+    Map<String, bool> resultados = {};
     
-    // Crear subdirectorio para imágenes si no existe
-    final directorioImagenes = Directory('${directorio.path}/cenapp/imagenes');
-    if (!await directorioImagenes.exists()) {
-      await directorioImagenes.create(recursive: true);
-    }
+    if (rutasImagenes.isEmpty) return resultados;
 
-    // Generar nombre único para evitar sobrescrituras
-    final timestamp = DateTime.now().millisecondsSinceEpoch;
-    final extension = rutaImagenOriginal.split('.').last.toLowerCase();
-    final nombreFinal = nombrePersonalizado != null 
-        ? '${nombrePersonalizado}_$timestamp.$extension'
-        : 'cenapp_imagen_$timestamp.$extension';
-
-    // Ruta de destino
-    final rutaDestino = '${directorioImagenes.path}/$nombreFinal';
-
-    // Copiar archivo de forma eficiente
-    final archivoOriginal = File(rutaImagenOriginal);
-    if (!await archivoOriginal.exists()) {
-      throw Exception('Archivo de imagen no encontrado: $rutaImagenOriginal');
-    }
-
-    final archivoDestino = File(rutaDestino);
-    await archivoOriginal.copy(rutaDestino);
-
-    // Verificar que se copió correctamente
-    if (await archivoDestino.exists() && await archivoDestino.length() > 0) {
-      print('✅ [FILE_SERVICE] Imagen guardada exitosamente: $rutaDestino');
-      return rutaDestino;
-    } else {
-      throw Exception('Error al verificar la copia de la imagen');
-    }
-
-  } catch (e) {
-    print('❌ [FILE_SERVICE] Error al guardar imagen: $e');
-    throw Exception('Error al guardar imagen: $e');
-  }
-}
-
-/// Guarda múltiples imágenes de forma eficiente (por lotes)
-Future<List<String>> guardarMultiplesImagenes(
-  List<String> rutasImagenes, {
-  String? prefijoNombre,
-  Directory? directorioDestino,
-  Function(int, int)? onProgress, // Callback para mostrar progreso
-}) async {
-  List<String> rutasGuardadas = [];
-  
-  for (int i = 0; i < rutasImagenes.length; i++) {
     try {
-      final nombrePersonalizado = prefijoNombre != null 
-          ? '${prefijoNombre}_${i + 1}'
-          : null;
+      print('📸 [ANDROID] Iniciando guardado VISIBLE de ${rutasImagenes.length} imágenes...');
+
+      // ✅ VERIFICAR PERMISOS ESPECÍFICOS DE ANDROID
+      bool tienePermisos = await _verificarPermisosAndroid();
+      if (!tienePermisos) {
+        print('⚠️ [ANDROID] Sin permisos de media/storage');
+        for (String ruta in rutasImagenes) {
+          resultados[ruta] = false;
+        }
+        return resultados;
+      }
+
+      // 📁 CREAR DIRECTORIO EN PICTURES (PÚBLICO)
+      Directory? directorioDestino = await _crearDirectorioPublico(carpetaDestino);
+      if (directorioDestino == null) {
+        print('❌ [ANDROID] No se pudo crear directorio público');
+        for (String ruta in rutasImagenes) {
+          resultados[ruta] = false;
+        }
+        return resultados;
+      }
+
+      // 🖼️ COPIAR IMÁGENES Y HACERLAS VISIBLES
+      List<String> rutasGuardadas = [];
       
-      final rutaGuardada = await guardarImagenEnDispositivo(
-        rutasImagenes[i],
-        nombrePersonalizado: nombrePersonalizado,
-        directorioDestino: directorioDestino,
+      for (int i = 0; i < rutasImagenes.length; i++) {
+        String rutaImagen = rutasImagenes[i];
+        
+        try {
+          // Copiar imagen al directorio público
+          String? rutaGuardada = await _copiarImagenPublica(
+            rutaImagen: rutaImagen,
+            directorioDestino: directorioDestino,
+            indice: i + 1,
+          );
+          
+          if (rutaGuardada != null) {
+            rutasGuardadas.add(rutaGuardada);
+            resultados[rutaImagen] = true;
+            print('✅ [ANDROID] Imagen ${i + 1} copiada: ${path.basename(rutaGuardada)}');
+          } else {
+            resultados[rutaImagen] = false;
+            print('❌ [ANDROID] Falló copia imagen ${i + 1}');
+          }
+          
+          // Pausa mínima entre archivos
+          if (i < rutasImagenes.length - 1) {
+            await Future.delayed(Duration(milliseconds: 100));
+          }
+        } catch (e) {
+          print('❌ [ANDROID] Error imagen ${i + 1}: $e');
+          resultados[rutaImagen] = false;
+        }
+      }
+
+      // 🔄 PASO CRÍTICO: HACER IMÁGENES VISIBLES EN GALERÍA
+      if (rutasGuardadas.isNotEmpty) {
+        await _hacerImagenesVisibles(rutasGuardadas);
+      }
+
+      int exitosas = resultados.values.where((v) => v == true).length;
+      print('✅ [ANDROID] Completado: $exitosas/${rutasImagenes.length} imágenes visibles en galería');
+      
+      return resultados;
+    } catch (e) {
+      print('❌ [ANDROID] Error general: $e');
+      for (String ruta in rutasImagenes) {
+        resultados[ruta] = false;
+      }
+      return resultados;
+    }
+  }
+
+  /// 🔐 VERIFICAR PERMISOS ESPECÍFICOS DE ANDROID
+  Future<bool> _verificarPermisosAndroid() async {
+    try {
+      if (!Platform.isAndroid) return true;
+
+      // Lista de permisos a verificar/solicitar
+      List<Permission> permisos = [
+        Permission.photos,           // Android 13+
+        Permission.videos,           // Android 13+
+        Permission.storage,          // Android 10-12
+      ];
+
+      // Verificar si alguno ya está concedido
+      for (Permission permiso in permisos) {
+        if (await permiso.isGranted) {
+          print('✅ [ANDROID] Permiso concedido: $permiso');
+          return true;
+        }
+      }
+
+      // Solicitar permisos que no están concedidos
+      print('🔄 [ANDROID] Solicitando permisos de almacenamiento...');
+      Map<Permission, PermissionStatus> statuses = await permisos.request();
+      
+      // Verificar si alguno fue concedido
+      bool algunoConcedido = statuses.values.any((status) => 
+          status == PermissionStatus.granted || 
+          status == PermissionStatus.limited);
+
+      if (algunoConcedido) {
+        print('✅ [ANDROID] Permisos obtenidos exitosamente');
+      } else {
+        print('❌ [ANDROID] Permisos denegados');
+      }
+
+      return algunoConcedido;
+    } catch (e) {
+      print('❌ [ANDROID] Error verificando permisos: $e');
+      return false;
+    }
+  }
+
+  /// 📁 CREAR DIRECTORIO PÚBLICO EN PICTURES
+  Future<Directory?> _crearDirectorioPublico(String? carpetaDestino) async {
+    try {
+      // 🎯 RUTA PRINCIPAL: Pictures públicas
+      String rutaPictures = '/storage/emulated/0/Pictures';
+      Directory directorioBase = Directory(rutaPictures);
+      
+      // Verificar que Pictures existe y es accesible
+      if (!await directorioBase.exists()) {
+        print('⚠️ [ANDROID] Pictures no existe, creando...');
+        try {
+          await directorioBase.create(recursive: true);
+        } catch (e) {
+          print('❌ [ANDROID] No se puede crear Pictures: $e');
+          return null;
+        }
+      }
+
+      // Crear subdirectorio específico de la app
+      String nombreCarpeta = carpetaDestino ?? 'CENApp_Imagenes';
+      Directory carpetaApp = Directory('${directorioBase.path}/$nombreCarpeta');
+      
+      if (!await carpetaApp.exists()) {
+        await carpetaApp.create(recursive: true);
+        print('📁 [ANDROID] Carpeta creada: ${carpetaApp.path}');
+      }
+
+      // Verificar que podemos escribir en la carpeta
+      try {
+        File testFile = File('${carpetaApp.path}/.test_write');
+        await testFile.writeAsString('test');
+        await testFile.delete();
+        print('✅ [ANDROID] Directorio verificado: ${carpetaApp.path}');
+        return carpetaApp;
+      } catch (e) {
+        print('❌ [ANDROID] No se puede escribir en directorio: $e');
+        return null;
+      }
+    } catch (e) {
+      print('❌ [ANDROID] Error creando directorio público: $e');
+      return null;
+    }
+  }
+
+  /// 🖼️ COPIAR IMAGEN A DIRECTORIO PÚBLICO
+  Future<String?> _copiarImagenPublica({
+    required String rutaImagen,
+    required Directory directorioDestino,
+    required int indice,
+  }) async {
+    try {
+      final File archivoOriginal = File(rutaImagen);
+      
+      if (!await archivoOriginal.exists()) {
+        print('⚠️ [ANDROID] Archivo original no existe: $rutaImagen');
+        return null;
+      }
+
+      // Generar nombre único
+      final String timestamp = DateTime.now().millisecondsSinceEpoch.toString();
+      final String extension = path.extension(rutaImagen).toLowerCase();
+      final String nombreArchivo = 'CENApp_Eval_${indice}_$timestamp$extension';
+      
+      // Ruta de destino
+      final String rutaDestino = '${directorioDestino.path}/$nombreArchivo';
+      final File archivoDestino = File(rutaDestino);
+
+      // Copiar archivo
+      await archivoOriginal.copy(rutaDestino);
+      
+      // Verificar copia exitosa
+      if (await archivoDestino.exists() && await archivoDestino.length() > 0) {
+        return rutaDestino;
+      } else {
+        print('❌ [ANDROID] Verificación de copia falló');
+        return null;
+      }
+    } catch (e) {
+      print('❌ [ANDROID] Error copiando imagen: $e');
+      return null;
+    }
+  }
+
+  /// 🔄 HACER IMÁGENES VISIBLES EN GALERÍA (PASO CRÍTICO)
+  Future<void> _hacerImagenesVisibles(List<String> rutasGuardadas) async {
+    try {
+      print('🔄 [ANDROID] Haciendo ${rutasGuardadas.length} imágenes visibles en galería...');
+
+      // MÉTODO 1: MediaScanner nativo (más efectivo)
+      for (String ruta in rutasGuardadas) {
+        try {
+          await _escanearArchivoConMediaScanner(ruta);
+        } catch (e) {
+          print('⚠️ [ANDROID] Error escaneando archivo $ruta: $e');
+        }
+      }
+
+      // MÉTODO 2: Fallback - Comando shell (si está disponible)
+      try {
+        await _ejecutarEscaneoShell(rutasGuardadas);
+      } catch (e) {
+        print('⚠️ [ANDROID] Escaneo shell falló: $e');
+      }
+
+      print('✅ [ANDROID] Proceso de visibilidad completado');
+    } catch (e) {
+      print('❌ [ANDROID] Error haciendo imágenes visibles: $e');
+    }
+  }
+
+  /// 📱 ESCANEAR ARCHIVO CON MEDIA SCANNER NATIVO
+  Future<void> _escanearArchivoConMediaScanner(String rutaArchivo) async {
+    try {
+      // Llamar al MediaScanner nativo de Android via Platform Channel
+      await _channel.invokeMethod('scanFile', {'path': rutaArchivo});
+      print('✅ [ANDROID] MediaScanner: ${path.basename(rutaArchivo)}');
+    } catch (e) {
+      print('⚠️ [ANDROID] MediaScanner falló para ${path.basename(rutaArchivo)}: $e');
+      
+      // Fallback: Crear archivo .nomedia para forzar re-escaneo
+      try {
+        String directorio = path.dirname(rutaArchivo);
+        File nomediaFile = File('$directorio/.nomedia');
+        if (await nomediaFile.exists()) {
+          await nomediaFile.delete();
+          await Future.delayed(Duration(milliseconds: 100));
+        }
+      } catch (e2) {
+        // Ignorar errores del fallback
+      }
+    }
+  }
+
+  /// 🐚 EJECUTAR ESCANEO VÍA SHELL (FALLBACK)
+  Future<void> _ejecutarEscaneoShell(List<String> rutas) async {
+    try {
+      // Comando para forzar re-escaneo del directorio
+      String directorio = path.dirname(rutas.first);
+      
+      ProcessResult result = await Process.run(
+        'am', 
+        ['broadcast', '-a', 'android.intent.action.MEDIA_SCANNER_SCAN_FILE', '-d', 'file://$directorio'],
+        runInShell: true
       );
       
-      rutasGuardadas.add(rutaGuardada);
-      
-      // Notificar progreso si se proporciona callback
-      onProgress?.call(i + 1, rutasImagenes.length);
-      
+      if (result.exitCode == 0) {
+        print('✅ [ANDROID] Shell scan exitoso');
+      } else {
+        print('⚠️ [ANDROID] Shell scan falló: ${result.stderr}');
+      }
     } catch (e) {
-      print('⚠️ [FILE_SERVICE] Error al guardar imagen ${i + 1}: $e');
-      // Continuar con las siguientes imágenes
+      print('⚠️ [ANDROID] Shell scan no disponible: $e');
     }
   }
-  
-  return rutasGuardadas;
-}
+
 }

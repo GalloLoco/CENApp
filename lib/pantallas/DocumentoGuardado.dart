@@ -7,7 +7,6 @@ import 'package:share_plus/share_plus.dart';
 import '../logica/formato_evaluacion.dart';
 import '../data/services/documento_service.dart';
 import '../data/services/image_conversion_service.dart';
-import '../data/utils/guardar_imagenes.dart';
 
 class DocumentoGuardadoScreen extends StatefulWidget {
   final FormatoEvaluacion formato;
@@ -28,8 +27,10 @@ class _DocumentoGuardadoScreenState extends State<DocumentoGuardadoScreen> {
   String? _errorMessage;
   String? _jsonFilePath;
   bool _documentoGuardado = false;
-  bool _imagenesGuardadasEnGaleria = false;
+  // 🆕 NUEVAS variables para el guardado de imágenes
+  bool _imagenesGuardadasEnDispositivo = false;
   Map<String, bool>? _resultadosGuardadoImagenes;
+  bool _mostrarEstadoImagenes = false;
 
   @override
   void initState() {
@@ -45,11 +46,11 @@ class _DocumentoGuardadoScreenState extends State<DocumentoGuardadoScreen> {
     });
 
     try {
-      // PASO 1: Guardar imágenes en galería
-      //await _guardarImagenesEnGaleria();
-
-      // PASO 2: Guardar documento JSON
+      // PASO 1: Guardar documento JSON
       await _guardarDocumentoJSON();
+
+      // PASO 2: Guardar imágenes silenciosamente en segundo plano
+      _guardarImagenesSilenciosamente();
     } catch (e) {
       setState(() {
         _errorMessage = 'Error al procesar el formato: $e';
@@ -58,148 +59,93 @@ class _DocumentoGuardadoScreenState extends State<DocumentoGuardadoScreen> {
     }
   }
 
-  /* 🆕 NUEVO: Guardar imágenes en galería
-  Future<void> _guardarImagenesEnGaleria() async {
+  void _guardarImagenesSilenciosamente() async {
+    // Obtener rutas de fotos del formato
     List<String> rutasFotos =
         widget.formato.ubicacionGeorreferencial.rutasFotos;
 
     if (rutasFotos.isEmpty) {
+      // No hay imágenes que guardar
       setState(() {
-        _imagenesGuardadasEnGaleria = true;
+        _imagenesGuardadasEnDispositivo = true;
+        _mostrarEstadoImagenes = false;
       });
       return;
     }
 
     try {
-      // Mostrar progreso
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => Dialog(
-          child: Padding(
-            padding: EdgeInsets.all(20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                CircularProgressIndicator(color: Colors.green),
-                SizedBox(height: 15),
-                Text('Guardando imágenes en galería...'),
-              ],
-            ),
-          ),
-        ),
-      );
+      print(
+          '📸 [DOC_GUARDADO] Iniciando guardado silencioso de ${rutasFotos.length} imágenes...');
 
-      // Guardar imágenes
+      // Guardar imágenes usando el servicio mejorado
       Map<String, bool> resultados =
-          await ImageGalleryService.guardarImagenesEnGaleria(
-        rutasImagenes: rutasFotos,
-        albumName: 'CENApp_Evaluaciones',
-        context: context,
+          await _documentoService.fileService.guardarImagenesSilenciosamente(
+        rutasFotos,
+        carpetaDestino: 'CENApp_Evaluaciones',
       );
 
-      // Cerrar diálogo
-      Navigator.of(context, rootNavigator: true).pop();
-
+      // Actualizar estado sin mostrar diálogos molestos
       setState(() {
         _resultadosGuardadoImagenes = resultados;
-        _imagenesGuardadasEnGaleria = true;
-      });
-    } catch (e) {
-      Navigator.of(context, rootNavigator: true).pop();
-      setState(() {
-        _imagenesGuardadasEnGaleria = true;
+        _imagenesGuardadasEnDispositivo = true;
+        _mostrarEstadoImagenes = resultados.isNotEmpty;
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Advertencia: Error al guardar imágenes en galería'),
-          backgroundColor: Colors.orange,
-        ),
-      );
+      // Log silencioso del resultado
+      int exitosas = resultados.values.where((v) => v == true).length;
+      print(
+          '✅ [DOC_GUARDADO] Imágenes procesadas: $exitosas/${rutasFotos.length} guardadas exitosamente');
+
+      
+    } catch (e) {
+      print('⚠️ [DOC_GUARDADO] Error en guardado silencioso de imágenes: $e');
+
+      // En caso de error, simplemente continuar sin mostrar errores al usuario
+      setState(() {
+        _imagenesGuardadasEnDispositivo = true;
+        _mostrarEstadoImagenes = false;
+      });
     }
   }
 
-  /// 🆕 NUEVO: Widget para mostrar estado de imágenes
-  Widget _buildEstadoImagenes() {
-    if (!_imagenesGuardadasEnGaleria) return SizedBox.shrink();
-
-    List<String> rutasFotos =
-        widget.formato.ubicacionGeorreferencial.rutasFotos;
-
-    if (rutasFotos.isEmpty) {
-      return Container(
-        margin: EdgeInsets.symmetric(vertical: 8),
-        padding: EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Colors.blue[50],
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.blue[200]!),
-        ),
-        child: Row(
-          children: [
-            Icon(Icons.info_outline, color: Colors.blue[700], size: 20),
-            SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                'Este formato no incluye imágenes',
-                style: TextStyle(color: Colors.blue[700], fontSize: 12),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    if (_resultadosGuardadoImagenes == null) {
-      return Container(
-        margin: EdgeInsets.symmetric(vertical: 8),
-        padding: EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Colors.orange[50],
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.orange[200]!),
-        ),
-        child: Row(
-          children: [
-            Icon(Icons.warning_outlined, color: Colors.orange[700], size: 20),
-            SizedBox(width: 8),
-            Text('Error al procesar imágenes',
-                style: TextStyle(color: Colors.orange[700], fontSize: 12)),
-          ],
-        ),
-      );
+  /// 🆕 NUEVO: Widget discreto para mostrar estado de imágenes (solo si es relevante)
+  Widget _buildEstadoImagenesDiscreto() {
+    if (!_mostrarEstadoImagenes || _resultadosGuardadoImagenes == null) {
+      return SizedBox.shrink();
     }
 
     int exitosas =
         _resultadosGuardadoImagenes!.values.where((v) => v == true).length;
     int total = _resultadosGuardadoImagenes!.length;
 
+    // Solo mostrar si hay algo que reportar
+    if (exitosas == 0) return SizedBox.shrink();
+
     return Container(
       margin: EdgeInsets.symmetric(vertical: 8),
-      padding: EdgeInsets.all(12),
+      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: Colors.green[50],
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.green[200]!),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: Colors.green[200]!, width: 1),
       ),
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.check_circle_outline, color: Colors.green[700], size: 20),
-          SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              '$exitosas de $total imágenes guardadas en galería',
-              style: TextStyle(
-                  color: Colors.green[700],
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500),
+          Icon(Icons.check_circle_outline, color: Colors.green[600], size: 16),
+          SizedBox(width: 6),
+          Text(
+            '$exitosas${total > exitosas ? "/$total" : ""} imagen${exitosas != 1 ? "es" : ""} guardada${exitosas != 1 ? "s" : ""} en dispositivo',
+            style: TextStyle(
+              color: Colors.green[700],
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
             ),
           ),
         ],
       ),
     );
-  }*/
+  }
 
   /// Guarda el documento en formato JSON
   Future<void> _guardarDocumentoJSON() async {
@@ -792,7 +738,6 @@ class _DocumentoGuardadoScreenState extends State<DocumentoGuardadoScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Calculamos las dimensiones de pantalla para adaptar mejor los elementos
     final screenSize = MediaQuery.of(context).size;
     final buttonHeight = screenSize.height * 0.07;
     final screenPadding = screenSize.width * 0.05;
@@ -822,9 +767,7 @@ class _DocumentoGuardadoScreenState extends State<DocumentoGuardadoScreen> {
           ),
         ],
       ),
-      // Implementamos SafeArea para asegurar que el contenido esté dentro de los límites seguros
       body: SafeArea(
-        // Usamos SingleChildScrollView para asegurar que todo el contenido sea accesible
         child: _isLoading
             ? _buildLoadingScreen()
             : _errorMessage != null
@@ -886,6 +829,7 @@ class _DocumentoGuardadoScreenState extends State<DocumentoGuardadoScreen> {
   }
 
   /// Construye la pantalla de éxito con mejor adaptabilidad
+  /// Construye la pantalla de éxito con estado de imágenes discreto
   Widget _buildSuccessScreen(
       Size screenSize, double buttonHeight, double screenPadding) {
     return SingleChildScrollView(
@@ -897,15 +841,14 @@ class _DocumentoGuardadoScreenState extends State<DocumentoGuardadoScreen> {
           SizedBox(height: screenSize.height * 0.05),
           Icon(
             Icons.assignment_turned_in,
-            size: screenSize.width * 0.2, // Tamaño proporcional al ancho
+            size: screenSize.width * 0.2,
             color: Colors.green,
           ),
           SizedBox(height: screenSize.height * 0.03),
           Text(
             'Archivo "${_getNombreArchivo()}" creado con éxito.',
             style: TextStyle(
-              fontSize:
-                  screenSize.width * 0.055, // Tamaño proporcional al ancho
+              fontSize: screenSize.width * 0.055,
               fontWeight: FontWeight.w900,
             ),
             textAlign: TextAlign.center,
@@ -914,15 +857,18 @@ class _DocumentoGuardadoScreenState extends State<DocumentoGuardadoScreen> {
           Text(
             'Puede exportar o compartir el archivo en varios formatos.',
             style: TextStyle(
-              fontSize: screenSize.width * 0.04, // Tamaño proporcional al ancho
+              fontSize: screenSize.width * 0.04,
               color: Colors.grey[700],
             ),
             textAlign: TextAlign.center,
           ),
-          //_buildEstadoImagenes(),
+
+          // 🆕 NUEVO: Estado discreto de imágenes
+          _buildEstadoImagenesDiscreto(),
+
           SizedBox(height: screenSize.height * 0.04),
 
-          // Botones de acción - Con tamaños proporcionales a la pantalla
+          // Botones de acción (sin cambios)
           _buildExportButton(
             Icons.picture_as_pdf,
             'Exportar a PDF',
@@ -962,7 +908,6 @@ class _DocumentoGuardadoScreenState extends State<DocumentoGuardadoScreen> {
             Colors.deepPurple,
             buttonHeight,
           ),
-          // Espacio adicional en la parte inferior para mejorar la accesibilidad
           SizedBox(height: screenSize.height * 0.08),
         ],
       ),

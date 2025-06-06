@@ -22,11 +22,9 @@ class ExcelReporteCompletoConsolidadoV2 {
 
   // Constantes para estilos y formato - Unificadas para consistencia
   static const String FONT_NAME = 'Calibri';
-  static const int HEADER_FONT_SIZE =
-      18; // Ligeramente más grande para reporte completo
+  static const int HEADER_FONT_SIZE = 18; // Ligeramente más grande para reporte completo
   static const int SUBTITLE_FONT_SIZE = 16;
-  static const int SECTION_FONT_SIZE =
-      14; // Más prominente para secciones principales
+  static const int SECTION_FONT_SIZE = 14; // Más prominente para secciones principales
   static const int SUBSECTION_FONT_SIZE = 12;
   static const int NORMAL_FONT_SIZE = 10;
 
@@ -76,14 +74,12 @@ class ExcelReporteCompletoConsolidadoV2 {
       // === HOJA 4: MATERIAL DOMINANTE ===
       final xlsio.Worksheet sheetMaterial = workbook.worksheets.add();
       sheetMaterial.name = 'Material Dominante';
-      await _crearHojaMaterialDominante(
-          sheetMaterial, datosCompletos, metadatos);
+      await _crearHojaMaterialDominante(sheetMaterial, datosCompletos, metadatos);
 
       // === HOJA 5: SISTEMA ESTRUCTURAL ===
       final xlsio.Worksheet sheetEstructural = workbook.worksheets.add();
       sheetEstructural.name = 'Sistema Estructural';
-      await _crearHojaSistemaEstructural(
-          sheetEstructural, datosCompletos, metadatos);
+      await _crearHojaSistemaEstructural(sheetEstructural, datosCompletos, metadatos);
 
       // === HOJA 6: EVALUACIÓN DE DAÑOS ===
       final xlsio.Worksheet sheetDanos = workbook.worksheets.add();
@@ -91,14 +87,12 @@ class ExcelReporteCompletoConsolidadoV2 {
       await _crearHojaEvaluacionDanos(sheetDanos, datosCompletos, metadatos);
 
       // Guardar archivo
-      final String rutaArchivo =
-          await _guardarArchivo(workbook, titulo, directorio);
+      final String rutaArchivo = await _guardarArchivo(workbook, titulo, directorio);
 
       // Liberar recursos
       workbook.dispose();
 
-      print(
-          '✅ [EXCEL-COMPLETO-V2] Reporte consolidado generado exitosamente: $rutaArchivo');
+      print('✅ [EXCEL-COMPLETO-V2] Reporte consolidado generado exitosamente: $rutaArchivo');
       return rutaArchivo;
     } catch (e) {
       print('❌ [EXCEL-COMPLETO-V2] Error al generar reporte consolidado: $e');
@@ -126,8 +120,7 @@ class ExcelReporteCompletoConsolidadoV2 {
     fila += 2;
 
     // Dashboard visual con métricas clave
-    fila =
-        await _crearDashboardEjecutivo(sheet, datosCompletos, metadatos, fila);
+    fila = await _crearDashboardEjecutivo(sheet, datosCompletos, metadatos, fila);
     fila += 2;
 
     // Resumen por secciones
@@ -151,24 +144,22 @@ class ExcelReporteCompletoConsolidadoV2 {
     _aplicarEstiloSeccion(sheet, fila, 'DASHBOARD EJECUTIVO', COLOR_HEADER);
     fila++;
 
-    // Extraer métricas clave de cada sección
+    // Extraer métricas clave de cada sección - CORREGIDO con rutas apropiadas
     final int totalFormatos = metadatos['totalFormatos'] ?? 0;
 
-    // Métricas de resumen general
-    final ciudadesCubiertas =
-        datosCompletos['distribucionGeografica']?['ciudades']?.length ?? 0;
+    // Métricas de resumen general - CORREGIDO
+    final ciudadesCubiertas = datosCompletos['resumenGeneral']?['distribucionGeografica']?['ciudades']?.length ?? 0;
 
-    // Métricas de uso y topografía
+    // Métricas de uso y topografía - CORREGIDO
     final usosPredominantes = _contarElementosConDatos(
-        datosCompletos['usosVivienda']?['estadisticas'] ?? {});
+        datosCompletos['usoTopografia']?['usosVivienda']?['estadisticas'] ?? {});
 
-    // Métricas de material dominante
-    final materialesDominantes =
-        _contarElementosConDatos(datosCompletos['conteoMateriales'] ?? {});
+    // Métricas de material dominante - CORREGIDO
+    final materialesDominantes = _contarMateriales(datosCompletos['materialDominante']?['conteoMateriales'] ?? {});
 
-    // Métricas de riesgos
-    final riesgoAlto = datosCompletos['resumenRiesgos']?['riesgoAlto'] ?? 0;
-    final riesgoMedio = datosCompletos['resumenRiesgos']?['riesgoMedio'] ?? 0;
+    // Métricas de riesgos - CORREGIDO
+    final riesgoAlto = datosCompletos['evaluacionDanos']?['resumenRiesgos']?['riesgoAlto'] ?? 0;
+    final riesgoMedio = datosCompletos['evaluacionDanos']?['resumenRiesgos']?['riesgoMedio'] ?? 0;
 
     // Crear tarjetas de métricas en formato grid
     final List<Map<String, dynamic>> metricasClave = [
@@ -203,16 +194,14 @@ class ExcelReporteCompletoConsolidadoV2 {
       {
         'titulo': 'Riesgo Alto',
         'valor': '$riesgoAlto',
-        'subtitulo':
-            '${totalFormatos > 0 ? (riesgoAlto / totalFormatos * 100).toStringAsFixed(1) : 0}% del total',
+        'subtitulo': '${totalFormatos > 0 ? (riesgoAlto / totalFormatos * 100).toStringAsFixed(1) : 0}% del total',
         'color': COLOR_EVALUACION_DANOS,
         'icono': '⚠️'
       },
       {
         'titulo': 'Riesgo Medio',
         'valor': '$riesgoMedio',
-        'subtitulo':
-            '${totalFormatos > 0 ? (riesgoMedio / totalFormatos * 100).toStringAsFixed(1) : 0}% del total',
+        'subtitulo': '${totalFormatos > 0 ? (riesgoMedio / totalFormatos * 100).toStringAsFixed(1) : 0}% del total',
         'color': COLOR_EVALUACION_DANOS,
         'icono': '⚡'
       },
@@ -240,16 +229,13 @@ class ExcelReporteCompletoConsolidadoV2 {
     Map<String, dynamic> metrica,
   ) {
     // Fondo de la tarjeta (2 columnas x 2 filas)
-    final xlsio.Range rangoTarjeta =
-        sheet.getRangeByIndex(fila, col, fila + 1, col + 1);
+    final xlsio.Range rangoTarjeta = sheet.getRangeByIndex(fila, col, fila + 1, col + 1);
     rangoTarjeta.cellStyle.backColor = metrica['color'];
     rangoTarjeta.cellStyle.borders.all.lineStyle = xlsio.LineStyle.medium;
     rangoTarjeta.cellStyle.borders.all.color = '#FFFFFF';
 
     // Icono y título
-    sheet
-        .getRangeByIndex(fila, col)
-        .setText('${metrica['icono']} ${metrica['titulo']}');
+    sheet.getRangeByIndex(fila, col).setText('${metrica['icono']} ${metrica['titulo']}');
     sheet.getRangeByIndex(fila, col).cellStyle.fontSize = 11;
     sheet.getRangeByIndex(fila, col).cellStyle.fontColor = '#FFFFFF';
     sheet.getRangeByIndex(fila, col).cellStyle.bold = true;
@@ -259,12 +245,10 @@ class ExcelReporteCompletoConsolidadoV2 {
     sheet.getRangeByIndex(fila, col + 1).cellStyle.fontSize = 16;
     sheet.getRangeByIndex(fila, col + 1).cellStyle.fontColor = '#FFFFFF';
     sheet.getRangeByIndex(fila, col + 1).cellStyle.bold = true;
-    sheet.getRangeByIndex(fila, col + 1).cellStyle.hAlign =
-        xlsio.HAlignType.center;
+    sheet.getRangeByIndex(fila, col + 1).cellStyle.hAlign = xlsio.HAlignType.center;
 
     // Subtítulo
-    final xlsio.Range rangoSubtitulo =
-        sheet.getRangeByIndex(fila + 1, col, fila + 1, col + 1);
+    final xlsio.Range rangoSubtitulo = sheet.getRangeByIndex(fila + 1, col, fila + 1, col + 1);
     rangoSubtitulo.merge();
     rangoSubtitulo.setText(metrica['subtitulo']);
     rangoSubtitulo.cellStyle.fontSize = 9;
@@ -295,18 +279,15 @@ class ExcelReporteCompletoConsolidadoV2 {
     fila += 2;
 
     // Resumen estadístico para resumen general
-    fila =
-        _crearResumenEstadisticoGeneral(sheet, datosCompletos, metadatos, fila);
+    fila = _crearResumenEstadisticoGeneral(sheet, datosCompletos, metadatos, fila);
     fila += 2;
 
     // Análisis distribución geográfica con gráfico
-    fila =
-        await _crearAnalisisDistribucionGeografica(sheet, datosCompletos, fila);
+    fila = await _crearAnalisisDistribucionGeografica(sheet, datosCompletos, fila);
     fila += 2;
 
     // Análisis distribución temporal con gráfico
-    fila =
-        await _crearAnalisisDistribucionTemporal(sheet, datosCompletos, fila);
+    fila = await _crearAnalisisDistribucionTemporal(sheet, datosCompletos, fila);
   }
 
   // ============================================================================
@@ -332,8 +313,7 @@ class ExcelReporteCompletoConsolidadoV2 {
     fila += 2;
 
     // Resumen estadístico específico
-    fila = _crearResumenEstadisticoUsoTopografia(
-        sheet, datosCompletos, metadatos, fila);
+    fila = _crearResumenEstadisticoUsoTopografia(sheet, datosCompletos, metadatos, fila);
     fila += 2;
 
     // Análisis uso de vivienda con gráfico
@@ -367,8 +347,7 @@ class ExcelReporteCompletoConsolidadoV2 {
     fila += 2;
 
     // Resumen estadístico específico
-    fila = _crearResumenEstadisticoMaterial(
-        sheet, datosCompletos, metadatos, fila);
+    fila = _crearResumenEstadisticoMaterial(sheet, datosCompletos, metadatos, fila);
     fila += 2;
 
     // Análisis material dominante con gráfico
@@ -376,8 +355,7 @@ class ExcelReporteCompletoConsolidadoV2 {
     fila += 2;
 
     // Análisis resistencia estructural con gráfico
-    fila =
-        await _crearAnalisisResistenciaEstructural(sheet, datosCompletos, fila);
+    fila = await _crearAnalisisResistenciaEstructural(sheet, datosCompletos, fila);
   }
 
   // ============================================================================
@@ -403,8 +381,7 @@ class ExcelReporteCompletoConsolidadoV2 {
     fila += 2;
 
     // Resumen estadístico específico
-    fila = _crearResumenEstadisticoEstructural(
-        sheet, datosCompletos, metadatos, fila);
+    fila = _crearResumenEstadisticoEstructural(sheet, datosCompletos, metadatos, fila);
     fila += 2;
 
     // Análisis dirección X con gráfico
@@ -438,8 +415,7 @@ class ExcelReporteCompletoConsolidadoV2 {
     fila += 2;
 
     // Resumen estadístico específico
-    fila =
-        _crearResumenEstadisticoDanos(sheet, datosCompletos, metadatos, fila);
+    fila = _crearResumenEstadisticoDanos(sheet, datosCompletos, metadatos, fila);
     fila += 2;
 
     // Análisis daños geotécnicos con gráfico
@@ -499,8 +475,7 @@ class ExcelReporteCompletoConsolidadoV2 {
     fila++;
 
     // Fecha de generación
-    final String fechaGeneracion =
-        DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now());
+    final String fechaGeneracion = DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now());
     final xlsio.Range rangoFecha = sheet.getRangeByIndex(fila, 1, fila, 6);
     rangoFecha.merge();
     rangoFecha.setText('Generado el: $fechaGeneracion');
@@ -535,8 +510,7 @@ class ExcelReporteCompletoConsolidadoV2 {
     fila++;
 
     // Descripción
-    final xlsio.Range rangoDescripcion =
-        sheet.getRangeByIndex(fila, 1, fila, 6);
+    final xlsio.Range rangoDescripcion = sheet.getRangeByIndex(fila, 1, fila, 6);
     rangoDescripcion.merge();
     rangoDescripcion.setText(descripcion);
     rangoDescripcion.cellStyle.fontSize = NORMAL_FONT_SIZE.toDouble();
@@ -560,8 +534,7 @@ class ExcelReporteCompletoConsolidadoV2 {
   }
 
   /// Aplica estilo de sección con color personalizable
-  void _aplicarEstiloSeccion(
-      xlsio.Worksheet sheet, int fila, String titulo, String color) {
+  void _aplicarEstiloSeccion(xlsio.Worksheet sheet, int fila, String titulo, String color) {
     final xlsio.Range rango = sheet.getRangeByIndex(fila, 1, fila, 6);
     rango.merge();
     rango.setText(titulo);
@@ -630,15 +603,13 @@ class ExcelReporteCompletoConsolidadoV2 {
   /// Resumen estadístico general (reutiliza lógica de resumen_general_excel.dart)
   int _crearResumenEstadisticoGeneral(xlsio.Worksheet sheet,
       Map<String, dynamic> datos, Map<String, dynamic> metadatos, int fila) {
-    _aplicarEstiloSeccion(
-        sheet, fila, 'RESUMEN ESTADÍSTICO GENERAL', COLOR_RESUMEN_GENERAL);
+    _aplicarEstiloSeccion(sheet, fila, 'RESUMEN ESTADÍSTICO GENERAL', COLOR_RESUMEN_GENERAL);
     fila++;
 
     final int totalFormatos = metadatos['totalFormatos'] ?? 0;
-    final ciudadesCubiertas =
-        datos['resumenGeneral']?['distribucionGeografica']?['ciudades'].length ?? 0;
-    final periodosCubiertos =
-        datos['resumenGeneral']?['distribucionTemporal']?['meses']?.length ?? 0;
+    // CORREGIDO: Acceso a los datos de resumen general
+    final ciudadesCubiertas = datos['resumenGeneral']?['distribucionGeografica']?['ciudades']?.length ?? 0;
+    final periodosCubiertos = datos['resumenGeneral']?['distribucionTemporal']?['meses']?.length ?? 0;
 
     _crearTablaResumen(sheet, fila, [
       ['Total de inmuebles evaluados', '$totalFormatos', '100% de la muestra'],
@@ -652,15 +623,13 @@ class ExcelReporteCompletoConsolidadoV2 {
   /// Resumen estadístico uso y topografía
   int _crearResumenEstadisticoUsoTopografia(xlsio.Worksheet sheet,
       Map<String, dynamic> datos, Map<String, dynamic> metadatos, int fila) {
-    _aplicarEstiloSeccion(sheet, fila, 'RESUMEN ESTADÍSTICO USO Y TOPOGRAFÍA',
-        COLOR_USO_TOPOGRAFIA);
+    _aplicarEstiloSeccion(sheet, fila, 'RESUMEN ESTADÍSTICO USO Y TOPOGRAFÍA', COLOR_USO_TOPOGRAFIA);
     fila++;
 
     final int totalFormatos = metadatos['totalFormatos'] ?? 0;
-    final tiposUso =
-        _contarElementosConDatos(datos['resumenGeneral']?['usosVivienda']?['estadisticas'] ?? {});
-    final tiposTopografia =
-        _contarElementosConDatos(datos['resumenGeneral']?['topografia']?['estadisticas'] ?? {});
+    // CORREGIDO: Acceso a los datos de uso y topografía
+    final tiposUso = _contarElementosConDatos(datos['usoTopografia']?['usosVivienda']?['estadisticas'] ?? {});
+    final tiposTopografia = _contarElementosConDatos(datos['usoTopografia']?['topografia']?['estadisticas'] ?? {});
 
     _crearTablaResumen(sheet, fila, [
       ['Total inmuebles evaluados', '$totalFormatos', '100% de la muestra'],
@@ -674,22 +643,17 @@ class ExcelReporteCompletoConsolidadoV2 {
   /// Resumen estadístico material dominante
   int _crearResumenEstadisticoMaterial(xlsio.Worksheet sheet,
       Map<String, dynamic> datos, Map<String, dynamic> metadatos, int fila) {
-    _aplicarEstiloSeccion(sheet, fila, 'RESUMEN ESTADÍSTICO MATERIAL DOMINANTE',
-        COLOR_MATERIAL_DOMINANTE);
+    _aplicarEstiloSeccion(sheet, fila, 'RESUMEN ESTADÍSTICO MATERIAL DOMINANTE', COLOR_MATERIAL_DOMINANTE);
     fila++;
 
     final int totalFormatos = metadatos['totalFormatos'] ?? 0;
-    final tiposMaterial = _contarMateriales(datos['conteoMateriales'] ?? {});
-    final materialPredominante =
-        _encontrarPredominante(datos['conteoMateriales'] ?? {});
+    // CORREGIDO: Acceso a los datos de material dominante
+    final tiposMaterial = _contarMateriales(datos['materialDominante']?['conteoMateriales'] ?? {});
+    final materialPredominante = _encontrarPredominante(datos['materialDominante']?['conteoMateriales'] ?? {});
 
     _crearTablaResumen(sheet, fila, [
       ['Total inmuebles evaluados', '$totalFormatos', '100% de la muestra'],
-      [
-        'Tipos de material identificados',
-        '$tiposMaterial',
-        'Diversidad de materiales'
-      ],
+      ['Tipos de material identificados', '$tiposMaterial', 'Diversidad de materiales'],
       ['Material predominante', materialPredominante, 'Más frecuente'],
     ]);
 
@@ -699,26 +663,17 @@ class ExcelReporteCompletoConsolidadoV2 {
   /// Resumen estadístico sistema estructural
   int _crearResumenEstadisticoEstructural(xlsio.Worksheet sheet,
       Map<String, dynamic> datos, Map<String, dynamic> metadatos, int fila) {
-    _aplicarEstiloSeccion(sheet, fila,
-        'RESUMEN ESTADÍSTICO SISTEMA ESTRUCTURAL', COLOR_SISTEMA_ESTRUCTURAL);
+    _aplicarEstiloSeccion(sheet, fila, 'RESUMEN ESTADÍSTICO SISTEMA ESTRUCTURAL', COLOR_SISTEMA_ESTRUCTURAL);
     fila++;
 
     final int totalFormatos = metadatos['totalFormatos'] ?? 0;
-    final categoriasEstructurales =
-        _contarCategoriasEstructurales(datos['estadisticas'] ?? {});
+    // CORREGIDO: Acceso a los datos de sistema estructural
+    final categoriasEstructurales = _contarCategoriasEstructurales(datos['sistemaEstructural']?['estadisticas'] ?? {});
 
     _crearTablaResumen(sheet, fila, [
       ['Total inmuebles evaluados', '$totalFormatos', '100% de la muestra'],
-      [
-        'Categorías estructurales analizadas',
-        '$categoriasEstructurales',
-        'Elementos evaluados'
-      ],
-      [
-        'Cobertura de análisis',
-        '${(categoriasEstructurales / 6 * 100).toStringAsFixed(1)}%',
-        'Completitud estructural'
-      ],
+      ['Categorías estructurales analizadas', '$categoriasEstructurales', 'Elementos evaluados'],
+      ['Cobertura de análisis', '${(categoriasEstructurales / 6 * 100).toStringAsFixed(1)}%', 'Completitud estructural'],
     ]);
 
     return fila + 4;
@@ -727,27 +682,19 @@ class ExcelReporteCompletoConsolidadoV2 {
   /// Resumen estadístico evaluación de daños
   int _crearResumenEstadisticoDanos(xlsio.Worksheet sheet,
       Map<String, dynamic> datos, Map<String, dynamic> metadatos, int fila) {
-    _aplicarEstiloSeccion(sheet, fila,
-        'RESUMEN ESTADÍSTICO EVALUACIÓN DE DAÑOS', COLOR_EVALUACION_DANOS);
+    _aplicarEstiloSeccion(sheet, fila, 'RESUMEN ESTADÍSTICO EVALUACIÓN DE DAÑOS', COLOR_EVALUACION_DANOS);
     fila++;
 
     final int totalFormatos = metadatos['totalFormatos'] ?? 0;
-    final resumenRiesgos = datos['resumenRiesgos'] ?? {};
+    // CORREGIDO: Acceso a los datos de evaluación de daños
+    final resumenRiesgos = datos['evaluacionDanos']?['resumenRiesgos'] ?? {};
     final riesgoAlto = resumenRiesgos['riesgoAlto'] ?? 0;
     final riesgoMedio = resumenRiesgos['riesgoMedio'] ?? 0;
 
     _crearTablaResumen(sheet, fila, [
       ['Total inmuebles evaluados', '$totalFormatos', '100% de la muestra'],
-      [
-        'Inmuebles riesgo alto',
-        '$riesgoAlto',
-        '${totalFormatos > 0 ? (riesgoAlto / totalFormatos * 100).toStringAsFixed(1) : 0}% - Intervención inmediata'
-      ],
-      [
-        'Inmuebles riesgo medio',
-        '$riesgoMedio',
-        '${totalFormatos > 0 ? (riesgoMedio / totalFormatos * 100).toStringAsFixed(1) : 0}% - Refuerzo programado'
-      ],
+      ['Inmuebles riesgo alto', '$riesgoAlto', '${totalFormatos > 0 ? (riesgoAlto / totalFormatos * 100).toStringAsFixed(1) : 0}% - Intervención inmediata'],
+      ['Inmuebles riesgo medio', '$riesgoMedio', '${totalFormatos > 0 ? (riesgoMedio / totalFormatos * 100).toStringAsFixed(1) : 0}% - Refuerzo programado'],
     ]);
 
     return fila + 4;
@@ -762,27 +709,25 @@ class ExcelReporteCompletoConsolidadoV2 {
       Map<String, dynamic> datos, int filaInicial) async {
     int fila = filaInicial;
 
-    _aplicarEstiloSeccion(
-        sheet, fila, 'DISTRIBUCIÓN GEOGRÁFICA', COLOR_RESUMEN_GENERAL);
+    _aplicarEstiloSeccion(sheet, fila, 'DISTRIBUCIÓN GEOGRÁFICA', COLOR_RESUMEN_GENERAL);
     fila++;
 
-    if (!datos['resumenGeneral'].containsKey('distribucionGeografica') ||
+    // CORREGIDO: Verificar datos de distribución geográfica
+    if (!datos.containsKey('resumenGeneral') ||
+        !datos['resumenGeneral'].containsKey('distribucionGeografica') ||
         datos['resumenGeneral']['distribucionGeografica']['ciudades'] == null) {
-      sheet
-          .getRangeByIndex(fila, 1)
-          .setText('No hay datos de distribución geográfica disponibles');
+      sheet.getRangeByIndex(fila, 1).setText('No hay datos de distribución geográfica disponibles');
       return fila + 1;
     }
 
-    Map<String, int> ciudades =
-        Map<String, int>.from(datos['resumenGeneral']['distribucionGeografica']['ciudades']);
+    // CORREGIDO: Acceso a datos de ciudades
+    Map<String, int> ciudades = Map<String, int>.from(datos['resumenGeneral']['distribucionGeografica']['ciudades']);
     List<MapEntry<String, int>> ciudadesOrdenadas = ciudades.entries
         .where((entry) => entry.value > 0)
         .toList()
       ..sort((a, b) => b.value.compareTo(a.value));
 
-    final posicionesGraficos =
-        _crearTablaCiudades(sheet, fila, ciudadesOrdenadas);
+    final posicionesGraficos = _crearTablaCiudades(sheet, fila, ciudadesOrdenadas);
     fila = posicionesGraficos['filaFinal']! + 2;
 
     if (ciudadesOrdenadas.isNotEmpty) {
@@ -798,31 +743,29 @@ class ExcelReporteCompletoConsolidadoV2 {
       Map<String, dynamic> datos, int filaInicial) async {
     int fila = filaInicial;
 
-    _aplicarEstiloSeccion(
-        sheet, fila, 'DISTRIBUCIÓN TEMPORAL', COLOR_RESUMEN_GENERAL);
+    _aplicarEstiloSeccion(sheet, fila, 'DISTRIBUCIÓN TEMPORAL', COLOR_RESUMEN_GENERAL);
     fila++;
 
-    if (!datos['resumenGeneral'].containsKey('distribucionTemporal') ||
+    // CORREGIDO: Verificar datos de distribución temporal
+    if (!datos.containsKey('resumenGeneral') ||
+        !datos['resumenGeneral'].containsKey('distribucionTemporal') ||
         datos['resumenGeneral']['distribucionTemporal']['meses'] == null) {
-      sheet
-          .getRangeByIndex(fila, 1)
-          .setText('No hay datos de distribución temporal disponibles');
+      sheet.getRangeByIndex(fila, 1).setText('No hay datos de distribución temporal disponibles');
       return fila + 1;
     }
 
-    Map<String, int> meses =
-        Map<String, int>.from(datos['distribucionTemporal']['meses']);
-    List<MapEntry<String, int>> mesesOrdenados =
-        meses.entries.where((entry) => entry.value > 0).toList()
-          ..sort((a, b) {
-            try {
-              final fechaA = DateFormat('MM/yyyy').parse(a.key);
-              final fechaB = DateFormat('MM/yyyy').parse(b.key);
-              return fechaA.compareTo(fechaB);
-            } catch (e) {
-              return a.key.compareTo(b.key);
-            }
-          });
+    // CORREGIDO: Acceso a datos de meses
+    Map<String, int> meses = Map<String, int>.from(datos['resumenGeneral']['distribucionTemporal']['meses']);
+    List<MapEntry<String, int>> mesesOrdenados = meses.entries.where((entry) => entry.value > 0).toList()
+      ..sort((a, b) {
+        try {
+          final fechaA = DateFormat('MM/yyyy').parse(a.key);
+          final fechaB = DateFormat('MM/yyyy').parse(b.key);
+          return fechaA.compareTo(fechaB);
+        } catch (e) {
+          return a.key.compareTo(b.key);
+        }
+      });
 
     final posicionesGraficos = _crearTablaMeses(sheet, fila, mesesOrdenados);
     fila = posicionesGraficos['filaFinal']! + 2;
@@ -843,16 +786,16 @@ class ExcelReporteCompletoConsolidadoV2 {
     _aplicarEstiloSeccion(sheet, fila, 'USO DE VIVIENDA', COLOR_USO_TOPOGRAFIA);
     fila++;
 
-    if (!datos['resumenGeneral'].containsKey('usosVivienda') ||
-        datos['resumenGeneral']['usosVivienda']['estadisticas'] == null) {
-      sheet
-          .getRangeByIndex(fila, 1)
-          .setText('No hay datos de uso de vivienda disponibles');
+    // CORREGIDO: Verificar datos de uso de vivienda
+    if (!datos.containsKey('usoTopografia') ||
+        !datos['usoTopografia'].containsKey('usosVivienda') ||
+        datos['usoTopografia']['usosVivienda']['estadisticas'] == null) {
+      sheet.getRangeByIndex(fila, 1).setText('No hay datos de uso de vivienda disponibles');
       return fila + 1;
     }
 
-    Map<String, dynamic> estadisticasUsos =
-        datos['resumenGeneral']['usosVivienda']['estadisticas'];
+    // CORREGIDO: Acceso a estadísticas de usos
+    Map<String, dynamic> estadisticasUsos = datos['usoTopografia']['usosVivienda']['estadisticas'];
     List<MapEntry<String, dynamic>> usosOrdenados = estadisticasUsos.entries
         .where((entry) => entry.value['conteo'] > 0)
         .toList()
@@ -877,24 +820,22 @@ class ExcelReporteCompletoConsolidadoV2 {
     _aplicarEstiloSeccion(sheet, fila, 'TOPOGRAFÍA', COLOR_USO_TOPOGRAFIA);
     fila++;
 
-    if (!datos['resumenGeneral'].containsKey('topografia') ||
-        datos['resumenGeneral']['topografia']['estadisticas'] == null) {
-      sheet
-          .getRangeByIndex(fila, 1)
-          .setText('No hay datos de topografía disponibles');
+    // CORREGIDO: Verificar datos de topografía
+    if (!datos.containsKey('usoTopografia') ||
+        !datos['usoTopografia'].containsKey('topografia') ||
+        datos['usoTopografia']['topografia']['estadisticas'] == null) {
+      sheet.getRangeByIndex(fila, 1).setText('No hay datos de topografía disponibles');
       return fila + 1;
     }
 
-    Map<String, dynamic> estadisticasTopografia =
-        datos['resumenGeneral']['topografia']['estadisticas'];
-    List<MapEntry<String, dynamic>> topografiaOrdenada = estadisticasTopografia
-        .entries
+    // CORREGIDO: Acceso a estadísticas de topografía
+    Map<String, dynamic> estadisticasTopografia = datos['usoTopografia']['topografia']['estadisticas'];
+    List<MapEntry<String, dynamic>> topografiaOrdenada = estadisticasTopografia.entries
         .where((entry) => entry.value['conteo'] > 0)
         .toList()
       ..sort((a, b) => b.value['conteo'].compareTo(a.value['conteo']));
 
-    final posicionesGraficos =
-        _crearTablaTopografia(sheet, fila, topografiaOrdenada);
+    final posicionesGraficos = _crearTablaTopografia(sheet, fila, topografiaOrdenada);
     fila = posicionesGraficos['filaFinal']! + 2;
 
     if (topografiaOrdenada.isNotEmpty) {
@@ -910,27 +851,25 @@ class ExcelReporteCompletoConsolidadoV2 {
       Map<String, dynamic> datos, int filaInicial) async {
     int fila = filaInicial;
 
-    _aplicarEstiloSeccion(
-        sheet, fila, 'MATERIAL DOMINANTE', COLOR_MATERIAL_DOMINANTE);
+    _aplicarEstiloSeccion(sheet, fila, 'MATERIAL DOMINANTE', COLOR_MATERIAL_DOMINANTE);
     fila++;
 
-    if (!datos.containsKey('conteoMateriales') ||
-        datos['conteoMateriales'].isEmpty) {
-      sheet
-          .getRangeByIndex(fila, 1)
-          .setText('No hay datos de material dominante disponibles');
+    // CORREGIDO: Verificar datos de material dominante
+    if (!datos.containsKey('materialDominante') ||
+        !datos['materialDominante'].containsKey('conteoMateriales') ||
+        datos['materialDominante']['conteoMateriales'].isEmpty) {
+      sheet.getRangeByIndex(fila, 1).setText('No hay datos de material dominante disponibles');
       return fila + 1;
     }
 
-    Map<String, int> conteoMateriales =
-        Map<String, int>.from(datos['conteoMateriales']);
+    // CORREGIDO: Acceso a conteo de materiales
+    Map<String, int> conteoMateriales = Map<String, int>.from(datos['materialDominante']['conteoMateriales']);
     List<MapEntry<String, int>> materialesOrdenados = conteoMateriales.entries
         .where((entry) => entry.value > 0)
         .toList()
       ..sort((a, b) => b.value.compareTo(a.value));
 
-    final posicionesGraficos =
-        _crearTablaMateriales(sheet, fila, materialesOrdenados);
+    final posicionesGraficos = _crearTablaMateriales(sheet, fila, materialesOrdenados);
     fila = posicionesGraficos['filaFinal']! + 2;
 
     if (materialesOrdenados.isNotEmpty) {
@@ -946,8 +885,7 @@ class ExcelReporteCompletoConsolidadoV2 {
       Map<String, dynamic> datos, int filaInicial) async {
     int fila = filaInicial;
 
-    _aplicarEstiloSeccion(
-        sheet, fila, 'RESISTENCIA ESTRUCTURAL', COLOR_MATERIAL_DOMINANTE);
+    _aplicarEstiloSeccion(sheet, fila, 'RESISTENCIA ESTRUCTURAL', COLOR_MATERIAL_DOMINANTE);
     fila++;
 
     // Clasificar materiales por resistencia
@@ -958,8 +896,8 @@ class ExcelReporteCompletoConsolidadoV2 {
       'Resistencia Variable': ['Madera/Lámina/Otros'],
     };
 
-    Map<String, int> conteoMateriales =
-        Map<String, int>.from(datos['conteoMateriales'] ?? {});
+    // CORREGIDO: Acceso a conteo de materiales
+    Map<String, int> conteoMateriales = Map<String, int>.from(datos['materialDominante']?['conteoMateriales'] ?? {});
     Map<String, int> resistenciaTotales = {};
 
     for (var entry in clasificacionResistencia.entries) {
@@ -972,8 +910,7 @@ class ExcelReporteCompletoConsolidadoV2 {
       }
     }
 
-    final posicionesGraficos =
-        _crearTablaResistencia(sheet, fila, resistenciaTotales);
+    final posicionesGraficos = _crearTablaResistencia(sheet, fila, resistenciaTotales);
     fila = posicionesGraficos['filaFinal']! + 2;
 
     if (resistenciaTotales.isNotEmpty) {
@@ -987,22 +924,19 @@ class ExcelReporteCompletoConsolidadoV2 {
   /// Análisis dirección X con gráfico
   Future<int> _crearAnalisisDireccionX(xlsio.Worksheet sheet,
       Map<String, dynamic> datos, int filaInicial) async {
-    return await _crearAnalisisEstructural(
-        sheet, datos, filaInicial, 'direccionX', 'DIRECCIÓN X');
+    return await _crearAnalisisEstructural(sheet, datos, filaInicial, 'direccionX', 'DIRECCIÓN X');
   }
 
   /// Análisis dirección Y con gráfico
   Future<int> _crearAnalisisDireccionY(xlsio.Worksheet sheet,
       Map<String, dynamic> datos, int filaInicial) async {
-    return await _crearAnalisisEstructural(
-        sheet, datos, filaInicial, 'direccionY', 'DIRECCIÓN Y');
+    return await _crearAnalisisEstructural(sheet, datos, filaInicial, 'direccionY', 'DIRECCIÓN Y');
   }
 
   /// Análisis muros de mampostería con gráfico
   Future<int> _crearAnalisisMurosMamposteria(xlsio.Worksheet sheet,
       Map<String, dynamic> datos, int filaInicial) async {
-    return await _crearAnalisisEstructural(
-        sheet, datos, filaInicial, 'murosMamposteria', 'MUROS DE MAMPOSTERÍA');
+    return await _crearAnalisisEstructural(sheet, datos, filaInicial, 'murosMamposteria', 'MUROS DE MAMPOSTERÍA');
   }
 
   /// Método genérico para análisis estructural
@@ -1017,24 +951,22 @@ class ExcelReporteCompletoConsolidadoV2 {
     _aplicarEstiloSeccion(sheet, fila, titulo, COLOR_SISTEMA_ESTRUCTURAL);
     fila++;
 
-    if (!datos.containsKey('estadisticas') ||
-        !datos['estadisticas'].containsKey(categoria)) {
-      sheet
-          .getRangeByIndex(fila, 1)
-          .setText('No hay datos de $titulo disponibles');
+    // CORREGIDO: Verificar datos de sistema estructural
+    if (!datos.containsKey('sistemaEstructural') ||
+        !datos['sistemaEstructural'].containsKey('estadisticas') ||
+        !datos['sistemaEstructural']['estadisticas'].containsKey(categoria)) {
+      sheet.getRangeByIndex(fila, 1).setText('No hay datos de $titulo disponibles');
       return fila + 1;
     }
 
-    Map<String, dynamic> estadisticasCategoria =
-        datos['estadisticas'][categoria];
-    List<MapEntry<String, dynamic>> elementosOrdenados = estadisticasCategoria
-        .entries
+    // CORREGIDO: Acceso a estadísticas de categoría específica
+    Map<String, dynamic> estadisticasCategoria = datos['sistemaEstructural']['estadisticas'][categoria];
+    List<MapEntry<String, dynamic>> elementosOrdenados = estadisticasCategoria.entries
         .where((entry) => entry.value['conteo'] > 0)
         .toList()
       ..sort((a, b) => b.value['conteo'].compareTo(a.value['conteo']));
 
-    final posicionesGraficos = _crearTablaElementosEstructurales(
-        sheet, fila, elementosOrdenados, titulo);
+    final posicionesGraficos = _crearTablaElementosEstructurales(sheet, fila, elementosOrdenados, titulo);
     fila = posicionesGraficos['filaFinal']! + 2;
 
     if (elementosOrdenados.isNotEmpty) {
@@ -1050,22 +982,20 @@ class ExcelReporteCompletoConsolidadoV2 {
       Map<String, dynamic> datos, int filaInicial) async {
     int fila = filaInicial;
 
-    _aplicarEstiloSeccion(
-        sheet, fila, 'DAÑOS GEOTÉCNICOS', COLOR_EVALUACION_DANOS);
+    _aplicarEstiloSeccion(sheet, fila, 'DAÑOS GEOTÉCNICOS', COLOR_EVALUACION_DANOS);
     fila++;
 
-    if (!datos.containsKey('estadisticas') ||
-        !datos['estadisticas'].containsKey('geotecnicos')) {
-      sheet
-          .getRangeByIndex(fila, 1)
-          .setText('No hay datos de daños geotécnicos disponibles');
+    // CORREGIDO: Verificar datos de daños geotécnicos
+    if (!datos.containsKey('evaluacionDanos') ||
+        !datos['evaluacionDanos'].containsKey('estadisticas') ||
+        !datos['evaluacionDanos']['estadisticas'].containsKey('geotecnicos')) {
+      sheet.getRangeByIndex(fila, 1).setText('No hay datos de daños geotécnicos disponibles');
       return fila + 1;
     }
 
-    Map<String, dynamic> estadisticasGeotecnicos =
-        datos['estadisticas']['geotecnicos'];
-    List<MapEntry<String, dynamic>> danosOrdenados = estadisticasGeotecnicos
-        .entries
+    // CORREGIDO: Acceso a estadísticas geotécnicas
+    Map<String, dynamic> estadisticasGeotecnicos = datos['evaluacionDanos']['estadisticas']['geotecnicos'];
+    List<MapEntry<String, dynamic>> danosOrdenados = estadisticasGeotecnicos.entries
         .where((entry) => entry.value['conteo'] > 0)
         .toList()
       ..sort((a, b) => b.value['conteo'].compareTo(a.value['conteo']));
@@ -1089,29 +1019,22 @@ class ExcelReporteCompletoConsolidadoV2 {
     _aplicarEstiloSeccion(sheet, fila, 'NIVEL DE DAÑO', COLOR_EVALUACION_DANOS);
     fila++;
 
-    if (!datos.containsKey('estadisticas') ||
-        !datos['estadisticas'].containsKey('nivelDano')) {
-      sheet
-          .getRangeByIndex(fila, 1)
-          .setText('No hay datos de nivel de daño disponibles');
+    // CORREGIDO: Verificar datos de nivel de daño
+    if (!datos.containsKey('evaluacionDanos') ||
+        !datos['evaluacionDanos'].containsKey('estadisticas') ||
+        !datos['evaluacionDanos']['estadisticas'].containsKey('nivelDano')) {
+      sheet.getRangeByIndex(fila, 1).setText('No hay datos de nivel de daño disponibles');
       return fila + 1;
     }
 
-    Map<String, dynamic> estadisticasNivelDano =
-        datos['estadisticas']['nivelDano'];
-    List<MapEntry<String, dynamic>> nivelesOrdenados = estadisticasNivelDano
-        .entries
+    // CORREGIDO: Acceso a estadísticas de nivel de daño
+    Map<String, dynamic> estadisticasNivelDano = datos['evaluacionDanos']['estadisticas']['nivelDano'];
+    List<MapEntry<String, dynamic>> nivelesOrdenados = estadisticasNivelDano.entries
         .where((entry) => entry.value['conteo'] > 0)
         .toList();
 
     // Ordenar por severidad
-    final ordenSeveridad = [
-      'Colapso total',
-      'Daño severo',
-      'Daño medio',
-      'Daño ligero',
-      'Sin daño aparente'
-    ];
+    final ordenSeveridad = ['Colapso total', 'Daño severo', 'Daño medio', 'Daño ligero', 'Sin daño aparente'];
     nivelesOrdenados.sort((a, b) {
       int indexA = ordenSeveridad.indexOf(a.key);
       int indexB = ordenSeveridad.indexOf(b.key);
@@ -1120,8 +1043,7 @@ class ExcelReporteCompletoConsolidadoV2 {
       return indexA.compareTo(indexB);
     });
 
-    final posicionesGraficos =
-        _crearTablaNivelesDano(sheet, fila, nivelesOrdenados);
+    final posicionesGraficos = _crearTablaNivelesDano(sheet, fila, nivelesOrdenados);
     fila = posicionesGraficos['filaFinal']! + 2;
 
     if (nivelesOrdenados.isNotEmpty) {
@@ -1137,8 +1059,7 @@ class ExcelReporteCompletoConsolidadoV2 {
   // ============================================================================
 
   /// Crea tabla de resumen genérica
-  void _crearTablaResumen(
-      xlsio.Worksheet sheet, int filaInicial, List<List<String>> datos) {
+  void _crearTablaResumen(xlsio.Worksheet sheet, int filaInicial, List<List<String>> datos) {
     int fila = filaInicial;
 
     // Encabezados
@@ -1192,9 +1113,7 @@ class ExcelReporteCompletoConsolidadoV2 {
       double porcentaje = total > 0 ? (entry.value / total) * 100 : 0;
       sheet.getRangeByIndex(fila, 1).setText(entry.key);
       sheet.getRangeByIndex(fila, 2).setNumber(entry.value.toDouble());
-      sheet
-          .getRangeByIndex(fila, 3)
-          .setText('${porcentaje.toStringAsFixed(1)}%');
+      sheet.getRangeByIndex(fila, 3).setText('${porcentaje.toStringAsFixed(1)}%');
       fila++;
     }
 
@@ -1207,6 +1126,7 @@ class ExcelReporteCompletoConsolidadoV2 {
     };
   }
 
+  /// Método genérico para crear tablas con datos que tienen conteo
   /// Método genérico para crear tablas con datos que tienen conteo
   Map<String, int> _crearTablaConConteo(xlsio.Worksheet sheet, int filaInicial,
       List<MapEntry<String, dynamic>> datos, String titulo, String color) {
@@ -1327,27 +1247,27 @@ class ExcelReporteCompletoConsolidadoV2 {
     final List<List<String>> resumenSecciones = [
       [
         'Resumen General',
-        '${datosCompletos['distribucionGeografica']?['ciudades']?.length ?? 0} ciudades',
+        '${datosCompletos['resumenGeneral']?['distribucionGeografica']?['ciudades']?.length ?? 0} ciudades',
         'Cobertura geográfica y temporal de evaluaciones'
       ],
       [
         'Uso y Topografía',
-        '${_contarElementosConDatos(datosCompletos['usosVivienda']?['estadisticas'] ?? {})} usos identificados',
+        '${_contarElementosConDatos(datosCompletos['usoTopografia']?['usosVivienda']?['estadisticas'] ?? {})} usos identificados',
         'Patrones de uso de vivienda y características del terreno'
       ],
       [
         'Material Dominante',
-        '${_encontrarPredominante(datosCompletos['conteoMateriales'] ?? {})}',
+        '${_encontrarPredominante(datosCompletos['materialDominante']?['conteoMateriales'] ?? {})}',
         'Material de construcción más frecuente'
       ],
       [
         'Sistema Estructural',
-        '${_contarCategoriasEstructurales(datosCompletos['estadisticas'] ?? {})} categorías analizadas',
+        '${_contarCategoriasEstructurales(datosCompletos['sistemaEstructural']?['estadisticas'] ?? {})} categorías analizadas',
         'Elementos estructurales y configuraciones'
       ],
       [
         'Evaluación de Daños',
-        '${datosCompletos['resumenRiesgos']?['riesgoAlto'] ?? 0} inmuebles riesgo alto',
+        '${datosCompletos['evaluacionDanos']?['resumenRiesgos']?['riesgoAlto'] ?? 0} inmuebles riesgo alto',
         'Análisis de riesgos y daños estructurales'
       ],
     ];
@@ -1433,7 +1353,58 @@ class ExcelReporteCompletoConsolidadoV2 {
   // ============================================================================
   // MÉTODOS AUXILIARES DE CÁLCULO Y ANÁLISIS
   // ============================================================================
+  /// Guarda el archivo Excel en el sistema - Idéntico al archivo base
+  Future<String> _guardarArchivo(
+    xlsio.Workbook workbook,
+    String titulo,
+    Directory? directorio,
+  ) async {
+    try {
+      // Obtener directorio de destino
+      final directorioFinal =
+          directorio ?? await _fileService.obtenerDirectorioDescargas();
 
+      // Crear subdirectorio para reportes Excel
+      final directorioReportes =
+          Directory('${directorioFinal.path}/cenapp/reportes_excel');
+      if (!await directorioReportes.exists()) {
+        await directorioReportes.create(recursive: true);
+      }
+
+      // Generar nombre de archivo único
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final nombreLimpio = _limpiarNombreArchivo(titulo);
+      final nombreArchivo = '${nombreLimpio}_${timestamp}.xlsx';
+      final rutaCompleta = '${directorioReportes.path}/$nombreArchivo';
+
+      // Guardar el workbook
+      final List<int> bytes = workbook.saveAsStream();
+      final File archivo = File(rutaCompleta);
+      await archivo.writeAsBytes(bytes);
+
+      // Verificar que el archivo se guardó correctamente
+      if (await archivo.exists() && await archivo.length() > 0) {
+        print(
+            '✅ [EXCEL-RESUMEN-V2] Archivo guardado: $rutaCompleta (${await archivo.length()} bytes)');
+        return rutaCompleta;
+      } else {
+        throw Exception('El archivo no se guardó correctamente');
+      }
+    } catch (e) {
+      print('❌ [EXCEL-RESUMEN-V2] Error al guardar archivo: $e');
+      throw Exception('Error al guardar archivo Excel: $e');
+    }
+  }
+
+  /// Limpia el nombre del archivo para el sistema - Idéntico al archivo base
+  String _limpiarNombreArchivo(String nombre) {
+    return nombre
+        .toLowerCase()
+        .replaceAll(' ', '_')
+        .replaceAll(RegExp(r'[^a-z0-9_]'), '')
+        .replaceAll(RegExp(r'_+'), '_')
+        .trim();
+  }
   /// Genera conclusiones automáticas basadas en los datos
   List<String> _generarConclusionesAutomaticas(
       Map<String, dynamic> datosCompletos, Map<String, dynamic> metadatos) {
@@ -1442,14 +1413,14 @@ class ExcelReporteCompletoConsolidadoV2 {
 
     // Conclusión sobre cobertura
     final ciudadesCubiertas =
-        datosCompletos['distribucionGeografica']?['ciudades']?.length ?? 0;
+        datosCompletos['resumenGeneral']?['distribucionGeografica']?['ciudades']?.length ?? 0;
     conclusiones.add(
         'Se evaluaron $totalFormatos inmuebles distribuidos en $ciudadesCubiertas ciudades, '
         'proporcionando una cobertura geográfica ${ciudadesCubiertas > 3 ? 'amplia' : 'focalizada'} del área de estudio.');
 
     // Conclusión sobre uso predominante
     final usoPredominante = _encontrarPredominante(
-        datosCompletos['usosVivienda']?['estadisticas'] ?? {});
+        datosCompletos['usoTopografia']?['usosVivienda']?['estadisticas'] ?? {});
     if (usoPredominante != 'No determinado') {
       conclusiones.add(
           'El uso predominante identificado es "$usoPredominante", '
@@ -1458,7 +1429,7 @@ class ExcelReporteCompletoConsolidadoV2 {
 
     // Conclusión sobre material dominante
     final materialPredominante =
-        _encontrarPredominante(datosCompletos['conteoMateriales'] ?? {});
+        _encontrarPredominante(datosCompletos['materialDominante']?['conteoMateriales'] ?? {});
     if (materialPredominante != 'No determinado') {
       String nivelResistencia =
           _determinarResistenciaMaterial(materialPredominante);
@@ -1468,7 +1439,7 @@ class ExcelReporteCompletoConsolidadoV2 {
     }
 
     // Conclusión sobre riesgos
-    final resumenRiesgos = datosCompletos['resumenRiesgos'] ?? {};
+    final resumenRiesgos = datosCompletos['evaluacionDanos']?['resumenRiesgos'] ?? {};
     final riesgoAlto = resumenRiesgos['riesgoAlto'] ?? 0;
     final riesgoMedio = resumenRiesgos['riesgoMedio'] ?? 0;
 
@@ -1493,6 +1464,18 @@ class ExcelReporteCompletoConsolidadoV2 {
 
     return conclusiones;
   }
+
+  
+
+  
+
+
+ 
+ 
+
+  // ============================================================================
+  // MÉTODOS AUXILIARES DE CÁLCULO (CORREGIDOS)
+  // ============================================================================
 
   /// Encuentra el elemento predominante en un mapa de estadísticas
   String _encontrarPredominante(Map<String, dynamic> estadisticas) {
@@ -1525,7 +1508,7 @@ class ExcelReporteCompletoConsolidadoV2 {
         .length;
   }
 
-  /// Cuenta categorías estructurales con datos
+  /// Cuenta categorías estructurales con datos (CORREGIDO)
   int _contarCategoriasEstructurales(Map<String, dynamic> estadisticas) {
     final categorias = [
       'direccionX',
@@ -1565,93 +1548,19 @@ class ExcelReporteCompletoConsolidadoV2 {
   }
 
   // ============================================================================
-  // MÉTODO DE GUARDADO OPTIMIZADO
+  // MÉTODOS RESUMEN ESTADÍSTICO ESPECÍFICOS (CORREGIDOS)
   // ============================================================================
 
-  /// Guarda el archivo Excel completo con nombre descriptivo
-  Future<String> _guardarArchivo(
-    xlsio.Workbook workbook,
-    String titulo,
-    Directory? directorio,
-  ) async {
-    try {
-      // Obtener directorio de destino
-      final directorioFinal =
-          directorio ?? await _fileService.obtenerDirectorioDescargas();
-
-      // Crear subdirectorio específico para reportes completos
-      final directorioReportes =
-          Directory('${directorioFinal.path}/cenapp/reportes_completos');
-      if (!await directorioReportes.exists()) {
-        await directorioReportes.create(recursive: true);
-      }
-
-      // Generar nombre de archivo descriptivo y único
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final fechaFormateada =
-          DateFormat('yyyyMMdd_HHmm').format(DateTime.now());
-      final nombreLimpio = _limpiarNombreArchivo(titulo);
-      final nombreArchivo =
-          'reporte_completo_${nombreLimpio}_${fechaFormateada}_${timestamp}.xlsx';
-      final rutaCompleta = '${directorioReportes.path}/$nombreArchivo';
-
-      // Guardar el workbook
-      final List<int> bytes = workbook.saveAsStream();
-      final File archivo = File(rutaCompleta);
-      await archivo.writeAsBytes(bytes);
-
-      // Verificar que el archivo se guardó correctamente
-      if (await archivo.exists() && await archivo.length() > 0) {
-        print(
-            '✅ [EXCEL-COMPLETO-V2] Archivo guardado: $rutaCompleta (${await archivo.length()} bytes)');
-
-        return rutaCompleta;
-      } else {
-        throw Exception('El archivo no se guardó correctamente');
-      }
-    } catch (e) {
-      print('❌ [EXCEL-COMPLETO-V2] Error al guardar archivo: $e');
-      throw Exception('Error al guardar archivo Excel completo: $e');
-    }
-  }
-
-  /// Limpia el nombre del archivo para compatibilidad del sistema
-  String _limpiarNombreArchivo(String nombre) {
-    return nombre
-        .toLowerCase()
-        .replaceAll(' ', '_')
-        .replaceAll(RegExp(r'[^a-z0-9_]'), '')
-        .replaceAll(RegExp(r'_+'), '_')
-        .trim();
-  }
-
-  // ============================================================================
-  // MÉTODOS DE VALIDACIÓN Y OPTIMIZACIÓN
-  // ============================================================================
-
-  /// Valida que los datos estén completos antes de procesar
-  bool _validarDatosCompletos(Map<String, dynamic> datosCompletos) {
-    // Verificar estructura básica mínima
-    final seccionesRequeridas = [
-      'distribucionGeografica',
-      'usosVivienda',
-      'conteoMateriales',
-      'estadisticas',
-      'resumenRiesgos'
-    ];
-
-    for (String seccion in seccionesRequeridas) {
-      if (!datosCompletos.containsKey(seccion)) {
-        print('⚠️ [EXCEL-COMPLETO-V2] Falta sección requerida: $seccion');
-        return false;
-      }
-    }
-
-    print('✅ [EXCEL-COMPLETO-V2] Validación de datos completa exitosa');
-    return true;
-  }
 
   
+  
+
+  
+ 
+
+  // ============================================================================
+  // MÉTODOS PLACEHOLDER PARA TABLAS ESPECÍFICAS
+  // ============================================================================
 
   /// Crea tabla de meses
   Map<String, int> _crearTablaMeses(xlsio.Worksheet sheet, int filaInicial,
@@ -1773,4 +1682,4 @@ class ExcelReporteCompletoConsolidadoV2 {
       'columnaGraficaFin': 2,
     };
   }
-}
+  }

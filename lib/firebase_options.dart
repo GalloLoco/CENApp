@@ -51,19 +51,19 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyAMCD-GbidLrlHYFa2ZQKsxa3d5HXDUcC0',
-    appId: '1:655184602436:android:4a42c80adbd6eb471d2311',
-    messagingSenderId: '655184602436',
-    projectId: 'cenapp-63a56',
-    storageBucket: 'cenapp-63a56.firebasestorage.app',
+    apiKey: 'AIzaSyBf_20EEadMADwQXUfADLHmjAQ5VsXDQng',
+    appId: '1:223900357323:android:242d8262becff918a2814e',
+    messagingSenderId: '223900357323',
+    projectId: 'geosismicaapp',
+    storageBucket: 'geosismicaapp.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyD8rGztb_0PxH1qIfIkPqJNG6ziikjJAiU',
-    appId: '1:655184602436:ios:6d3f9ebc043af2501d2311',
-    messagingSenderId: '655184602436',
-    projectId: 'cenapp-63a56',
-    storageBucket: 'cenapp-63a56.firebasestorage.app',
+    apiKey: 'AIzaSyB7prRL1Tfpu-Hcrt7od_R9zoPSCu76RKI',
+    appId: '1:223900357323:ios:7cfc0d11473beb0ca2814e',
+    messagingSenderId: '223900357323',
+    projectId: 'geosismicaapp',
+    storageBucket: 'geosismicaapp.firebasestorage.app',
     iosBundleId: 'com.example.cenapp',
   );
 

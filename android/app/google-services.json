@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "655184602436",
-    "project_id": "cenapp-63a56",
-    "storage_bucket": "cenapp-63a56.firebasestorage.app"
+    "project_number": "223900357323",
+    "project_id": "geosismicaapp",
+    "storage_bucket": "geosismicaapp.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:655184602436:android:4a42c80adbd6eb471d2311",
+        "mobilesdk_app_id": "1:223900357323:android:242d8262becff918a2814e",
         "android_client_info": {
           "package_name": "com.example.cenapp"
         }
@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyAMCD-GbidLrlHYFa2ZQKsxa3d5HXDUcC0"
+          "current_key": "AIzaSyBf_20EEadMADwQXUfADLHmjAQ5VsXDQng"
         }
       ],
       "services": {

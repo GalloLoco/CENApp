@@ -24,7 +24,6 @@ class FormatoEvaluacion {
     this.gradoUsuario, // Parámetro opcional con valor por defecto
   });
 
-  
   // Actualizar el método toJson para incluir el nuevo campo
   Map<String, dynamic> toJson() {
     return {
@@ -41,7 +40,7 @@ class FormatoEvaluacion {
   }
 
   /// Crea un objeto desde un mapa deserializado
-   // Actualizar el método factory para incluir el nuevo campo
+  // Actualizar el método factory para incluir el nuevo campo
   factory FormatoEvaluacion.fromJson(Map<String, dynamic> json) {
     return FormatoEvaluacion(
       id: json['id'],
@@ -49,13 +48,15 @@ class FormatoEvaluacion {
       fechaModificacion: DateTime.parse(json['fechaModificacion']),
       usuarioCreador: json['usuarioCreador'],
       gradoUsuario: json['gradoUsuario'], // Cargar el grado desde el JSON
-      informacionGeneral: InformacionGeneral.fromJson(json['informacionGeneral']),
-      sistemaEstructural: SistemaEstructural.fromJson(json['sistemaEstructural']),
+      informacionGeneral:
+          InformacionGeneral.fromJson(json['informacionGeneral']),
+      sistemaEstructural:
+          SistemaEstructural.fromJson(json['sistemaEstructural']),
       evaluacionDanos: EvaluacionDanos.fromJson(json['evaluacionDanos']),
-      ubicacionGeorreferencial: UbicacionGeorreferencial.fromJson(json['ubicacionGeorreferencial']),
+      ubicacionGeorreferencial:
+          UbicacionGeorreferencial.fromJson(json['ubicacionGeorreferencial']),
     );
   }
-
 
   /// Serializa el objeto a una cadena JSON
   String toJsonString() {
@@ -147,8 +148,8 @@ class InformacionGeneral {
       telefono: json['telefono'],
       usos: Map<String, bool>.from(json['usos']),
       otroUso: json['otroUso'],
-      frenteX: json['frenteX'],
-      frenteY: json['frenteY'],
+      frenteX: json['frenteX'].toDouble(),
+      frenteY: json['frenteY'].toDouble(),
       niveles: json['niveles'],
       ocupantes: json['ocupantes'],
       sotanos: json['sotanos'],
@@ -212,8 +213,9 @@ class SistemaEstructural {
       cimentacion: Map<String, bool>.from(json['cimentacion']),
       vulnerabilidad: Map<String, bool>.from(json['vulnerabilidad']),
       posicionManzana: Map<String, bool>.from(json['posicionManzana']),
-      otrasCaracteristicas: Map<String, bool>.from(json['otrasCaracteristicas']),
-      separacionEdificios: json['separacionEdificios'],
+      otrasCaracteristicas:
+          Map<String, bool>.from(json['otrasCaracteristicas']),
+      separacionEdificios: json['separacionEdificios'].toDouble(),
     );
   }
 }
@@ -223,12 +225,12 @@ class EvaluacionDanos {
   final Map<String, bool> geotecnicos;
   final double inclinacionEdificio;
   final Map<String, bool> conexionesFalla;
-  
+
   // Nuevos campos para Losas
   final bool losasColapso;
   final double losasGrietasMax;
   final double losasFlechaMax;
-  
+
   final Map<String, Map<String, bool>> danosEstructura;
   final Map<String, Map<String, double>> mediciones;
   final int columnasConDanoSevero;
@@ -240,12 +242,11 @@ class EvaluacionDanos {
     required this.geotecnicos,
     required this.inclinacionEdificio,
     required this.conexionesFalla,
-    
+
     // Nuevos parámetros requeridos
     required this.losasColapso,
     required this.losasGrietasMax,
     required this.losasFlechaMax,
-    
     required this.danosEstructura,
     required this.mediciones,
     required this.columnasConDanoSevero,
@@ -259,12 +260,12 @@ class EvaluacionDanos {
       'geotecnicos': geotecnicos,
       'inclinacionEdificio': inclinacionEdificio,
       'conexionesFalla': conexionesFalla,
-      
+
       // Añadir los nuevos campos al JSON
       'losasColapso': losasColapso,
       'losasGrietasMax': losasGrietasMax,
       'losasFlechaMax': losasFlechaMax,
-      
+
       'danosEstructura': danosEstructura,
       'mediciones': mediciones,
       'columnasConDanoSevero': columnasConDanoSevero,
@@ -277,20 +278,29 @@ class EvaluacionDanos {
   factory EvaluacionDanos.fromJson(Map<String, dynamic> json) {
     return EvaluacionDanos(
       geotecnicos: Map<String, bool>.from(json['geotecnicos']),
-      inclinacionEdificio: json['inclinacionEdificio'],
+      inclinacionEdificio: json['inclinacionEdificio'].toDouble(),
       conexionesFalla: Map<String, bool>.from(json['conexionesFalla']),
-      
+
       // Obtener los nuevos campos del JSON con valores por defecto si no existen
       losasColapso: json['losasColapso'] ?? false,
-      losasGrietasMax: json['losasGrietasMax'] ?? 0.0,
-      losasFlechaMax: json['losasFlechaMax'] ?? 0.0,
-      
+      losasGrietasMax: json['losasGrietasMax'].toDouble() ?? 0.0,
+      losasFlechaMax: json['losasFlechaMax'].toDouble() ?? 0.0,
+
       danosEstructura: Map<String, Map<String, bool>>.from(
-        json['danosEstructura'].map((k, v) => MapEntry(k, Map<String, bool>.from(v))),
+        json['danosEstructura']
+            .map((k, v) => MapEntry(k, Map<String, bool>.from(v))),
       ),
-      mediciones: Map<String, Map<String, double>>.from(
-        json['mediciones'].map((k, v) => MapEntry(k, Map<String, double>.from(v))),
-      ),
+      mediciones: (() {
+        Map<String, Map<String, double>> result = {};
+        (json['mediciones'] as Map<String, dynamic>).forEach((k, v) {
+          Map<String, double> innerMap = {};
+          (v as Map<String, dynamic>).forEach((innerK, innerV) {
+            innerMap[innerK] = (innerV as num).toDouble();
+          });
+          result[k] = innerMap;
+        });
+        return result;
+      })(),
       columnasConDanoSevero: json['columnasConDanoSevero'],
       totalColumnasEntrepiso: json['totalColumnasEntrepiso'],
       nivelDano: Map<String, bool>.from(json['nivelDano']),
@@ -337,11 +347,12 @@ class UbicacionGeorreferencial {
       direccion: json['direccion'],
       latitud: json['latitud'],
       longitud: json['longitud'],
-      altitud: json['altitud'] ?? 0.0, // Cargar la altitud desde el JSON, con valor por defecto
+      altitud: json['altitud'].toDouble() ??
+          0.0, // Cargar la altitud desde el JSON, con valor por defecto
       rutasFotos: List<String>.from(json['rutasFotos'] ?? []),
-      imagenesBase64: json['imagenesBase64'] != null 
-        ? Map<String, String>.from(json['imagenesBase64']) 
-        : null,
+      imagenesBase64: json['imagenesBase64'] != null
+          ? Map<String, String>.from(json['imagenesBase64'])
+          : null,
     );
   }
 }
